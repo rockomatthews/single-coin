@@ -34,6 +34,38 @@ This script will:
 
 After running the script for the first time, edit the `.env.local` file with your actual API keys and configuration values.
 
+## Deployment on Vercel
+
+This application is optimized for deployment on Vercel, which offers seamless integration with Neon Postgres database.
+
+### Vercel Deployment Steps
+
+1. **Fork or push your repository to GitHub/GitLab/Bitbucket**
+
+2. **Connect your repository to Vercel**
+   - Go to [Vercel](https://vercel.com) and sign in
+   - Click "New Project" and import your repository
+   - Select "Next.js" as the framework preset
+
+3. **Configure environment variables**
+   - In the Vercel project settings, add all required environment variables
+   - For the database, use the Vercel Neon Postgres integration:
+     - Go to "Integrations" tab
+     - Search for and add "Neon PostgreSQL"
+     - Follow the setup instructions to connect your Neon database
+
+4. **Deploy**
+   - Click "Deploy" and wait for the build to complete
+   - Your app should be live at a Vercel-provided URL
+
+5. **Add custom domain (optional)**
+   - In the project settings, go to "Domains"
+   - Add and configure your custom domain
+
+### Updating Your Deployment
+
+Vercel automatically redeploys your application when you push changes to your repository. For environment variable changes, you'll need to trigger a new deployment manually from the Vercel dashboard.
+
 ## Features
 
 - Create verified SPL tokens with metadata that show up properly in Phantom wallet

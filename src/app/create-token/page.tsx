@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import {
   Box,
   Button,
@@ -22,6 +22,8 @@ import {
   Alert,
   useMediaQuery,
   useTheme,
+  IconButton,
+  Tooltip,
 } from '@mui/material';
 import Grid from '@mui/material/Unstable_Grid2';
 import { useWallet } from '@solana/wallet-adapter-react';
@@ -29,6 +31,8 @@ import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
 import TokenDistributionSlider from '@/components/TokenDistributionSlider';
 import { useTokenCreation } from '@/hooks/useTokenCreation';
 import { calculateFee } from '@/utils/solana';
+import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline';
+import ClearIcon from '@mui/icons-material/Clear';
 
 // Token creation steps
 const steps = ['Token Details', 'Customize', 'Distribution', 'Review & Create'];
@@ -39,6 +43,7 @@ export default function CreateTokenPage() {
   const [activeStep, setActiveStep] = useState(0);
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const fileInputRef = useRef<HTMLInputElement>(null);
   
   const [tokenData, setTokenData] = useState({
     name: '',
@@ -95,6 +100,40 @@ export default function CreateTokenPage() {
       }
     }
   }, [errors]);
+
+  const handleImageUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      // Clear any previous errors
+      if (errors.image) {
+        setErrors((prev) => {
+          const newErrors = { ...prev };
+          delete newErrors.image;
+          return newErrors;
+        });
+      }
+      
+      // Create a URL for the selected file
+      const imageUrl = URL.createObjectURL(file);
+      setTokenData((prev) => ({ ...prev, image: imageUrl }));
+    }
+    
+    // Reset file input value so the same file can be selected again
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  }, [errors]);
+
+  const handleClickUpload = useCallback(() => {
+    // Trigger file input click programmatically
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
+    }
+  }, []);
+
+  const handleClearImage = useCallback(() => {
+    setTokenData((prev) => ({ ...prev, image: '' }));
+  }, []);
 
   const handleRetentionChange = useCallback((value: number) => {
     setTokenData((prev) => ({ ...prev, retentionPercentage: value }));
@@ -209,16 +248,93 @@ export default function CreateTokenPage() {
             </Typography>
             <Grid container spacing={3}>
               <Grid xs={12}>
-                <TextField
-                  fullWidth
-                  label="Image URL"
-                  name="image"
-                  value={tokenData.image}
-                  onChange={handleChange}
-                  error={!!errors.image}
-                  helperText={errors.image || 'URL to your token image (square PNG or JPG, 500x500px recommended)'}
-                  required
-                />
+                <Typography variant="body2" sx={{ mb: 2 }}>
+                  Upload an image for your token (square PNG or JPG, 500x500px recommended)
+                </Typography>
+                <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    accept="image/*"
+                    style={{ display: 'none' }}
+                    onChange={handleImageUpload}
+                  />
+                  
+                  {tokenData.image ? (
+                    <Box
+                      sx={{
+                        position: 'relative',
+                        width: 150,
+                        height: 150,
+                        borderRadius: '50%',
+                        overflow: 'hidden',
+                        border: '2px solid #FFD700',
+                      }}
+                    >
+                      <img
+                        src={tokenData.image}
+                        alt="Token Image"
+                        style={{
+                          width: '100%',
+                          height: '100%',
+                          objectFit: 'cover',
+                        }}
+                      />
+                      <IconButton
+                        sx={{
+                          position: 'absolute',
+                          top: 0,
+                          right: 0,
+                          backgroundColor: 'rgba(0, 0, 0, 0.7)',
+                          color: 'white',
+                          '&:hover': {
+                            backgroundColor: 'rgba(0, 0, 0, 0.9)',
+                          },
+                        }}
+                        size="small"
+                        onClick={handleClearImage}
+                      >
+                        <ClearIcon />
+                      </IconButton>
+                    </Box>
+                  ) : (
+                    <Box
+                      onClick={handleClickUpload}
+                      sx={{
+                        width: 150,
+                        height: 150,
+                        borderRadius: '50%',
+                        border: errors.image 
+                          ? '2px dashed #CC0000' 
+                          : '2px dashed rgba(255, 255, 255, 0.5)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s',
+                        '&:hover': {
+                          borderColor: '#FFD700',
+                          backgroundColor: 'rgba(255, 215, 0, 0.05)',
+                        },
+                      }}
+                    >
+                      <Tooltip title="Upload Image">
+                        <AddCircleOutlineIcon
+                          sx={{
+                            fontSize: 40,
+                            color: errors.image ? '#CC0000' : '#FFD700',
+                          }}
+                        />
+                      </Tooltip>
+                    </Box>
+                  )}
+                  
+                  {errors.image && (
+                    <Typography color="error" variant="caption" sx={{ mt: 1 }}>
+                      {errors.image}
+                    </Typography>
+                  )}
+                </Box>
               </Grid>
               <Grid xs={12}>
                 <Typography variant="subtitle2" gutterBottom>
@@ -411,7 +527,7 @@ export default function CreateTokenPage() {
       default:
         return null;
     }
-  }, [activeStep, tokenData, errors, handleChange, handleRetentionChange, calculateFee]);
+  }, [activeStep, tokenData, errors, handleChange, handleClickUpload, handleClearImage, handleRetentionChange, calculateFee]);
 
   return (
     <Container maxWidth="md" sx={{ mt: 4, mb: 8 }}>
