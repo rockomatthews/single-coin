@@ -1,0 +1,50 @@
+{
+  "name": "Coinbull",
+  "description": "Create verified Solana meme coins with pictures, links, and descriptions",
+  "version": "0.1.0",
+  "author": "Coinbull Team",
+  "features": [
+    "Create SPL tokens with metadata",
+    "Verified tokens in Phantom wallet",
+    "Token image and social links",
+    "Token database storage",
+    "Dashboard for token management"
+  ],
+  "supported_networks": [
+    "solana",
+    "solana-devnet",
+    "solana-testnet"
+  ],
+  "platform_info": {
+    "logo": "/logo.svg",
+    "website": "https://coinbull.vercel.app",
+    "socials": {
+      "twitter": "https://twitter.com/coinbull",
+      "telegram": "https://t.me/coinbull",
+      "discord": "https://discord.gg/coinbull"
+    }
+  },
+  "token_info": {
+    "supported_token_types": [
+      "spl-token",
+      "metaplex-token-standard"
+    ],
+    "verification_methods": [
+      "metaplex-metadata",
+      "phantom-verification"
+    ],
+    "token_params": {
+      "min_decimals": 0,
+      "max_decimals": 12,
+      "default_decimals": 9,
+      "min_supply": 1,
+      "max_supply": 100000000000000
+    }
+  },
+  "limits": {
+    "max_image_size": 5242880,
+    "max_name_length": 32,
+    "max_symbol_length": 10,
+    "max_description_length": 1000
+  }
+} 

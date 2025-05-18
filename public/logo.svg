@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="1000" height="1000" viewBox="0 0 1000 1000" xmlns="http://www.w3.org/2000/svg">
+  <!-- Yellow outer circle -->
+  <circle cx="500" cy="500" r="490" fill="#FFD700" stroke="#FFD700" stroke-width="20"/>
+  
+  <!-- Background split (gray and blue) -->
+  <path d="M0,500 A500,500 0 0,1 500,0 L500,500 Z" fill="#666666"/>
+  <path d="M500,0 A500,500 0 0,1 1000,500 L500,500 Z" fill="#0047AB"/>
+  <path d="M1000,500 A500,500 0 0,1 500,1000 L500,500 Z" fill="#0047AB"/>
+  <path d="M500,1000 A500,500 0 0,1 0,500 L500,500 Z" fill="#666666"/>
+  
+  <!-- Red bull head -->
+  <g transform="translate(500,500) scale(0.7) translate(-500,-500)">
+    <!-- Bull's head base shape -->
+    <path d="M500,280 C600,250 650,300 700,320 C750,340 820,280 850,330 C880,380 920,450 850,500 
+             C780,550 750,620 700,680 C650,740 550,760 500,760 
+             C450,760 350,740 300,680 C250,620 220,550 150,500 
+             C80,450 120,380 150,330 C180,280 250,340 300,320 
+             C350,300 400,250 500,280 Z" 
+          fill="#CC0000" stroke="#800000" stroke-width="10"/>
+    
+    <!-- Bull's ears -->
+    <path d="M300,320 C280,280 240,260 200,300 C160,340 180,380 220,390 C260,400 300,360 300,320 Z" fill="#CC0000" stroke="#800000" stroke-width="5"/>
+    <path d="M700,320 C720,280 760,260 800,300 C840,340 820,380 780,390 C740,400 700,360 700,320 Z" fill="#CC0000" stroke="#800000" stroke-width="5"/>
+    
+    <!-- Bull's horns -->
+    <path d="M250,340 C180,280 120,230 100,180 C80,130 120,100 150,120 C180,140 260,200 300,320" fill="#FFF0E0" stroke="#800000" stroke-width="8"/>
+    <path d="M750,340 C820,280 880,230 900,180 C920,130 880,100 850,120 C820,140 740,200 700,320" fill="#FFF0E0" stroke="#800000" stroke-width="8"/>
+    
+    <!-- Bull's eyes -->
+    <ellipse cx="350" cy="450" rx="40" ry="40" fill="white" stroke="#800000" stroke-width="5"/>
+    <ellipse cx="650" cy="450" rx="40" ry="40" fill="white" stroke="#800000" stroke-width="5"/>
+    <ellipse cx="340" cy="450" rx="20" ry="25" fill="#400000"/>
+    <ellipse cx="640" cy="450" rx="20" ry="25" fill="#400000"/>
+    <ellipse cx="335" cy="440" rx="8" ry="8" fill="white"/>
+    <ellipse cx="635" cy="440" rx="8" ry="8" fill="white"/>
+    
+    <!-- Bull's nose and mouth -->
+    <ellipse cx="500" cy="520" rx="80" ry="60" fill="#DD3000" stroke="#800000" stroke-width="5"/>
+    <ellipse cx="470" cy="510" rx="15" ry="15" fill="#800000"/>
+    <ellipse cx="530" cy="510" rx="15" ry="15" fill="#800000"/>
+    <path d="M420,570 Q500,620 580,570" fill="none" stroke="#800000" stroke-width="10"/>
+    
+    <!-- Bull's nostrils -->
+    <circle cx="500" cy="550" r="12" fill="none" stroke="#800000" stroke-width="5" transform="rotate(-15,500,550)"/>
+    <circle cx="500" cy="550" r="12" fill="none" stroke="#800000" stroke-width="5" transform="rotate(15,500,550)"/>
+    
+    <!-- Bull's nose ring -->
+    <circle cx="500" cy="570" r="20" fill="none" stroke="#FFD700" stroke-width="8"/>
+  </g>
+  
+  <!-- Bull's body with black clothing -->
+  <path d="M500,650 C550,650 600,670 620,720 C640,770 650,850 650,900 
+           C650,950 600,980 550,980 C500,980 450,950 450,900 
+           C450,850 460,770 480,720 C500,670 450,650 500,650 Z" 
+        fill="#000000" stroke="#800000" stroke-width="5"/>
+  
+  <!-- Bull's arm and gold coin -->
+  <path d="M380,700 C350,650 330,600 350,580 C370,560 400,580 430,600 C460,620 480,650 500,700" 
+        fill="#CC0000" stroke="#800000" stroke-width="5"/>
+  <circle cx="350" cy="580" r="60" fill="#FFD700" stroke="#CC8800" stroke-width="5"/>
+  <circle cx="350" cy="580" r="50" fill="#FFCC00" stroke="#CC8800" stroke-width="3"/>
+  <circle cx="350" cy="580" r="40" fill="#FFD700" stroke="#CC8800" stroke-width="3"/>
+  
+  <!-- Bull's teeth and smile -->
+  <path d="M450,590 Q500,620 550,590" fill="none" stroke="white" stroke-width="10"/>
+  <rect x="460" y="580" width="15" height="15" rx="2" fill="white"/>
+  <rect x="485" y="585" width="15" height="15" rx="2" fill="white"/>
+  <rect x="510" y="585" width="15" height="15" rx="2" fill="white"/>
+  <rect x="535" y="580" width="15" height="15" rx="2" fill="white"/>
+  
+  <!-- Small Under Armour logo on bull's clothing -->
+  <path d="M500,900 L480,880 L505,850 L530,880 L510,900 Z" fill="#FFFFFF"/>
+  <path d="M505,862 L515,882" stroke="#FFFFFF" stroke-width="2"/>
+  <path d="M505,862 L495,882" stroke="#FFFFFF" stroke-width="2"/>
+</svg> 

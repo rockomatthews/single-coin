@@ -1,95 +1,82 @@
-import Image from "next/image";
-import styles from "./page.module.css";
+'use client';
+
+import { Box, Button, Container, Typography } from '@mui/material';
+import Grid from '@mui/material/Unstable_Grid2';
+import Link from 'next/link';
+import Image from 'next/image';
 
 export default function Home() {
   return (
-    <div className={styles.page}>
-      <main className={styles.main}>
-        <Image
-          className={styles.logo}
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol>
-          <li>
-            Get started by editing <code>src/app/page.tsx</code>.
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
-
-        <div className={styles.ctas}>
-          <a
-            className={styles.primary}
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className={styles.logo}
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
+    <Container maxWidth="lg">
+      <Grid container spacing={{ xs: 2, md: 6 }} sx={{ mt: { xs: 2, md: 4 }, mb: { xs: 4, md: 6 } }}>
+        <Grid xs={12} md={6} sx={{ 
+          display: 'flex', 
+          flexDirection: 'column',
+          justifyContent: 'center',
+          alignItems: { xs: 'center', md: 'flex-start' },
+          textAlign: { xs: 'center', md: 'left' }
+        }}>
+          <Typography variant="h2" component="h1" gutterBottom sx={{ 
+            color: 'primary.main', 
+            fontWeight: 'bold',
+            fontSize: { xs: '2.5rem', md: '3.75rem' }
+          }}>
+            Coinbull
+          </Typography>
+          <Typography variant="h5" component="h2" color="text.secondary" paragraph>
+            Create verified Solana meme coins that show up with pictures, links, and descriptions.
+          </Typography>
+          <Box sx={{ 
+            display: 'flex', 
+            gap: 2, 
+            mt: 4,
+            flexDirection: { xs: 'column', sm: 'row' }
+          }}>
+            <Button 
+              component={Link}
+              href="/create-token"
+              variant="contained" 
+              size="large"
+              color="primary"
+              fullWidth={false}
+            >
+              Create Token
+            </Button>
+            <Button 
+              component={Link}
+              href="/my-tokens"
+              variant="outlined" 
+              size="large"
+              fullWidth={false}
+            >
+              My Tokens
+            </Button>
+          </Box>
+        </Grid>
+        <Grid xs={12} md={6} sx={{ 
+          display: 'flex', 
+          justifyContent: 'center', 
+          alignItems: 'center',
+          mt: { xs: 4, md: 0 }
+        }}>
+          <Box sx={{ 
+            position: 'relative', 
+            width: '100%', 
+            maxWidth: { xs: '280px', sm: '400px' }, 
+            height: { xs: '280px', sm: '400px' }
+          }}>
+            <Image 
+              src="/images/logo.png" 
+              alt="Coinbull Logo" 
+              fill
+              priority
+              style={{ 
+                objectFit: 'contain',
+              }} 
             />
-            Deploy now
-          </a>
-          <a
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-            className={styles.secondary}
-          >
-            Read our docs
-          </a>
-        </div>
-      </main>
-      <footer className={styles.footer}>
-        <a
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
+          </Box>
+        </Grid>
+      </Grid>
+    </Container>
   );
 }

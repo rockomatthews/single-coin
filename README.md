@@ -1,36 +1,132 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Coinbull - Solana Meme Coin Creator
 
-## Getting Started
+Coinbull is a web application that allows users to create verified Solana meme coins that display correctly in wallets with custom images, links, and descriptions.
 
-First, run the development server:
+## Setup and Installation
+
+### Required Environment Variables
+
+This application requires several environment variables to function properly:
+
+- **NEXT_PUBLIC_SOLANA_RPC_URL**: Your QuickNode RPC endpoint (or other Solana RPC provider)
+- **NEXT_PUBLIC_SOLANA_NETWORK**: 'mainnet' or 'devnet'
+- **NEXT_PUBLIC_FEE_RECIPIENT_ADDRESS**: Your Solana wallet address to receive platform fees
+- **DATABASE_URL**: Connection string for your Neon database
+- **PINATA_JWT**: Your Pinata JWT token for IPFS storage
+- **NEXT_PUBLIC_IPFS_GATEWAY**: IPFS gateway URL (default: https://gateway.pinata.cloud/ipfs/)
+
+### Logo Image
+Important: Before running the application, place the bull logo image file named `logo.png` in the `public/images` directory.
+
+## Quick Start
+
+The easiest way to run the application is using the provided shell script:
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+./run.sh
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+This script will:
+1. Create a template `.env.local` file if one doesn't exist
+2. Clear the `.next` cache directory
+3. Install dependencies if needed
+4. Start the development server
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+After running the script for the first time, edit the `.env.local` file with your actual API keys and configuration values.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Features
 
-## Learn More
+- Create verified SPL tokens with metadata that show up properly in Phantom wallet
+- Upload images and add social links to your tokens
+- Set token distribution between your wallet and liquidity pools
+- Store created tokens in a database for easy management
+- View and manage your created tokens
+- Get direct links to add liquidity to your tokens via Raydium
 
-To learn more about Next.js, take a look at the following resources:
+## Tech Stack
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- **Frontend**: Next.js, Material UI, React
+- **Blockchain**: Solana, Metaplex
+- **Database**: NEON Serverless Postgres
+- **Authentication**: Solana wallet authentication
+- **Storage**: Arweave for images, NFT.Storage for metadata
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Manual Installation
 
-## Deploy on Vercel
+If you prefer to set up manually:
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+1. Clone the repository
+```bash
+git clone https://github.com/yourusername/coinbull.git
+cd coinbull
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+2. Install dependencies
+```bash
+npm install
+```
+
+3. Set up environment variables
+Create a `.env.local` file in the root directory with the required variables listed above.
+
+4. Add the logo image
+Place the bull logo image file named `logo.png` in the `public/images` directory.
+
+5. Run the development server
+```bash
+npm run dev
+```
+
+6. Open [http://localhost:3000](http://localhost:3000) in your browser
+
+## Usage
+
+1. Connect your Solana wallet
+2. Navigate to "Create Token" page
+3. Fill in token details (name, symbol, supply, etc.)
+4. Upload an image for your token
+5. Add optional social links
+6. Set your token distribution (how much you keep vs. liquidity)
+7. Create your token
+8. View your created tokens in the "My Tokens" page
+
+## Fee Structure
+
+Token creation incurs a fee based on the percentage of tokens you choose to keep:
+- Base fee is 0.05 SOL
+- Fee increases exponentially as you retain a higher percentage of tokens
+- Example fees: 10% retention = ~0.055 SOL, 50% = ~0.075 SOL, 90% = ~0.32 SOL, 99% = ~0.87 SOL
+- Fees are sent to the wallet specified in NEXT_PUBLIC_FEE_RECIPIENT_ADDRESS
+
+## Database Schema
+
+The application uses a Postgres database with the following schema:
+
+```sql
+CREATE TABLE IF NOT EXISTS user_tokens (
+  id SERIAL PRIMARY KEY,
+  user_address TEXT NOT NULL,
+  token_address TEXT NOT NULL UNIQUE,
+  token_name TEXT NOT NULL,
+  token_symbol TEXT NOT NULL,
+  token_image TEXT,
+  decimals INTEGER NOT NULL,
+  supply BIGINT NOT NULL,
+  retained_amount BIGINT NOT NULL,
+  liquidity_amount BIGINT NOT NULL,
+  retention_percentage INTEGER NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+)
+```
+
+## Resources
+
+- [Solana Documentation](https://solana.com/docs)
+- [Metaplex Documentation](https://developers.metaplex.com/)
+- [NEON Database Documentation](https://neon.tech/docs)
+- [QuickNode Documentation](https://www.quicknode.com/docs/solana)
+- [Arweave Documentation](https://arwiki.wiki/#/en/main)
+
+## License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
