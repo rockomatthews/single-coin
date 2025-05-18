@@ -13,6 +13,7 @@ import {
   InputLabel,
   MenuItem,
   Select,
+  SelectChangeEvent,
   Stack,
   Step,
   StepLabel,
@@ -86,6 +87,23 @@ export default function CreateTokenPage() {
   }, []);
 
   const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement | { name?: string; value: unknown }>) => {
+    const { name, value } = e.target;
+    if (name) {
+      setTokenData((prev) => ({ ...prev, [name]: value }));
+      
+      // Clear error when field is updated
+      if (errors[name]) {
+        setErrors((prev) => {
+          const newErrors = { ...prev };
+          delete newErrors[name];
+          return newErrors;
+        });
+      }
+    }
+  }, [errors]);
+
+  // Add a separate handler for Select components
+  const handleSelectChange = useCallback((e: SelectChangeEvent<number>) => {
     const { name, value } = e.target;
     if (name) {
       setTokenData((prev) => ({ ...prev, [name]: value }));
@@ -212,7 +230,7 @@ export default function CreateTokenPage() {
                     name="decimals"
                     value={tokenData.decimals}
                     label="Decimals"
-                    onChange={handleChange}
+                    onChange={handleSelectChange}
                   >
                     <MenuItem value={0}>0</MenuItem>
                     <MenuItem value={6}>6</MenuItem>
