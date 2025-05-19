@@ -12,10 +12,10 @@ const PINATA_API_URL = 'https://api.pinata.cloud';
  * @returns IPFS CID (Content Identifier)
  */
 export async function uploadToPinata(data: any, filename?: string): Promise<string> {
-  const pinataJWT = process.env.PINATA_JWT;
+  const pinataJWT = process.env.NEXT_PUBLIC_PINATA_JWT;
   
   if (!pinataJWT) {
-    throw new Error('PINATA_JWT environment variable is not set');
+    throw new Error('NEXT_PUBLIC_PINATA_JWT environment variable is not set');
   }
 
   try {
@@ -60,8 +60,24 @@ export async function uploadToPinata(data: any, filename?: string): Promise<stri
         const blob = await fetch(data).then(r => r.blob());
         formData.append('file', blob, filename || 'image.png');
       }
+      // If data is a blob URL
+      else if (typeof data === 'string' && data.startsWith('blob:')) {
+        console.log('Handling blob URL:', data);
+        try {
+          const blobResponse = await fetch(data);
+          if (!blobResponse.ok) {
+            throw new Error(`Failed to fetch blob: ${blobResponse.status}`);
+          }
+          const blob = await blobResponse.blob();
+          formData.append('file', blob, filename || 'image.png');
+          console.log('Successfully converted blob URL to blob');
+        } catch (blobError) {
+          console.error('Error handling blob URL:', blobError);
+          throw new Error(`Failed to process blob URL: ${blobError.message}`);
+        }
+      }
       else {
-        throw new Error('Unsupported file format');
+        throw new Error(`Unsupported file format: ${typeof data} ${data.substring ? data.substring(0, 20) : ''}`);
       }
 
       // Add metadata to the FormData
@@ -69,6 +85,7 @@ export async function uploadToPinata(data: any, filename?: string): Promise<stri
         name: filename || 'Coinbull Token Image'
       }));
 
+      console.log('Uploading to Pinata with JWT:', pinataJWT.substring(0, 5) + '...');
       const response = await fetch(`${PINATA_API_URL}/pinning/pinFileToIPFS`, {
         method: 'POST',
         headers: {
@@ -78,10 +95,13 @@ export async function uploadToPinata(data: any, filename?: string): Promise<stri
       });
       
       if (!response.ok) {
-        throw new Error(`Failed to upload to Pinata: ${response.status} ${response.statusText}`);
+        const errorText = await response.text();
+        console.error('Pinata error response:', errorText);
+        throw new Error(`Failed to upload to Pinata: ${response.status} ${response.statusText} - ${errorText}`);
       }
       
       const json = await response.json();
+      console.log('Pinata upload successful, hash:', json.IpfsHash);
       return `ipfs://${json.IpfsHash}`;
     }
   } catch (error) {
