@@ -7,6 +7,8 @@ export async function POST(request: NextRequest) {
     // Parse request body
     const data = await request.json();
     
+    console.log('Token creation API called with data:', JSON.stringify(data, null, 2));
+    
     const {
       userAddress,
       tokenData,
@@ -16,19 +18,28 @@ export async function POST(request: NextRequest) {
     // Validate inputs
     if (!userAddress || !tokenAddress || !tokenData.name || !tokenData.symbol) {
       return NextResponse.json(
-        { error: 'Missing required fields' },
+        { error: 'Missing required fields', details: { userAddress, tokenAddress, tokenData } },
         { status: 400 }
       );
     }
     
     // Validate Solana addresses
     try {
+      console.log('Validating addresses:');
+      console.log('- User address:', userAddress);
+      console.log('- Token address:', tokenAddress);
+      
       new PublicKey(userAddress);
       new PublicKey(tokenAddress);
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (error) {
+      console.error('Address validation error:', error);
       return NextResponse.json(
-        { error: 'Invalid Solana address' },
+        { 
+          error: 'Invalid Solana address',
+          details: 'One or both addresses are invalid Solana public keys',
+          userAddress,
+          tokenAddress
+        },
         { status: 400 }
       );
     }
@@ -38,6 +49,12 @@ export async function POST(request: NextRequest) {
     const totalSupply = tokenData.supply || 0;
     const retainedAmount = tokenData.retainedAmount || Math.floor(totalSupply * (retentionPercentage / 100));
     const liquidityAmount = tokenData.liquidityAmount || (totalSupply - retainedAmount);
+    
+    console.log('Saving token to database with:');
+    console.log('- User address:', userAddress);
+    console.log('- Token address:', tokenAddress);
+    console.log('- Token name:', tokenData.name);
+    console.log('- Retention %:', retentionPercentage);
     
     // Save token data to database
     await saveTokenToDatabase(
@@ -53,6 +70,8 @@ export async function POST(request: NextRequest) {
       liquidityAmount
     );
     
+    console.log('Token saved successfully to database');
+    
     // Return success response
     return NextResponse.json({
       success: true,
@@ -66,7 +85,11 @@ export async function POST(request: NextRequest) {
     console.error('Error creating token:', error);
     
     return NextResponse.json(
-      { error: 'Failed to create token', details: (error as Error).message },
+      { 
+        error: 'Failed to create token', 
+        details: (error as Error).message,
+        stack: process.env.NODE_ENV === 'development' ? (error as Error).stack : undefined 
+      },
       { status: 500 }
     );
   }

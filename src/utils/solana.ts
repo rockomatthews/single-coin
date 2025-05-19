@@ -58,10 +58,12 @@ export const uploadMetadata = async (metaplex: Metaplex, params: TokenParams) =>
     // First, upload the image to Pinata if it's a URL
     let imageUrl = params.image;
     
-    // If the image is a URL, upload it to Pinata first
-    if (imageUrl.startsWith('http')) {
+    // If the image is a URL or blob URL, upload it to Pinata first
+    if (imageUrl.startsWith('http') || imageUrl.startsWith('blob:')) {
+      console.log('Uploading image to Pinata:', imageUrl);
       const imageIpfsUri = await uploadToPinata(imageUrl, `${params.symbol.toLowerCase()}_image.png`);
       imageUrl = getIpfsGatewayUrl(imageIpfsUri);
+      console.log('Image uploaded, got IPFS URL:', imageUrl);
     }
     
     // Prepare metadata
@@ -70,7 +72,7 @@ export const uploadMetadata = async (metaplex: Metaplex, params: TokenParams) =>
       symbol: params.symbol,
       description: params.description,
       image: imageUrl,
-      external_url: params.website,
+      external_url: params.website || '',
       properties: {
         files: [
           {
@@ -87,11 +89,16 @@ export const uploadMetadata = async (metaplex: Metaplex, params: TokenParams) =>
       ],
     };
     
+    console.log('Uploading metadata to Pinata:', metadata);
+    
     // Upload metadata to Pinata
     const metadataIpfsUri = await uploadToPinata(metadata);
+    console.log('Metadata uploaded, got IPFS URI:', metadataIpfsUri);
     
     // Return the HTTP URL for the metadata
-    return getIpfsGatewayUrl(metadataIpfsUri);
+    const gatewayUrl = getIpfsGatewayUrl(metadataIpfsUri);
+    console.log('Final metadata URL:', gatewayUrl);
+    return gatewayUrl;
   } catch (error) {
     console.error('Error uploading metadata:', error);
     throw error;
@@ -108,6 +115,7 @@ export const createVerifiedToken = async (
   params: TokenParams
 ): Promise<string> => {
   try {
+    console.log('Creating token with metadata URI:', metadataUri);
     const metaplex = getMetaplex(connection);
     
     // Use wallet adapter identity
@@ -140,6 +148,7 @@ export const createVerifiedToken = async (
       throw new Error('Failed to extract token address from Metaplex response');
     }
     
+    console.log('Token created with address:', mintAddress);
     return mintAddress;
   } catch (error) {
     console.error('Error creating token:', error);

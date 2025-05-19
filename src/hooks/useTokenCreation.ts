@@ -2,7 +2,8 @@
 
 import { useState, useCallback } from 'react';
 import { useConnection, useWallet } from '@solana/wallet-adapter-react';
-import { TokenParams } from '@/utils/solana';
+import { TokenParams, createVerifiedToken, uploadMetadata } from '@/utils/solana';
+import { Metaplex } from '@metaplex-foundation/js';
 
 interface TokenCreationState {
   isCreating: boolean;
@@ -49,21 +50,18 @@ export function useTokenCreation() {
 
     try {
       // 1. Create wallet adapter for metaplex
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const wallet = {
         publicKey,
         signTransaction,
         signAllTransactions,
       };
 
-      // 2. Upload metadata
-      const metaplex = connection ? connection : null;
-      if (!metaplex) {
-        throw new Error('Metaplex initialization failed');
-      }
+      // 2. Create Metaplex instance
+      const metaplex = new Metaplex(connection);
       
-      // 3. This would normally call the actual Metaplex metadata upload
-      console.log('Would upload metadata to Arweave/IPFS with:', tokenData);
+      // 3. Upload metadata to Pinata
+      console.log('Uploading metadata to Pinata with:', tokenData);
+      const metadataUri = await uploadMetadata(metaplex, tokenData);
       
       // Calculate token distribution
       const retentionPercentage = tokenData.retentionPercentage || 50;
@@ -73,20 +71,22 @@ export function useTokenCreation() {
       const liquidityAmount = tokenData.liquidityAmount || 
                               (totalSupply - retainedAmount);
       
-      // For demo purposes, simulate successful metadata upload
-      // In a real implementation, we would use:
-      // const metadataUri = await uploadMetadata(metaplex, tokenData);
-      const simulatedMetadataUri = `https://arweave.net/12345/${tokenData.name.toLowerCase().replace(/\s+/g, '-')}`;
+      console.log('Creating token with metadata URI:', metadataUri);
       
       // 4. Create token with metadata
-      console.log('Would create token with metadata URI:', simulatedMetadataUri);
+      const tokenAddress = await createVerifiedToken(
+        connection, 
+        wallet, 
+        metadataUri, 
+        {
+          ...tokenData,
+          retentionPercentage,
+          retainedAmount,
+          liquidityAmount
+        }
+      );
       
-      // 5. For demo purposes, simulate successful token creation
-      // In a real implementation, we would use:
-      // const tokenAddress = await createVerifiedToken(connection, wallet, metadataUri, tokenData);
-      const simulatedTokenAddress = `So1ana${Math.random().toString(36).substring(2, 10)}Token${Math.random().toString(36).substring(2, 6)}`;
-      
-      // 6. Save token to database
+      // 5. Save token to database
       const response = await fetch('/api/create-token', {
         method: 'POST',
         headers: {
@@ -94,7 +94,7 @@ export function useTokenCreation() {
         },
         body: JSON.stringify({
           userAddress: publicKey.toString(),
-          tokenAddress: simulatedTokenAddress,
+          tokenAddress,
           tokenData: {
             ...tokenData,
             retentionPercentage,
@@ -113,11 +113,11 @@ export function useTokenCreation() {
       setState({
         isCreating: false,
         error: null,
-        tokenAddress: simulatedTokenAddress,
+        tokenAddress,
         success: true,
       });
 
-      return simulatedTokenAddress;
+      return tokenAddress;
     } catch (error) {
       console.error('Error creating token:', error);
       setState({
