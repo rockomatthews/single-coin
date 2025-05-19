@@ -129,36 +129,56 @@ export const createVerifiedToken = async (
       throw new Error('Insufficient SOL balance to create token. Please add SOL to your wallet.');
     }
     
-    // Create the token with more detailed options and error handling
-    console.log('Initializing token creation...');
-    const result = await metaplex.nfts().createSft({
-      uri: metadataUri,
-      name: params.name,
-      symbol: params.symbol,
-      sellerFeeBasisPoints: 0, // No royalty fees
-      decimals: params.decimals,
-      initialSupply: null, // Don't mint tokens with initial creation
-      tokenOwner: wallet.publicKey,
-      updateAuthority: wallet.publicKey,
-      mintAuthority: wallet.publicKey,
-      freezeAuthority: wallet.publicKey,
-      creators: null,
-      isMutable: true,
-      maxSupply: null,
-    });
+    console.log('Initializing token creation with simplified parameters...');
     
-    // Log the full result for debugging
-    console.log('Token creation result:', JSON.stringify(result, null, 2));
-    
-    // Extract mint address safely with better error handling
-    const mintAddress = result?.mint?.address?.toString();
-    
-    if (!mintAddress) {
-      throw new Error('Failed to extract token address from Metaplex response');
+    // First approach - minimal parameters
+    try {
+      console.log('Trying method 1: Basic createSft');
+      const result = await metaplex.nfts().createSft({
+        name: params.name,
+        symbol: params.symbol,
+        uri: metadataUri,
+        decimals: params.decimals
+      });
+      
+      console.log('Method 1 succeeded');
+      const mintAddress = result?.mint?.address?.toString();
+      
+      if (!mintAddress) {
+        throw new Error('Failed to extract token address from Metaplex response');
+      }
+      
+      console.log('Token created with address:', mintAddress);
+      return mintAddress;
+    } catch (error1) {
+      console.error('Method 1 failed with error:', error1);
+      
+      // Second approach - try with createNft
+      try {
+        console.log('Trying method 2: Alternative createNft');
+        const result = await metaplex.nfts().create({
+          name: params.name,
+          symbol: params.symbol,
+          uri: metadataUri,
+          sellerFeeBasisPoints: 0,
+        });
+        
+        console.log('Method 2 succeeded');
+        const mintAddress = result?.mint?.address?.toString() || 
+                           result?.nft?.address?.toString() || 
+                           result?.address?.toString();
+        
+        if (!mintAddress) {
+          throw new Error('Failed to extract token address from Metaplex response');
+        }
+        
+        console.log('Token created with address:', mintAddress);
+        return mintAddress;
+      } catch (error2) {
+        console.error('Method 2 failed with error:', error2);
+        throw new Error('All token creation methods failed. Please try using a different wallet or network.');
+      }
     }
-    
-    console.log('Token created with address:', mintAddress);
-    return mintAddress;
   } catch (error) {
     console.error('Error creating token:', error);
     

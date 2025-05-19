@@ -2,6 +2,7 @@
 
 import dynamic from 'next/dynamic';
 import { ReactNode } from 'react';
+import { Box } from '@mui/material';
 
 // Client-side only imports
 const SolanaProvider = dynamic(() => import('@/components/SolanaProvider'), {
@@ -12,6 +13,10 @@ const Navigation = dynamic(() => import('@/components/Navigation'), {
   ssr: false,
 });
 
+const Footer = dynamic(() => import('@/components/Footer'), {
+  ssr: false,
+});
+
 interface ClientLayoutProps {
   children: ReactNode;
 }
@@ -19,8 +24,13 @@ interface ClientLayoutProps {
 export default function ClientLayout({ children }: ClientLayoutProps) {
   return (
     <SolanaProvider>
-      <Navigation />
-      {children}
+      <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+        <Navigation />
+        <Box component="main" sx={{ flexGrow: 1 }}>
+          {children}
+        </Box>
+        <Footer />
+      </Box>
     </SolanaProvider>
   );
 } 
