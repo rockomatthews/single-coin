@@ -121,28 +121,37 @@ export const createVerifiedToken = async (
     // Use wallet adapter identity
     metaplex.use(walletAdapterIdentity(wallet));
     
-    // Create the token - using any type to avoid API compatibility issues
-    // This approach is not ideal for type safety but helps with deployment
+    // Check wallet balance before proceeding
+    const balance = await connection.getBalance(wallet.publicKey);
+    console.log('Wallet balance:', balance / 1e9, 'SOL');
+    
+    if (balance < 5000000) { // 0.005 SOL minimum
+      throw new Error('Insufficient SOL balance to create token. Please add SOL to your wallet.');
+    }
+    
+    // Create the token with more detailed options and error handling
+    console.log('Initializing token creation...');
     const result = await metaplex.nfts().createSft({
       uri: metadataUri,
       name: params.name,
       symbol: params.symbol,
-      sellerFeeBasisPoints: 0,
+      sellerFeeBasisPoints: 0, // No royalty fees
+      decimals: params.decimals,
+      initialSupply: null, // Don't mint tokens with initial creation
       tokenOwner: wallet.publicKey,
+      updateAuthority: wallet.publicKey,
+      mintAuthority: wallet.publicKey,
+      freezeAuthority: wallet.publicKey,
+      creators: null,
+      isMutable: true,
+      maxSupply: null,
     });
     
-    // For a real implementation, here we would:
-    // 1. Send the liquidityAmount tokens to a market making contract
-    // 2. Set up the liquidity pool on a DEX like Raydium or Birdeye
-    // 3. Lock the liquidityAmount tokens for trading
+    // Log the full result for debugging
+    console.log('Token creation result:', JSON.stringify(result, null, 2));
     
-    // Extract mint address safely
-    const mintAddress = result && 
-      result.mint && 
-      result.mint.address && 
-      result.mint.address.toString ? 
-      result.mint.address.toString() : 
-      result.nft?.address?.toString() || result.address?.toString();
+    // Extract mint address safely with better error handling
+    const mintAddress = result?.mint?.address?.toString();
     
     if (!mintAddress) {
       throw new Error('Failed to extract token address from Metaplex response');
@@ -152,6 +161,13 @@ export const createVerifiedToken = async (
     return mintAddress;
   } catch (error) {
     console.error('Error creating token:', error);
+    
+    // Enhanced error reporting
+    if (error.name === 'AccountNotFoundError') {
+      console.error('AccountNotFoundError details:', error.message);
+      throw new Error(`Token account not found. This may be due to network issues or insufficient funds. Please check your wallet balance and network connection.`);
+    }
+    
     throw error;
   }
 }; 

@@ -59,6 +59,16 @@ export function useTokenCreation() {
       // 2. Create Metaplex instance
       const metaplex = new Metaplex(connection);
       
+      // Check network type
+      const genesisHash = await connection.getGenesisHash();
+      console.log('Connected to network with genesis hash:', genesisHash);
+      console.log('Using Solana network:', process.env.NEXT_PUBLIC_SOLANA_NETWORK || 'undefined');
+      console.log('Using RPC URL:', process.env.NEXT_PUBLIC_SOLANA_RPC_URL ? process.env.NEXT_PUBLIC_SOLANA_RPC_URL.substring(0, 30) + '...' : 'undefined');
+      
+      // Check wallet balance
+      const balance = await connection.getBalance(publicKey);
+      console.log('Wallet balance:', balance / 1e9, 'SOL');
+      
       // 3. Upload metadata to Pinata
       console.log('Uploading metadata to Pinata with:', tokenData);
       const metadataUri = await uploadMetadata(metaplex, tokenData);
@@ -120,9 +130,22 @@ export function useTokenCreation() {
       return tokenAddress;
     } catch (error) {
       console.error('Error creating token:', error);
+      
+      // Enhanced error reporting
+      let errorMessage = (error as Error).message || 'Failed to create token';
+      
+      // Add more context to common errors
+      if (errorMessage.includes('AccountNotFound')) {
+        errorMessage = 'Token account not found. This may be due to network issues or insufficient funds. Please ensure your wallet has SOL and you are connected to the correct network.';
+      } else if (errorMessage.includes('insufficient funds')) {
+        errorMessage = 'Insufficient SOL in your wallet to create the token. Please add more SOL to your wallet.';
+      } else if (errorMessage.includes('network')) {
+        errorMessage = 'Network error when creating the token. Please check your internet connection and try again.';
+      }
+      
       setState({
         isCreating: false,
-        error: (error as Error).message || 'Failed to create token',
+        error: errorMessage,
         tokenAddress: null,
         success: false,
       });
