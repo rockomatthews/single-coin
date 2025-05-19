@@ -16,6 +16,7 @@ DATABASE_URL=postgresql://username:password@endpoint_hostname.neon.tech/dbname?s
 
 # Pinata IPFS storage (for token images and metadata)
 PINATA_JWT=your-pinata-jwt-token-here
+NEXT_PUBLIC_PINATA_JWT=your-pinata-jwt-token-here
 NEXT_PUBLIC_IPFS_GATEWAY=https://gateway.pinata.cloud/ipfs/
 
 # NFT storage for metadata (optional)

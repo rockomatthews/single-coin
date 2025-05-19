@@ -12,10 +12,11 @@ const PINATA_API_URL = 'https://api.pinata.cloud';
  * @returns IPFS CID (Content Identifier)
  */
 export async function uploadToPinata(data: any, filename?: string): Promise<string> {
-  const pinataJWT = process.env.NEXT_PUBLIC_PINATA_JWT;
+  // Check for both environment variable versions - client and server side
+  const pinataJWT = process.env.NEXT_PUBLIC_PINATA_JWT || process.env.PINATA_JWT;
   
   if (!pinataJWT) {
-    throw new Error('NEXT_PUBLIC_PINATA_JWT environment variable is not set');
+    throw new Error('Pinata JWT not found. Please set NEXT_PUBLIC_PINATA_JWT environment variable');
   }
 
   try {

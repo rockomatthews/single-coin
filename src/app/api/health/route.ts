@@ -52,12 +52,13 @@ export async function GET() {
     }
 
     // Check Pinata connection
-    if (process.env.PINATA_JWT) {
+    const pinataJWT = process.env.PINATA_JWT || process.env.NEXT_PUBLIC_PINATA_JWT;
+    if (pinataJWT) {
       try {
         const response = await fetch('https://api.pinata.cloud/data/testAuthentication', {
           method: 'GET',
           headers: { 
-            'Authorization': `Bearer ${process.env.PINATA_JWT}` 
+            'Authorization': `Bearer ${pinataJWT}` 
           },
         });
         

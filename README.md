@@ -12,7 +12,8 @@ This application requires several environment variables to function properly:
 - **NEXT_PUBLIC_SOLANA_NETWORK**: 'mainnet' or 'devnet'
 - **NEXT_PUBLIC_FEE_RECIPIENT_ADDRESS**: Your Solana wallet address to receive platform fees
 - **DATABASE_URL**: Connection string for your Neon database
-- **PINATA_JWT**: Your Pinata JWT token for IPFS storage
+- **PINATA_JWT**: Your Pinata JWT token for IPFS storage (server-side)
+- **NEXT_PUBLIC_PINATA_JWT**: Your Pinata JWT token for IPFS storage (client-side)
 - **NEXT_PUBLIC_IPFS_GATEWAY**: IPFS gateway URL (default: https://gateway.pinata.cloud/ipfs/)
 
 ### Logo Image
