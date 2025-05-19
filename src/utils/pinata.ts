@@ -73,7 +73,7 @@ export async function uploadToPinata(data: any, filename?: string): Promise<stri
           console.log('Successfully converted blob URL to blob');
         } catch (blobError) {
           console.error('Error handling blob URL:', blobError);
-          throw new Error(`Failed to process blob URL: ${blobError.message}`);
+          throw new Error(`Failed to process blob URL: ${blobError instanceof Error ? blobError.message : String(blobError)}`);
         }
       }
       else {

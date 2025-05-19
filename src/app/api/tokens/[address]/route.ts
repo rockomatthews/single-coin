@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { PublicKey } from '@solana/web3.js';
 import { getTokenByAddress } from '@/utils/database';
 
+// Force dynamic behavior for API routes
+export const dynamic = 'force-dynamic';
+
 export async function GET(
   request: NextRequest,
   { params }: { params: { address: string } }

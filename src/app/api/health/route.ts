@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server';
 import { neon } from '@neondatabase/serverless';
 
+// Force dynamic behavior for health check API
+export const dynamic = 'force-dynamic';
+
 export async function GET() {
   const startTime = Date.now();
   const healthStatus = {

@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server';
 import { neon } from '@neondatabase/serverless';
 
+// Force dynamic behavior for database initialization API
+export const dynamic = 'force-dynamic';
+
 // Initialize database by creating required tables if they don't exist
 export async function GET() {
   try {
