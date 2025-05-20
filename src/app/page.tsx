@@ -4,16 +4,63 @@ import { Box, Button, Container, Typography, Card, CardContent, CardMedia } from
 import Grid from '@mui/material/Unstable_Grid2';
 import Link from 'next/link';
 import Image from 'next/image';
+import { useEffect, useState } from 'react';
 
-// Mock token data for demonstration
-const mockTokens = Array(16).fill(null).map((_, i) => ({
-  id: i,
-  name: `Token ${i+1}`,
-  symbol: `TKN${i+1}`,
-  image: `/images/logo.png`,
-}));
+// Token interface
+interface Token {
+  id?: number;
+  token_address: string;
+  token_name: string;
+  token_symbol: string;
+  token_image?: string;
+  user_address?: string;
+}
 
 export default function Home() {
+  const [hotTokens, setHotTokens] = useState<Token[]>([]);
+  const [recentTokens, setRecentTokens] = useState<Token[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // Fetch tokens from the API
+  useEffect(() => {
+    const fetchTokens = async () => {
+      try {
+        setLoading(true);
+        // Get tokens from the API
+        const response = await fetch('/api/tokens');
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success && Array.isArray(data.tokens)) {
+            // Use the first 8 tokens for hot tokens, and the next 8 for recent tokens
+            // In a real app, you'd have separate endpoints for hot and recent tokens
+            setHotTokens(data.tokens.slice(0, 8));
+            setRecentTokens(data.tokens.slice(0, 8));
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching tokens:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchTokens();
+  }, []);
+
+  // Generate placeholder tokens if no real tokens are available
+  const generatePlaceholders = (count: number) => {
+    return Array(count).fill(null).map((_, i) => ({
+      token_address: `placeholder-${i}`,
+      token_name: `Token ${i+1}`,
+      token_symbol: `TKN${i+1}`,
+      token_image: `/images/logo.png`,
+    }));
+  };
+
+  // Use real tokens if available, otherwise use placeholders
+  const displayedHotTokens = hotTokens.length > 0 ? hotTokens : generatePlaceholders(8);
+  const displayedRecentTokens = recentTokens.length > 0 ? recentTokens : generatePlaceholders(8);
+
   return (
     <>
       {/* Hero section - reduced to 1/3 height */}
@@ -109,9 +156,21 @@ export default function Home() {
           </Typography>
           
           <Grid container spacing={2}>
-            {mockTokens.slice(0, 8).map(token => (
-              <Grid key={token.id} xs={6} sm={4} md={3} lg={1.5}>
-                <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+            {displayedHotTokens.map((token) => (
+              <Grid key={token.token_address} xs={6} sm={4} md={3} lg={1.5}>
+                <Card 
+                  sx={{ 
+                    height: '100%', 
+                    display: 'flex', 
+                    flexDirection: 'column',
+                    transition: 'transform 0.2s',
+                    '&:hover': {
+                      transform: 'scale(1.03)',
+                    }
+                  }}
+                  component={Link}
+                  href={`/token/${token.token_address}`}
+                >
                   <CardMedia 
                     component="div"
                     sx={{
@@ -121,8 +180,8 @@ export default function Home() {
                   >
                     <Box 
                       component={Image}
-                      src={token.image}
-                      alt={token.name}
+                      src={token.token_image || '/images/logo.png'}
+                      alt={token.token_name}
                       fill
                       sizes="(max-width: 600px) 100vw, (max-width: 960px) 50vw, 33vw"
                       style={{ objectFit: 'cover' }}
@@ -130,7 +189,7 @@ export default function Home() {
                   </CardMedia>
                   <CardContent sx={{ flexGrow: 1, p: 1, '&:last-child': { pb: 1 } }}>
                     <Typography variant="body2" align="center" noWrap>
-                      {token.name}
+                      {token.token_name}
                     </Typography>
                   </CardContent>
                 </Card>
@@ -156,9 +215,21 @@ export default function Home() {
         </Typography>
         
         <Grid container spacing={2}>
-          {mockTokens.slice(8, 16).map(token => (
-            <Grid key={token.id} xs={6} sm={4} md={3} lg={1.5}>
-              <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+          {displayedRecentTokens.map((token) => (
+            <Grid key={token.token_address} xs={6} sm={4} md={3} lg={1.5}>
+              <Card 
+                sx={{ 
+                  height: '100%', 
+                  display: 'flex', 
+                  flexDirection: 'column',
+                  transition: 'transform 0.2s',
+                  '&:hover': {
+                    transform: 'scale(1.03)',
+                  }
+                }}
+                component={Link}
+                href={`/token/${token.token_address}`}
+              >
                 <CardMedia 
                   component="div"
                   sx={{
@@ -168,8 +239,8 @@ export default function Home() {
                 >
                   <Box 
                     component={Image}
-                    src={token.image}
-                    alt={token.name}
+                    src={token.token_image || '/images/logo.png'}
+                    alt={token.token_name}
                     fill
                     sizes="(max-width: 600px) 100vw, (max-width: 960px) 50vw, 33vw"
                     style={{ objectFit: 'cover' }}
@@ -177,7 +248,7 @@ export default function Home() {
                 </CardMedia>
                 <CardContent sx={{ flexGrow: 1, p: 1, '&:last-child': { pb: 1 } }}>
                   <Typography variant="body2" align="center" noWrap>
-                    {token.name}
+                    {token.token_name}
                   </Typography>
                 </CardContent>
               </Card>

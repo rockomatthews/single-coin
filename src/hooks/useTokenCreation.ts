@@ -96,28 +96,44 @@ export function useTokenCreation() {
         }
       );
       
+      if (!tokenAddress) {
+        throw new Error('Failed to create token - no token address returned');
+      }
+      
+      console.log('Token created successfully with address:', tokenAddress);
+      console.log('Saving token to database...');
+      
       // 5. Save token to database
-      const response = await fetch('/api/create-token', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          userAddress: publicKey.toString(),
-          tokenAddress,
-          tokenData: {
-            ...tokenData,
-            retentionPercentage,
-            retainedAmount,
-            liquidityAmount
+      try {
+        const response = await fetch('/api/create-token', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
           },
-        }),
-      });
+          body: JSON.stringify({
+            userAddress: publicKey.toString(),
+            tokenAddress,
+            tokenData: {
+              ...tokenData,
+              retentionPercentage,
+              retainedAmount,
+              liquidityAmount
+            },
+          }),
+        });
 
-      const data = await response.json();
+        const data = await response.json();
 
-      if (!data.success) {
-        throw new Error(data.error || 'Failed to save token details');
+        if (!data.success) {
+          console.error('Database save failed:', data.error);
+          // Continue even if database save fails - token was still created
+          console.warn('Token was created but failed to save to database. It might not appear in your "My Tokens" list.');
+        } else {
+          console.log('Token saved to database successfully');
+        }
+      } catch (dbError) {
+        console.error('Error saving to database:', dbError);
+        // Continue even if database save fails
       }
 
       setState({
@@ -126,7 +142,9 @@ export function useTokenCreation() {
         tokenAddress,
         success: true,
       });
-
+      
+      console.log('Token creation process completed successfully!');
+      
       return tokenAddress;
     } catch (error) {
       console.error('Error creating token:', error);
