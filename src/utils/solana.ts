@@ -30,6 +30,8 @@ export interface TokenParams {
   retentionPercentage?: number; // Percentage of tokens to keep
   retainedAmount?: number;      // Actual amount of tokens to keep
   liquidityAmount?: number;     // Amount of tokens for liquidity
+  createPool?: boolean;         // Whether to create a liquidity pool
+  liquiditySolAmount?: number;  // Amount of SOL to add to the liquidity pool
 }
 
 /**

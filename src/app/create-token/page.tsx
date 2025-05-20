@@ -43,7 +43,7 @@ const steps = ['Token Details', 'Customize', 'Distribution', 'Liquidity', 'Revie
 
 export default function CreateTokenPage() {
   const { connected } = useWallet();
-  const { isCreating, error, success, createToken } = useTokenCreation();
+  const { isCreating, error, success, tokenAddress, createToken } = useTokenCreation();
   const [activeStep, setActiveStep] = useState(0);
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
@@ -658,7 +658,7 @@ export default function CreateTokenPage() {
                 <Button
                   variant="outlined"
                   component="a"
-                  href={`https://raydium.io/swap/?inputCurrency=SOL&outputCurrency=${error ? '' : tokenAddress}`}
+                  href={`https://raydium.io/swap/?inputCurrency=SOL&outputCurrency=${tokenAddress || ''}`}
                   target="_blank"
                   rel="noopener noreferrer"
                 >
@@ -671,7 +671,7 @@ export default function CreateTokenPage() {
       default:
         return null;
     }
-  }, [activeStep, tokenData, errors, handleChange, handleClickUpload, handleClearImage, handleRetentionChange, calculateFee]);
+  }, [activeStep, tokenData, errors, handleChange, handleClickUpload, handleClearImage, handleRetentionChange, calculateFee, tokenAddress, error]);
 
   return (
     <Container maxWidth="md" sx={{ mt: 4, mb: 8 }}>

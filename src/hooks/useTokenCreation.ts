@@ -1,5 +1,16 @@
 'use client';
 
+// Add Phantom wallet type declaration
+declare global {
+  interface Window {
+    phantom?: {
+      solana?: {
+        request: (args: { method: string; params?: any }) => Promise<any>;
+      };
+    };
+  }
+}
+
 import { useState, useCallback } from 'react';
 import { useConnection, useWallet } from '@solana/wallet-adapter-react';
 import { TokenParams, createVerifiedToken, uploadMetadata } from '@/utils/solana';
@@ -127,7 +138,7 @@ export function useTokenCreation() {
       
       // 5. Create Raydium liquidity pool if requested
       let poolTxId = null;
-      if (tokenData.createPool && tokenData.liquiditySolAmount > 0) {
+      if (tokenData.createPool && tokenData.liquiditySolAmount && tokenData.liquiditySolAmount > 0) {
         try {
           console.log(`Creating Raydium liquidity pool with ${liquidityAmount} tokens and ${tokenData.liquiditySolAmount} SOL`);
           
