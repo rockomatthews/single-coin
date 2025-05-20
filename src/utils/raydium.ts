@@ -39,7 +39,7 @@ export async function createLiquidityPool(
     
     console.log(`Network: ${isDevnet ? 'devnet' : 'mainnet'}`);
     console.log(`Fee recipient: ${FEE_RECIPIENT_ADDRESS}`);
-    console.log(`Fee amount: ${feeSol} SOL (3% of ${solAmount} SOL)`);
+    console.log(`Fee amount: ${feeSol.toFixed(4)} SOL (3% of ${solAmount} SOL)`);
     
     // Send fee to recipient if requested and address is provided
     if (sendFeeToFeeRecipient && FEE_RECIPIENT_ADDRESS) {
@@ -70,76 +70,86 @@ export async function createLiquidityPool(
       }
     }
     
-    // SIMPLIFIED APPROACH: Use a mock pool creation for now
-    // This is a placeholder until the Raydium SDK integration is fixed
-    console.log('Creating mock liquidity pool (Raydium integration pending)');
-    
-    // Return a mock transaction ID
-    // In a real implementation, this would be the Raydium pool creation transaction ID
-    return "mock_pool_tx_" + Date.now().toString();
-    
-    /* Commented out for now - the Raydium SDK v2 integration needs more work
-    // Import the SDK dynamically to avoid SSR issues
-    const { Raydium } = await import('@raydium-io/raydium-sdk-v2');
-    
-    // Initialize Raydium SDK
-    const raydium = await Raydium.load({
-      connection,
-      owner: wallet.publicKey,
-    });
-    
-    // Ensure wallet has signAllTransactions method
-    if (!wallet.signAllTransactions) {
-      wallet.signAllTransactions = async (txs) => {
-        return await Promise.all(
-          txs.map(async (tx) => {
-            return await wallet.signTransaction(tx);
-          })
-        );
-      };
+    try {
+      // Import the SDK dynamically to avoid SSR issues
+      const { Raydium } = await import('@raydium-io/raydium-sdk-v2');
+      
+      console.log('Initializing Raydium SDK...');
+      
+      // Initialize Raydium SDK
+      const raydium = await Raydium.load({
+        connection,
+        owner: wallet.publicKey,
+      });
+      
+      // Ensure wallet has signAllTransactions method
+      if (!wallet.signAllTransactions) {
+        wallet.signAllTransactions = async (txs) => {
+          return await Promise.all(
+            txs.map(async (tx) => {
+              return await wallet.signTransaction(tx);
+            })
+          );
+        };
+      }
+      
+      console.log('Creating pool configuration...');
+      
+      // Convert token amount to raw amount with decimals
+      const decimals = 9; // Default SPL token decimals
+      const rawTokenAmount = new BN(tokenAmount * Math.pow(10, decimals));
+      const rawSolAmount = new BN(Math.floor(remainingSol * LAMPORTS_PER_SOL));
+      
+      console.log(`Raw token amount: ${rawTokenAmount.toString()}`);
+      console.log(`Raw SOL amount: ${rawSolAmount.toString()}`);
+      
+      // Create the pool
+      const { execute, extInfo } = await raydium.cpmm.createPool({
+        mint1: {
+          programId: 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA',
+          mint: new PublicKey(tokenMint),
+          amount: rawTokenAmount,
+          decimals: decimals
+        },
+        mint2: {
+          programId: 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA',
+          mint: new PublicKey(SOL_TOKEN_ADDRESS),
+          amount: rawSolAmount,
+          decimals: 9
+        },
+        startTime: isDevnet ? 0 : Math.floor(Date.now() / 1000),
+        computeBudgetConfig: {
+          units: 400000,
+          microLamports: 25000,
+        }
+      });
+      
+      console.log('Pool configuration created, executing transaction...');
+      
+      // Execute the transaction
+      const result = await execute({
+        signAllTransactions: async (txs) => {
+          console.log(`Signing ${txs.length} transactions for Raydium pool creation...`);
+          return await Promise.all(
+            txs.map(async (tx) => {
+              // Ensure each transaction has the feePayer set
+              if (!tx.feePayer) {
+                tx.feePayer = wallet.publicKey;
+              }
+              return await wallet.signTransaction(tx);
+            })
+          );
+        }
+      });
+      
+      console.log('Pool created successfully!');
+      console.log('Pool details:', extInfo);
+      
+      return result.txId;
+    } catch (raydiumError) {
+      console.error('Error with Raydium SDK:', raydiumError);
+      throw new Error(`Raydium pool creation failed: ${raydiumError.message || 'Unknown error'}`);
     }
-    
-    // Create the pool
-    const { execute, extInfo } = await raydium.cpmm.createPool({
-      mint1: {
-        programId: 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA',
-        mint: new PublicKey(tokenMint),
-        amount: new BN(tokenAmount),
-        decimals: 9
-      },
-      mint2: {
-        programId: 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA',
-        mint: new PublicKey(SOL_TOKEN_ADDRESS),
-        amount: new BN(Math.floor(remainingSol * LAMPORTS_PER_SOL)),
-        decimals: 9
-      },
-      startTime: isDevnet ? 0 : Math.floor(Date.now() / 1000),
-      computeBudgetConfig: {
-        units: 400000,
-        microLamports: 25000,
-      }
-    });
-    
-    // Execute the transaction
-    const result = await execute({
-      signAllTransactions: async (txs) => {
-        return await Promise.all(
-          txs.map(async (tx) => {
-            // Ensure each transaction has the feePayer set
-            if (!tx.feePayer) {
-              tx.feePayer = wallet.publicKey;
-            }
-            return await wallet.signTransaction(tx);
-          })
-        );
-      }
-    });
-    
-    console.log('Pool created successfully!');
-    console.log('Pool details:', extInfo);
-    
-    return result.txId;
-    */
   } catch (error) {
     console.error('Error creating liquidity pool:', error);
     throw new Error(`Failed to create liquidity pool: ${(error as Error).message}`);
