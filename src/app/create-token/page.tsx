@@ -25,6 +25,9 @@ import {
   useTheme,
   IconButton,
   Tooltip,
+  Slider,
+  FormControlLabel,
+  Switch,
 } from '@mui/material';
 import Grid from '@mui/material/Unstable_Grid2';
 import { useWallet } from '@solana/wallet-adapter-react';
@@ -36,7 +39,7 @@ import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline';
 import ClearIcon from '@mui/icons-material/Clear';
 
 // Token creation steps
-const steps = ['Token Details', 'Customize', 'Distribution', 'Review & Create'];
+const steps = ['Token Details', 'Customize', 'Distribution', 'Liquidity', 'Review & Create'];
 
 export default function CreateTokenPage() {
   const { connected } = useWallet();
@@ -58,6 +61,8 @@ export default function CreateTokenPage() {
     telegram: '',
     discord: '',
     retentionPercentage: 50, // Default to 50% retention
+    createPool: true, // Default to creating a pool
+    liquiditySolAmount: 1, // Default to 1 SOL
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -441,6 +446,82 @@ export default function CreateTokenPage() {
         return (
           <Box>
             <Typography variant="h6" gutterBottom>
+              Liquidity Settings
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+              Configure how much SOL you want to add to the liquidity pool. More SOL means better initial price stability and exposure.
+            </Typography>
+            
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={tokenData.createPool}
+                  onChange={(e) => setTokenData(prev => ({ ...prev, createPool: e.target.checked }))}
+                  color="primary"
+                />
+              }
+              label="Create Raydium liquidity pool"
+              sx={{ mb: 3, display: 'block' }}
+            />
+            
+            {tokenData.createPool && (
+              <>
+                <Typography gutterBottom>
+                  SOL amount for initial liquidity: {tokenData.liquiditySolAmount.toFixed(2)} SOL
+                </Typography>
+                
+                <Box sx={{ px: 2, mb: 4 }}>
+                  <Slider
+                    value={tokenData.liquiditySolAmount}
+                    onChange={(_, value) => setTokenData(prev => ({ 
+                      ...prev, 
+                      liquiditySolAmount: value as number 
+                    }))}
+                    step={0.01}
+                    min={0.01}
+                    max={10}
+                    marks={[
+                      { value: 0.01, label: '0.01' },
+                      { value: 2.5, label: '2.5' },
+                      { value: 5, label: '5' },
+                      { value: 7.5, label: '7.5' },
+                      { value: 10, label: '10' },
+                    ]}
+                    valueLabelDisplay="auto"
+                  />
+                </Box>
+                
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mt: 2 }}>
+                  <Typography variant="subtitle2">
+                    Fee: {(tokenData.liquiditySolAmount * 0.03).toFixed(3)} SOL (3%)
+                  </Typography>
+                  
+                  <Typography variant="body2" color="text.secondary">
+                    3% of your SOL will be sent to Coinbull as a fee for creating the pool.
+                  </Typography>
+                  
+                  <Typography variant="subtitle2" sx={{ mt: 2 }}>
+                    Token allocation for liquidity: {Math.floor(tokenData.supply * ((100 - tokenData.retentionPercentage) / 100)).toLocaleString()} tokens
+                  </Typography>
+                  
+                  <Alert severity="info" sx={{ mt: 2 }}>
+                    Adding more SOL gives your token better initial price stability and visibility on Raydium.
+                  </Alert>
+                </Box>
+              </>
+            )}
+            
+            {!tokenData.createPool && (
+              <Alert severity="warning" sx={{ mt: 2 }}>
+                Without creating a liquidity pool, your token won't be tradable on Raydium. You'll need to manually create a pool later.
+              </Alert>
+            )}
+          </Box>
+        );
+      case 4:
+        return (
+          <Box>
+            <Typography variant="h6" gutterBottom>
               Review and Confirm
             </Typography>
             <Stack spacing={2}>
@@ -498,6 +579,24 @@ export default function CreateTokenPage() {
                         </Typography>
                       </Box>
                     </Grid>
+                    
+                    {tokenData.createPool && (
+                      <Grid xs={12}>
+                        <Typography variant="subtitle2" sx={{ mt: 2 }}>Liquidity Settings</Typography>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 1 }}>
+                          <Typography variant="body2" color="text.secondary">SOL for liquidity:</Typography>
+                          <Typography variant="body2">
+                            {tokenData.liquiditySolAmount.toFixed(2)} SOL
+                          </Typography>
+                        </Box>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 1 }}>
+                          <Typography variant="body2" color="text.secondary">Fee (3%):</Typography>
+                          <Typography variant="body2">
+                            {(tokenData.liquiditySolAmount * 0.03).toFixed(3)} SOL
+                          </Typography>
+                        </Box>
+                      </Grid>
+                    )}
                   </Grid>
                 </CardContent>
               </Card>
@@ -519,7 +618,7 @@ export default function CreateTokenPage() {
             </Stack>
           </Box>
         );
-      case 4:
+      case 5:
         return (
           <Box sx={{ textAlign: 'center', py: 3 }}>
             <Typography variant="h5" color="primary" gutterBottom>
@@ -530,16 +629,43 @@ export default function CreateTokenPage() {
               have been sent to your wallet.
             </Typography>
             <Typography variant="body1" paragraph>
-              The remaining {100 - tokenData.retentionPercentage}% ({Math.floor(tokenData.supply * ((100 - tokenData.retentionPercentage) / 100)).toLocaleString()}) tokens
-              have been allocated for liquidity on DEXes.
+              The token has been automatically added to your Phantom wallet.
             </Typography>
-            <Button
-              variant="contained"
-              href="/my-tokens"
-              sx={{ mt: 2 }}
-            >
-              View My Tokens
-            </Button>
+            
+            {tokenData.createPool && (
+              <Alert severity="success" sx={{ mb: 3, textAlign: 'left' }}>
+                <Typography variant="subtitle2" gutterBottom>
+                  Raydium Liquidity Pool Created
+                </Typography>
+                <Typography variant="body2">
+                  The remaining {Math.floor(tokenData.supply * ((100 - tokenData.retentionPercentage) / 100)).toLocaleString()} tokens were used to create a Raydium liquidity pool with {tokenData.liquiditySolAmount.toFixed(2)} SOL.
+                </Typography>
+                <Typography variant="body2" sx={{ mt: 1 }}>
+                  Your token can now be traded on Raydium!
+                </Typography>
+              </Alert>
+            )}
+            
+            <Stack direction="row" spacing={2} justifyContent="center" sx={{ mt: 3 }}>
+              <Button
+                variant="contained"
+                href="/my-tokens"
+              >
+                View My Tokens
+              </Button>
+              
+              {tokenData.createPool && (
+                <Button
+                  variant="outlined"
+                  component="a"
+                  href={`https://raydium.io/swap/?inputCurrency=SOL&outputCurrency=${error ? '' : tokenAddress}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  View on Raydium
+                </Button>
+              )}
+            </Stack>
           </Box>
         );
       default:

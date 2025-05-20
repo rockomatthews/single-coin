@@ -4,12 +4,42 @@ import { useState, useCallback } from 'react';
 import { useConnection, useWallet } from '@solana/wallet-adapter-react';
 import { TokenParams, createVerifiedToken, uploadMetadata } from '@/utils/solana';
 import { Metaplex } from '@metaplex-foundation/js';
+import { createLiquidityPool } from '@/utils/raydium';
+
+/**
+ * Add token to Phantom wallet
+ * @param tokenAddress The mint address of the token to add
+ */
+async function addTokenToPhantomWallet(tokenAddress: string): Promise<void> {
+  try {
+    // Check if Phantom wallet is available
+    const phantom = window?.phantom?.solana;
+    
+    if (!phantom) {
+      return;
+    }
+    
+    // Request to add the token to the wallet
+    console.log('Adding token to Phantom wallet:', tokenAddress);
+    await phantom.request({
+      method: 'wallet_addToken',
+      params: {
+        mintAddress: tokenAddress
+      }
+    });
+    
+    console.log('Token added to wallet successfully');
+  } catch (error) {
+    console.error('Error adding token to wallet:', error);
+  }
+}
 
 interface TokenCreationState {
   isCreating: boolean;
   error: string | null;
   tokenAddress: string | null;
   success: boolean;
+  poolTxId?: string | null;
 }
 
 export function useTokenCreation() {
@@ -59,16 +89,6 @@ export function useTokenCreation() {
       // 2. Create Metaplex instance
       const metaplex = new Metaplex(connection);
       
-      // Check network type
-      const genesisHash = await connection.getGenesisHash();
-      console.log('Connected to network with genesis hash:', genesisHash);
-      console.log('Using Solana network:', process.env.NEXT_PUBLIC_SOLANA_NETWORK || 'undefined');
-      console.log('Using RPC URL:', process.env.NEXT_PUBLIC_SOLANA_RPC_URL ? process.env.NEXT_PUBLIC_SOLANA_RPC_URL.substring(0, 30) + '...' : 'undefined');
-      
-      // Check wallet balance
-      const balance = await connection.getBalance(publicKey);
-      console.log('Wallet balance:', balance / 1e9, 'SOL');
-      
       // 3. Upload metadata to Pinata
       console.log('Uploading metadata to Pinata with:', tokenData);
       const metadataUri = await uploadMetadata(metaplex, tokenData);
@@ -101,39 +121,55 @@ export function useTokenCreation() {
       }
       
       console.log('Token created successfully with address:', tokenAddress);
-      console.log('Saving token to database...');
       
-      // 5. Save token to database
-      try {
-        const response = await fetch('/api/create-token', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            userAddress: publicKey.toString(),
+      // Automatically add token to wallet
+      await addTokenToPhantomWallet(tokenAddress);
+      
+      // 5. Create Raydium liquidity pool if requested
+      let poolTxId = null;
+      if (tokenData.createPool && tokenData.liquiditySolAmount > 0) {
+        try {
+          console.log(`Creating Raydium liquidity pool with ${liquidityAmount} tokens and ${tokenData.liquiditySolAmount} SOL`);
+          
+          poolTxId = await createLiquidityPool(
+            connection,
+            wallet,
             tokenAddress,
-            tokenData: {
-              ...tokenData,
-              retentionPercentage,
-              retainedAmount,
-              liquidityAmount
-            },
-          }),
-        });
-
-        const data = await response.json();
-
-        if (!data.success) {
-          console.error('Database save failed:', data.error);
-          // Continue even if database save fails - token was still created
-          console.warn('Token was created but failed to save to database. It might not appear in your "My Tokens" list.');
-        } else {
-          console.log('Token saved to database successfully');
+            liquidityAmount,
+            tokenData.liquiditySolAmount,
+            true // Send fee to fee recipient
+          );
+          
+          console.log('Liquidity pool created with txId:', poolTxId);
+        } catch (poolError) {
+          console.error('Error creating liquidity pool:', poolError);
+          // Continue even if pool creation fails - the token was still created
         }
-      } catch (dbError) {
-        console.error('Error saving to database:', dbError);
-        // Continue even if database save fails
+      }
+      
+      // 6. Save token to database
+      const response = await fetch('/api/create-token', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userAddress: publicKey.toString(),
+          tokenAddress,
+          tokenData: {
+            ...tokenData,
+            retentionPercentage,
+            retainedAmount,
+            liquidityAmount
+          },
+          poolTxId, // Include pool transaction ID if available
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!data.success) {
+        throw new Error(data.error || 'Failed to save token details');
       }
 
       setState({
@@ -141,31 +177,19 @@ export function useTokenCreation() {
         error: null,
         tokenAddress,
         success: true,
+        poolTxId,
       });
-      
-      console.log('Token creation process completed successfully!');
       
       return tokenAddress;
     } catch (error) {
       console.error('Error creating token:', error);
       
-      // Enhanced error reporting
-      let errorMessage = (error as Error).message || 'Failed to create token';
-      
-      // Add more context to common errors
-      if (errorMessage.includes('AccountNotFound')) {
-        errorMessage = 'Token account not found. This may be due to network issues or insufficient funds. Please ensure your wallet has SOL and you are connected to the correct network.';
-      } else if (errorMessage.includes('insufficient funds')) {
-        errorMessage = 'Insufficient SOL in your wallet to create the token. Please add more SOL to your wallet.';
-      } else if (errorMessage.includes('network')) {
-        errorMessage = 'Network error when creating the token. Please check your internet connection and try again.';
-      }
-      
       setState({
         isCreating: false,
-        error: errorMessage,
+        error: (error as Error).message || 'Failed to create token',
         tokenAddress: null,
         success: false,
+        poolTxId: null,
       });
       return null;
     }

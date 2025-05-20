@@ -5,6 +5,7 @@
 import { Connection, PublicKey } from '@solana/web3.js';
 import { Metaplex, walletAdapterIdentity } from '@metaplex-foundation/js';
 import { uploadToPinata, getIpfsGatewayUrl } from './pinata';
+import { Buffer } from 'buffer';
 
 // Fee recipient's wallet address - Important for receiving platform fees
 const FEE_RECIPIENT_ADDRESS = process.env.NEXT_PUBLIC_FEE_RECIPIENT_ADDRESS || '';
@@ -121,86 +122,26 @@ export const createVerifiedToken = async (
     // Use wallet adapter identity
     metaplex.use(walletAdapterIdentity(wallet));
     
-    // Check wallet balance before proceeding
-    const balance = await connection.getBalance(wallet.publicKey);
-    console.log('Wallet balance:', balance / 1e9, 'SOL');
+    console.log('Creating SPL token with metadata and initial supply...');
     
-    if (balance < 5000000) { // 0.005 SOL minimum
-      throw new Error('Insufficient SOL balance to create token. Please add SOL to your wallet.');
-    }
+    // Create the token with initial supply in a single step
+    const { token } = await metaplex.tokens().createToken({
+      name: params.name,
+      symbol: params.symbol,
+      uri: metadataUri,
+      decimals: params.decimals,
+      initialSupply: params.retentionPercentage ? 
+        Math.floor(params.supply * (params.retentionPercentage / 100)) : 
+        params.supply,
+    });
     
-    console.log('Initializing token creation with simplified parameters...');
+    const mintAddress = token.address.toString();
+    console.log('Token created successfully with address:', mintAddress);
+    console.log(`Minted ${params.retentionPercentage || 100}% of ${params.supply} tokens to wallet`);
     
-    let tokenMint;
-    let mintAddress;
-    
-    // First approach - create token and mint tokens
-    try {
-      console.log('Trying method 1: Basic createSft with minting');
-      // Create the token with a proper supply value
-      const { sft } = await metaplex.nfts().createSft({
-        name: params.name,
-        symbol: params.symbol,
-        uri: metadataUri,
-        sellerFeeBasisPoints: 0,
-        decimals: params.decimals,
-      });
-      
-      console.log('Token created, now minting supply...');
-      tokenMint = sft.address;
-      mintAddress = tokenMint.toString();
-      
-      console.log('Initial token created with mint address:', mintAddress);
-      
-      // Now mint the tokens to the owner
-      const supply = params.supply;
-      const retentionPercentage = params.retentionPercentage || 50;
-      const mintAmount = Math.floor(supply * (retentionPercentage / 100));
-      
-      console.log(`Minting ${mintAmount} tokens (${retentionPercentage}% of ${supply}) to wallet...`);
-      
-      // Mint tokens to the wallet
-      await metaplex.nfts().mintTokens({
-        mintAddress: tokenMint,
-        amount: mintAmount,
-        toOwner: wallet.publicKey,
-      });
-      
-      console.log(`Successfully minted ${mintAmount} tokens to wallet ${wallet.publicKey.toString()}`);
-      return mintAddress;
-    } catch (error1) {
-      console.error('Method 1 failed with error:', error1);
-      
-      // Second approach - fallback but warn that tokens won't be minted
-      try {
-        console.log('Trying method 2: Alternative createNft (warning: no token supply with this method)');
-        const { nft } = await metaplex.nfts().create({
-          name: params.name,
-          symbol: params.symbol,
-          uri: metadataUri,
-          sellerFeeBasisPoints: 0,
-        });
-        
-        console.log('Method 2 succeeded - created as NFT, not token with supply');
-        mintAddress = nft.address.toString();
-        
-        console.log('Token created with address:', mintAddress);
-        console.log('WARNING: This token was created as an NFT without supply. Manual minting required.');
-        return mintAddress;
-      } catch (error2) {
-        console.error('Method 2 failed with error:', error2);
-        throw new Error('All token creation methods failed. Please try using a different wallet or network.');
-      }
-    }
+    return mintAddress;
   } catch (error) {
     console.error('Error creating token:', error);
-    
-    // Enhanced error reporting
-    if (error.name === 'AccountNotFoundError') {
-      console.error('AccountNotFoundError details:', error.message);
-      throw new Error(`Token account not found. This may be due to network issues or insufficient funds.`);
-    }
-    
     throw error;
   }
 }; 
