@@ -2,7 +2,7 @@
 // @ts-nocheck
 // Disable TypeScript checking for this file to allow build to succeed
 
-import { Connection, Keypair, PublicKey, SystemProgram, Transaction } from '@solana/web3.js';
+import { Connection, Keypair, PublicKey, SystemProgram, Transaction, ComputeBudgetProgram } from '@solana/web3.js';
 import { 
   createInitializeMintInstruction, 
   createMintToInstruction, 
@@ -13,6 +13,26 @@ import {
 } from '@solana/spl-token';
 import { uploadToPinata, getIpfsGatewayUrl } from './pinata';
 import { Buffer } from 'buffer';
+
+// For metadata - imports needed to register token metadata
+import { 
+  DataV2, 
+  createCreateMetadataAccountV3Instruction,
+  PROGRAM_ID as METADATA_PROGRAM_ID
+} from '@metaplex-foundation/mpl-token-metadata';
+
+// Helper function to derive the metadata account address
+async function findMetadataAddress(mint: PublicKey): Promise<PublicKey> {
+  const [publicKey] = await PublicKey.findProgramAddress(
+    [
+      Buffer.from('metadata'),
+      METADATA_PROGRAM_ID.toBuffer(),
+      mint.toBuffer(),
+    ],
+    METADATA_PROGRAM_ID
+  );
+  return publicKey;
+}
 
 // Fee recipient's wallet address - Important for receiving platform fees
 const FEE_RECIPIENT_ADDRESS = process.env.NEXT_PUBLIC_FEE_RECIPIENT_ADDRESS || '';
@@ -69,27 +89,43 @@ export const uploadMetadata = async (connection: Connection, params: TokenParams
       console.log('Image uploaded, got IPFS URL:', imageUrl);
     }
     
-    // Prepare metadata
+    // Prepare metadata in the Metaplex Token Standard format
+    // This format is recognizable by wallets like Phantom, Solflare, etc.
     const metadata = {
       name: params.name,
       symbol: params.symbol,
       description: params.description,
       image: imageUrl,
+      // Use the standard Metaplex format for external_url
       external_url: params.website || '',
+      // Add attributes for additional links in a standard format
+      attributes: [
+        { trait_type: 'Website', value: params.website || '' },
+        { trait_type: 'Twitter', value: params.twitter || '' },
+        { trait_type: 'Telegram', value: params.telegram || '' },
+        { trait_type: 'Discord', value: params.discord || '' },
+      ],
+      // Include links in the properties object as well for better compatibility
       properties: {
+        // Include the file for proper image display
         files: [
           {
             uri: imageUrl,
             type: 'image/png',
           },
         ],
+        // Add links in an additional format that some wallets recognize
+        links: {
+          website: params.website || '',
+          twitter: params.twitter || '',
+          telegram: params.telegram || '',
+          discord: params.discord || '',
+        },
+        // Add explicit creators field for better wallet recognition
+        creators: [],
+        // Category helps wallet organization
+        category: 'token',
       },
-      attributes: [
-        { trait_type: 'website', value: params.website || '' },
-        { trait_type: 'twitter', value: params.twitter || '' },
-        { trait_type: 'telegram', value: params.telegram || '' },
-        { trait_type: 'discord', value: params.discord || '' },
-      ],
     };
     
     console.log('Uploading metadata to Pinata:', metadata);
@@ -151,6 +187,58 @@ export const createVerifiedToken = async (
       )
     );
     
+    // Add metadata to the token for proper wallet display
+    console.log('Adding metadata instruction for wallet display');
+    
+    // Find the metadata account address
+    const metadataAddress = await findMetadataAddress(mintPublicKey);
+    
+    // Create metadata for the token (name, symbol, URI)
+    const metadataData: DataV2 = {
+      name: params.name,
+      symbol: params.symbol,
+      uri: metadataUri,
+      sellerFeeBasisPoints: 0,
+      // Add creator info with the creator's wallet
+      creators: [
+        {
+          address: wallet.publicKey,
+          verified: true,
+          share: 100
+        }
+      ],
+      collection: null,
+      uses: null
+    };
+    
+    // Add compute budget to handle large transactions
+    createMintTransaction.add(
+      ComputeBudgetProgram.setComputeUnitLimit({
+        units: 300000,
+      })
+    );
+    
+    // Add the metadata creation instruction
+    createMintTransaction.add(
+      createCreateMetadataAccountV3Instruction(
+        {
+          metadata: metadataAddress,
+          mint: mintPublicKey,
+          mintAuthority: wallet.publicKey,
+          payer: wallet.publicKey,
+          updateAuthority: wallet.publicKey,
+        },
+        {
+          createMetadataAccountArgsV3: {
+            data: metadataData,
+            isMutable: true,
+            collectionDetails: null,
+          },
+        },
+        METADATA_PROGRAM_ID
+      )
+    );
+    
     // Sign and send the transaction
     try {
       createMintTransaction.feePayer = wallet.publicKey;
@@ -163,7 +251,7 @@ export const createVerifiedToken = async (
       const signedTx = await wallet.signTransaction(createMintTransaction);
       const createMintTxId = await connection.sendRawTransaction(signedTx.serialize());
       
-      console.log('Mint account created, txid:', createMintTxId);
+      console.log('Mint account and metadata created, txid:', createMintTxId);
       await connection.confirmTransaction(createMintTxId);
       
       // Calculate the token amount based on retention percentage

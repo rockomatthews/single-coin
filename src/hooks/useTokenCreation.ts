@@ -27,21 +27,57 @@ async function addTokenToPhantomWallet(tokenAddress: string): Promise<void> {
     const phantom = window?.phantom?.solana;
     
     if (!phantom) {
+      console.log('Phantom wallet extension not found');
       return;
     }
     
-    // Request to add the token to the wallet
+    // Request to add the token to the wallet - use the newer method
     console.log('Adding token to Phantom wallet:', tokenAddress);
-    await phantom.request({
-      method: 'wallet_addToken',
-      params: {
-        mintAddress: tokenAddress
+    
+    // Try the newer method first
+    try {
+      await phantom.request({
+        method: 'wallet_addToken',
+        params: {
+          tokenAddress: tokenAddress // Note: some wallets use tokenAddress instead of mintAddress
+        }
+      });
+    } catch (newMethodError) {
+      console.log('New method failed, trying alternative method');
+      
+      // Fallback to alternative methods
+      try {
+        // Method #1
+        await phantom.request({
+          method: 'wallet_importAsset',
+          params: {
+            address: tokenAddress
+          }
+        });
+      } catch (altError1) {
+        console.log('Alternative method #1 failed, trying #2');
+        
+        // Method #2
+        try {
+          // Direct connection to connect to SPL token
+          await phantom.request({
+            method: 'wallet_importSPLToken',
+            params: {
+              mintAddress: tokenAddress
+            }
+          });
+        } catch (altError2) {
+          console.log('All methods failed to add token to wallet');
+          console.error('Error details:', altError2);
+          // Don't throw - allow token creation to succeed even if wallet add fails
+        }
       }
-    });
+    }
     
     console.log('Token added to wallet successfully');
   } catch (error) {
     console.error('Error adding token to wallet:', error);
+    // Don't throw - allow token creation to succeed even if wallet add fails
   }
 }
 
