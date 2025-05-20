@@ -26,17 +26,10 @@ export default function Home() {
     const fetchTokens = async () => {
       try {
         setLoading(true);
-        // Get tokens from the API
-        const response = await fetch('/api/tokens');
-        if (response.ok) {
-          const data = await response.json();
-          if (data.success && Array.isArray(data.tokens)) {
-            // Use the first 8 tokens for hot tokens, and the next 8 for recent tokens
-            // In a real app, you'd have separate endpoints for hot and recent tokens
-            setHotTokens(data.tokens.slice(0, 8));
-            setRecentTokens(data.tokens.slice(0, 8));
-          }
-        }
+        // Just use placeholder tokens instead of trying to call API without address
+        // This avoids the 400 error on the homepage
+        setHotTokens([]);
+        setRecentTokens([]);
       } catch (error) {
         console.error('Error fetching tokens:', error);
       } finally {
