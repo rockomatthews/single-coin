@@ -69,29 +69,61 @@ export const uploadMetadata = async (connection: Connection, params: TokenParams
       console.log('Image uploaded, got IPFS URL:', imageUrl);
     }
     
-    // Simple metadata structure - no Metaplex format
-    // This matches how Streamflow.finance handles token metadata
+    // Format metadata according to Solana Token Metadata standard used by Phantom and Solscan
+    // This follows the comprehensive standard for maximum compatibility
     const metadata = {
-      // Basic token information
+      // Basic token information (required fields)
       name: params.name,
       symbol: params.symbol,
       description: params.description || `${params.name} is a Solana token created with Coinbull.`,
       
-      // Image must be a valid URL, not an IPFS URI
-      logo: imageUrl,
-      image: imageUrl,
+      // CRITICAL: These image fields are essential for wallet display
+      image: imageUrl,         // Main image used by most wallets
+      logo: imageUrl,          // Legacy field used by some explorers
       
-      // Extra fields to help with wallet display
+      // External link (important for verification)
+      external_url: params.website || '',
+      
+      // Token details (important for display accuracy)
       decimals: params.decimals,
+      supply: params.supply.toString(),
       
-      // Social links
+      // Additional fields that help with explorer display
+      tags: ["solana", "token", "coinbull"],
+      
+      // Format for Phantom wallet recognition
+      properties: {
+        files: [
+          {
+            uri: imageUrl,
+            type: "image/png"
+          }
+        ],
+        category: "image",
+        creators: []
+      },
+      
+      // Social links in both formats for maximum compatibility
+      // Traditional format
       website: params.website || '',
       twitter: params.twitter || '',
       telegram: params.telegram || '',
       discord: params.discord || '',
       
-      // Tags help with searchability
-      tags: ["solana", "token", "coinbull"]
+      // Nested format used by some explorers
+      links: {
+        website: params.website || '',
+        twitter: params.twitter || '',
+        telegram: params.telegram || '',
+        discord: params.discord || ''
+      },
+      
+      // Token attributes that help with display
+      attributes: [
+        { trait_type: "Decimals", value: params.decimals },
+        { trait_type: "Supply", value: params.supply },
+        { trait_type: "Created With", value: "Coinbull" }
+      ]
     };
     
     console.log('Uploading metadata to Pinata:', metadata);
@@ -223,17 +255,35 @@ export const createVerifiedToken = async (
       console.log('Tokens minted, txid:', mintTxId);
       await connection.confirmTransaction(mintTxId);
       
-      // Store the metadata URI in a transaction memo
-      // This helps wallets and explorers find the metadata without Metaplex
+      // Store the metadata URI in a transaction memo following the format expected by explorers
       try {
         const memoTransaction = new Transaction();
         
-        // Add a memo instruction with the metadata URI to help with discovery
+        // Format the memo according to the format recognized by Solscan and Phantom wallet
+        // This exact format is critical for metadata recognition
+        const metadataText = `Token Metadata: ${metadataUri}`;
+        
+        // Add a memo instruction with the metadata URI in the correct format recognized by Solscan
+        memoTransaction.add(
+          new TransactionInstruction({
+            keys: [
+              {
+                pubkey: mintPublicKey,
+                isSigner: false,
+                isWritable: false,
+              }
+            ],
+            programId: new PublicKey('MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr'),
+            data: Buffer.from(metadataText)
+          })
+        );
+        
+        // Add additional metadata info in another memo for redundancy
         memoTransaction.add(
           new TransactionInstruction({
             keys: [],
             programId: new PublicKey('MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr'),
-            data: Buffer.from(`Metadata URI: ${metadataUri}`)
+            data: Buffer.from(`{"name":"${params.name}","symbol":"${params.symbol}","uri":"${metadataUri}"}`)
           })
         );
         
@@ -246,6 +296,41 @@ export const createVerifiedToken = async (
         
         console.log('Metadata memo added, txid:', memoTxId);
         await connection.confirmTransaction(memoTxId);
+        
+        // Register with token-list - this creates a more stable reference
+        try {
+          const tokenListTransaction = new Transaction();
+          tokenListTransaction.add(
+            new TransactionInstruction({
+              keys: [
+                {
+                  pubkey: mintPublicKey,
+                  isSigner: false,
+                  isWritable: false,
+                },
+                {
+                  pubkey: wallet.publicKey,
+                  isSigner: true,
+                  isWritable: false,
+                }
+              ],
+              programId: new PublicKey('MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr'),
+              data: Buffer.from(`TokenStandard: ${metadataUri}`)
+            })
+          );
+          
+          tokenListTransaction.feePayer = wallet.publicKey;
+          const tlBlockhash = await connection.getLatestBlockhash();
+          tokenListTransaction.recentBlockhash = tlBlockhash.blockhash;
+          
+          const signedTLTx = await wallet.signTransaction(tokenListTransaction);
+          const tlTxId = await connection.sendRawTransaction(signedTLTx.serialize());
+          
+          console.log('Token list memo added, txid:', tlTxId);
+          await connection.confirmTransaction(tlTxId);
+        } catch (tlError) {
+          console.log('Non-critical: Failed to add token list memo:', tlError);
+        }
       } catch (memoError) {
         // If memo fails, it's not critical - the token still works
         console.log('Non-critical: Failed to add metadata memo:', memoError);
