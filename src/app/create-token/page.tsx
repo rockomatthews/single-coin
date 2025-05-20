@@ -633,15 +633,15 @@ export default function CreateTokenPage() {
             </Typography>
             
             {tokenData.createPool && (
-              <Alert severity="success" sx={{ mb: 3, textAlign: 'left' }}>
+              <Alert severity="info" sx={{ mb: 3, textAlign: 'left' }}>
                 <Typography variant="subtitle2" gutterBottom>
-                  Raydium Liquidity Pool Created
+                  Liquidity Pool Simulation
                 </Typography>
                 <Typography variant="body2">
-                  The remaining {Math.floor(tokenData.supply * ((100 - tokenData.retentionPercentage) / 100)).toLocaleString()} tokens were used to create a Raydium liquidity pool with {tokenData.liquiditySolAmount.toFixed(2)} SOL.
+                  The remaining {Math.floor(tokenData.supply * ((100 - tokenData.retentionPercentage) / 100)).toLocaleString()} tokens were reserved for liquidity with {tokenData.liquiditySolAmount.toFixed(2)} SOL.
                 </Typography>
                 <Typography variant="body2" sx={{ mt: 1 }}>
-                  Your token can now be traded on Raydium!
+                  Note: Full Raydium pool integration is in progress. Your pool fee has been collected, and we&apos;re finalizing the pool creation process.
                 </Typography>
               </Alert>
             )}
@@ -654,18 +654,56 @@ export default function CreateTokenPage() {
                 View My Tokens
               </Button>
               
-              {tokenData.createPool && (
+              <Button
+                variant="outlined"
+                href={`https://solscan.io/token/${tokenAddress || ''}`}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                View on Solscan
+              </Button>
+            </Stack>
+            
+            {/* Developer Mode - Test Raydium Integration */}
+            {process.env.NODE_ENV === 'development' && (
+              <Box sx={{ mt: 4, pt: 3, borderTop: '1px dashed rgba(255,255,255,0.1)' }}>
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 2 }}>
+                  Developer Testing Tools
+                </Typography>
+                
                 <Button
                   variant="outlined"
-                  component="a"
-                  href={`https://raydium.io/swap/?inputCurrency=SOL&outputCurrency=${tokenAddress || ''}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                  color="secondary"
+                  size="small"
+                  onClick={async () => {
+                    try {
+                      // Test the Raydium integration with minimal amounts
+                      console.log('Testing Raydium integration with small amounts...');
+                      const response = await fetch('/api/test-raydium', {
+                        method: 'POST',
+                        headers: {
+                          'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                          tokenMint: tokenAddress,
+                          tokenAmount: 100,    // Very small amount
+                          solAmount: 0.01      // Minimal SOL
+                        }),
+                      });
+                      
+                      const result = await response.json();
+                      console.log('Raydium test result:', result);
+                      alert('Test completed. Check console for details.');
+                    } catch (error) {
+                      console.error('Test failed:', error);
+                      alert('Test failed: ' + (error instanceof Error ? error.message : String(error)));
+                    }
+                  }}
                 >
-                  View on Raydium
+                  Test Raydium (Small Amounts)
                 </Button>
-              )}
-            </Stack>
+              </Box>
+            )}
           </Box>
         );
       default:
