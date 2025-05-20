@@ -16,8 +16,9 @@ declare global {
 
 import { useState, useCallback } from 'react';
 import { useConnection, useWallet } from '@solana/wallet-adapter-react';
-import { TokenParams, createVerifiedToken, uploadMetadata } from '@/utils/solana';
-import { createLiquidityPool } from '@/utils/raydium';
+import { createVerifiedToken, uploadMetadata, TokenParams } from '../utils/solana';
+import { createLiquidityPool } from '../utils/raydium';
+import { createTokenMetadata } from '../utils/metaplex';
 
 /**
  * Add token to Phantom wallet using a direct SPL approach
@@ -142,7 +143,7 @@ export function useTokenCreation() {
       console.log('Creating token with metadata URI:', metadataUri);
       
       try {
-        // Create token with direct SPL token approach
+        // 1. Create token with direct SPL token approach
         const tokenAddress = await createVerifiedToken(
           connection, 
           wallet, 
@@ -151,7 +152,8 @@ export function useTokenCreation() {
             ...tokenData,
             retentionPercentage,
             retainedAmount,
-            liquidityAmount
+            liquidityAmount,
+            uri: metadataUri  // Pass the metadata URI to the token params
           }
         );
         
@@ -161,10 +163,27 @@ export function useTokenCreation() {
         
         console.log('Token created successfully with address:', tokenAddress);
         
-        // Automatically add token to wallet
+        // 2. Create proper on-chain metadata using Metaplex
+        try {
+          const metadataTxId = await createTokenMetadata(
+            connection,
+            wallet,
+            tokenAddress,
+            {
+              ...tokenData,
+              uri: metadataUri
+            }
+          );
+          console.log('Created on-chain Metaplex metadata, txId:', metadataTxId);
+        } catch (metaplexError) {
+          console.error('Error creating Metaplex metadata:', metaplexError);
+          // Continue with the process even if Metaplex fails
+        }
+        
+        // 3. Automatically add token to wallet
         await addTokenToPhantomWallet(tokenAddress);
         
-        // 5. Create Raydium liquidity pool if requested
+        // 4. Create Raydium liquidity pool if requested
         let poolTxId = null;
         if (tokenData.createPool && tokenData.liquiditySolAmount && tokenData.liquiditySolAmount > 0) {
           try {
@@ -219,7 +238,10 @@ export function useTokenCreation() {
           poolTxId,
         });
         
-        return tokenAddress;
+        return {
+          tokenAddress,
+          poolTxId,
+        };
       } catch (tokenError) {
         console.error('Error in token creation step:', tokenError);
         if (tokenError instanceof Error) {

@@ -39,6 +39,7 @@ export interface TokenParams {
   liquidityAmount?: number;     // Amount of tokens for liquidity
   createPool?: boolean;         // Whether to create a liquidity pool
   liquiditySolAmount?: number;  // Amount of SOL to add to the liquidity pool
+  uri?: string;                // URI pointing to token metadata
 }
 
 /**
