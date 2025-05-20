@@ -5,7 +5,10 @@ declare global {
   interface Window {
     phantom?: {
       solana?: {
-        request: (args: { method: string; params?: any }) => Promise<any>;
+        request: (args: { 
+          method: string; 
+          params: Record<string, unknown>
+        }) => Promise<unknown>;
       };
     };
   }
@@ -14,69 +17,53 @@ declare global {
 import { useState, useCallback } from 'react';
 import { useConnection, useWallet } from '@solana/wallet-adapter-react';
 import { TokenParams, createVerifiedToken, uploadMetadata } from '@/utils/solana';
-import { Connection, PublicKey } from '@solana/web3.js';
 import { createLiquidityPool } from '@/utils/raydium';
 
 /**
- * Add token to Phantom wallet
+ * Add token to Phantom wallet using a direct SPL approach
  * @param tokenAddress The mint address of the token to add
  */
 async function addTokenToPhantomWallet(tokenAddress: string): Promise<void> {
   try {
-    // Check if Phantom wallet is available
-    const phantom = window?.phantom?.solana;
-    
-    if (!phantom) {
+    // Check if Phantom wallet is available 
+    if (!window.phantom?.solana) {
       console.log('Phantom wallet extension not found');
       return;
     }
     
-    // Request to add the token to the wallet - use the newer method
     console.log('Adding token to Phantom wallet:', tokenAddress);
     
-    // Try the newer method first
+    // Simplified approach - just try the most reliable method
     try {
-      await phantom.request({
-        method: 'wallet_addToken',
+      await window.phantom.solana.request({
+        method: 'wallet_importSPLToken',
         params: {
-          tokenAddress: tokenAddress // Note: some wallets use tokenAddress instead of mintAddress
+          mintAddress: tokenAddress
         }
       });
-    } catch (newMethodError) {
-      console.log('New method failed, trying alternative method');
-      
-      // Fallback to alternative methods
+      console.log('Token successfully added to wallet');
+      return;
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    } catch (error) {
+      // If that fails, try the fallback method
       try {
-        // Method #1
-        await phantom.request({
+        await window.phantom.solana.request({
           method: 'wallet_importAsset',
           params: {
             address: tokenAddress
           }
         });
-      } catch (altError1) {
-        console.log('Alternative method #1 failed, trying #2');
-        
-        // Method #2
-        try {
-          // Direct connection to connect to SPL token
-          await phantom.request({
-            method: 'wallet_importSPLToken',
-            params: {
-              mintAddress: tokenAddress
-            }
-          });
-        } catch (altError2) {
-          console.log('All methods failed to add token to wallet');
-          console.error('Error details:', altError2);
-          // Don't throw - allow token creation to succeed even if wallet add fails
-        }
+        console.log('Token successfully added to wallet via fallback method');
+        return;
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      } catch (fallbackError) {
+        console.log('Automatic token import failed - wallet will detect token automatically');
+        // This is fine - the token still exists and will show up in transactions
       }
     }
-    
-    console.log('Token added to wallet successfully');
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   } catch (error) {
-    console.error('Error adding token to wallet:', error);
+    console.log('Token created successfully, but could not be automatically added to wallet');
     // Don't throw - allow token creation to succeed even if wallet add fails
   }
 }

@@ -158,7 +158,9 @@ export async function createLiquidityPool(
         computeBudgetConfig: {
           units: 400000,
           microLamports: 25000,
-        }
+        },
+        // Explicitly set the feePayer field to resolve the error
+        feePayer: wallet.publicKey
       };
       
       console.log('Pool configuration:', JSON.stringify(poolConfig, null, 2));
@@ -174,21 +176,26 @@ export async function createLiquidityPool(
         
         // Execute the transaction
         // We use 'as any' here too since we're dealing with an external API that may have changed
-        const result = await execute({
-          // Custom signing function
+        const executeParams = {
+          // Custom signing function that ensures feePayer is set
           signAllTransactions: async (txs: Transaction[]): Promise<Transaction[]> => {
             console.log(`Signing ${txs.length} transactions for Raydium pool creation...`);
             return await Promise.all(
               txs.map(async (tx) => {
                 // Ensure each transaction has the feePayer set
                 if (!tx.feePayer) {
+                  console.log('Setting missing feePayer on transaction');
                   tx.feePayer = wallet.publicKey;
                 }
                 return await wallet.signTransaction(tx);
               })
             );
-          }
-        } as any);
+          },
+          // Ensure feePayer is set at the top level too
+          feePayer: wallet.publicKey
+        };
+        
+        const result = await execute(executeParams as any);
         
         console.log('Pool created successfully!');
         console.log('Pool details:', extInfo);

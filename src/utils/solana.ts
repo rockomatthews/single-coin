@@ -2,7 +2,7 @@
 // @ts-nocheck
 // Disable TypeScript checking for this file to allow build to succeed
 
-import { Connection, Keypair, PublicKey, SystemProgram, Transaction, ComputeBudgetProgram } from '@solana/web3.js';
+import { Connection, Keypair, PublicKey, SystemProgram, Transaction, ComputeBudgetProgram, TransactionInstruction } from '@solana/web3.js';
 import { 
   createInitializeMintInstruction, 
   createMintToInstruction, 
@@ -69,43 +69,29 @@ export const uploadMetadata = async (connection: Connection, params: TokenParams
       console.log('Image uploaded, got IPFS URL:', imageUrl);
     }
     
-    // Prepare metadata in the Metaplex Token Standard format
-    // This format is recognizable by wallets like Phantom, Solflare, etc.
+    // Simple metadata structure - no Metaplex format
+    // This matches how Streamflow.finance handles token metadata
     const metadata = {
+      // Basic token information
       name: params.name,
       symbol: params.symbol,
-      description: params.description,
+      description: params.description || `${params.name} is a Solana token created with Coinbull.`,
+      
+      // Image must be a valid URL, not an IPFS URI
+      logo: imageUrl,
       image: imageUrl,
-      // Use the standard Metaplex format for external_url
-      external_url: params.website || '',
-      // Add attributes for additional links in a standard format
-      attributes: [
-        { trait_type: 'Website', value: params.website || '' },
-        { trait_type: 'Twitter', value: params.twitter || '' },
-        { trait_type: 'Telegram', value: params.telegram || '' },
-        { trait_type: 'Discord', value: params.discord || '' },
-      ],
-      // Include links in the properties object as well for better compatibility
-      properties: {
-        // Include the file for proper image display
-        files: [
-          {
-            uri: imageUrl,
-            type: 'image/png',
-          },
-        ],
-        // Add links in an additional format that some wallets recognize
-        links: {
-          website: params.website || '',
-          twitter: params.twitter || '',
-          telegram: params.telegram || '',
-          discord: params.discord || '',
-        },
-        // Add explicit creators field for better wallet recognition
-        creators: [],
-        // Category helps wallet organization
-        category: 'token',
-      },
+      
+      // Extra fields to help with wallet display
+      decimals: params.decimals,
+      
+      // Social links
+      website: params.website || '',
+      twitter: params.twitter || '',
+      telegram: params.telegram || '',
+      discord: params.discord || '',
+      
+      // Tags help with searchability
+      tags: ["solana", "token", "coinbull"]
     };
     
     console.log('Uploading metadata to Pinata:', metadata);
@@ -236,6 +222,34 @@ export const createVerifiedToken = async (
       
       console.log('Tokens minted, txid:', mintTxId);
       await connection.confirmTransaction(mintTxId);
+      
+      // Store the metadata URI in a transaction memo
+      // This helps wallets and explorers find the metadata without Metaplex
+      try {
+        const memoTransaction = new Transaction();
+        
+        // Add a memo instruction with the metadata URI to help with discovery
+        memoTransaction.add(
+          new TransactionInstruction({
+            keys: [],
+            programId: new PublicKey('MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr'),
+            data: Buffer.from(`Metadata URI: ${metadataUri}`)
+          })
+        );
+        
+        memoTransaction.feePayer = wallet.publicKey;
+        const memoBlockhash = await connection.getLatestBlockhash();
+        memoTransaction.recentBlockhash = memoBlockhash.blockhash;
+        
+        const signedMemoTx = await wallet.signTransaction(memoTransaction);
+        const memoTxId = await connection.sendRawTransaction(signedMemoTx.serialize());
+        
+        console.log('Metadata memo added, txid:', memoTxId);
+        await connection.confirmTransaction(memoTxId);
+      } catch (memoError) {
+        // If memo fails, it's not critical - the token still works
+        console.log('Non-critical: Failed to add metadata memo:', memoError);
+      }
       
       console.log('Token creation completed successfully');
       return mintPublicKey.toString();
