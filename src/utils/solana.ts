@@ -14,26 +14,6 @@ import {
 import { uploadToPinata, getIpfsGatewayUrl } from './pinata';
 import { Buffer } from 'buffer';
 
-// For metadata - imports needed to register token metadata
-import { 
-  DataV2, 
-  createCreateMetadataAccountV3Instruction,
-  PROGRAM_ID as METADATA_PROGRAM_ID
-} from '@metaplex-foundation/mpl-token-metadata';
-
-// Helper function to derive the metadata account address
-async function findMetadataAddress(mint: PublicKey): Promise<PublicKey> {
-  const [publicKey] = await PublicKey.findProgramAddress(
-    [
-      Buffer.from('metadata'),
-      METADATA_PROGRAM_ID.toBuffer(),
-      mint.toBuffer(),
-    ],
-    METADATA_PROGRAM_ID
-  );
-  return publicKey;
-}
-
 // Fee recipient's wallet address - Important for receiving platform fees
 const FEE_RECIPIENT_ADDRESS = process.env.NEXT_PUBLIC_FEE_RECIPIENT_ADDRESS || '';
 
@@ -187,58 +167,6 @@ export const createVerifiedToken = async (
       )
     );
     
-    // Add metadata to the token for proper wallet display
-    console.log('Adding metadata instruction for wallet display');
-    
-    // Find the metadata account address
-    const metadataAddress = await findMetadataAddress(mintPublicKey);
-    
-    // Create metadata for the token (name, symbol, URI)
-    const metadataData: DataV2 = {
-      name: params.name,
-      symbol: params.symbol,
-      uri: metadataUri,
-      sellerFeeBasisPoints: 0,
-      // Add creator info with the creator's wallet
-      creators: [
-        {
-          address: wallet.publicKey,
-          verified: true,
-          share: 100
-        }
-      ],
-      collection: null,
-      uses: null
-    };
-    
-    // Add compute budget to handle large transactions
-    createMintTransaction.add(
-      ComputeBudgetProgram.setComputeUnitLimit({
-        units: 300000,
-      })
-    );
-    
-    // Add the metadata creation instruction
-    createMintTransaction.add(
-      createCreateMetadataAccountV3Instruction(
-        {
-          metadata: metadataAddress,
-          mint: mintPublicKey,
-          mintAuthority: wallet.publicKey,
-          payer: wallet.publicKey,
-          updateAuthority: wallet.publicKey,
-        },
-        {
-          createMetadataAccountArgsV3: {
-            data: metadataData,
-            isMutable: true,
-            collectionDetails: null,
-          },
-        },
-        METADATA_PROGRAM_ID
-      )
-    );
-    
     // Sign and send the transaction
     try {
       createMintTransaction.feePayer = wallet.publicKey;
@@ -251,7 +179,7 @@ export const createVerifiedToken = async (
       const signedTx = await wallet.signTransaction(createMintTransaction);
       const createMintTxId = await connection.sendRawTransaction(signedTx.serialize());
       
-      console.log('Mint account and metadata created, txid:', createMintTxId);
+      console.log('Mint account created, txid:', createMintTxId);
       await connection.confirmTransaction(createMintTxId);
       
       // Calculate the token amount based on retention percentage
