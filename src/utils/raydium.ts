@@ -1,6 +1,7 @@
 import BN from 'bn.js';
 import { Connection, PublicKey, LAMPORTS_PER_SOL, Transaction, SystemProgram } from '@solana/web3.js';
-import { version as raydiumVersion } from '@raydium-io/raydium-sdk-v2/package.json';
+// Fix the import warning by creating a package.json constant directly
+const RAYDIUM_VERSION = '0.1.135-alpha'; // Update this to match your actual version
 
 // SOL token address is always the same on all networks
 const SOL_TOKEN_ADDRESS = 'So11111111111111111111111111111111111111112';
@@ -84,7 +85,7 @@ export async function createLiquidityPool(
       // Import the SDK dynamically to avoid SSR issues
       const { Raydium } = await import('@raydium-io/raydium-sdk-v2');
       
-      console.log('Raydium SDK version:', raydiumVersion);
+      console.log('Raydium SDK version:', RAYDIUM_VERSION);
       console.log('Initializing Raydium SDK...');
       
       // Initialize Raydium SDK
