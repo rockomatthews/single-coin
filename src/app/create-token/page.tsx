@@ -8,7 +8,9 @@ import {
   Stepper, 
   Step, 
   StepLabel, 
-  Paper 
+  Paper,
+  Button,
+  CircularProgress
 } from '@mui/material';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useWallet } from '@solana/wallet-adapter-react';
@@ -210,23 +212,28 @@ export default function CreateTokenPage() {
           
           <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 4 }}>
             {activeStep > 0 && activeStep < steps.length && (
-              <button
+              <Button
+                variant="outlined"
                 onClick={handleBack}
-                className="btn btn-outline-secondary"
                 disabled={isCreating}
               >
                 Back
-              </button>
+              </Button>
             )}
             
             {activeStep < steps.length && (
-              <button
+              <Button
+                variant="contained"
+                color={activeStep === steps.length - 1 ? "success" : "primary"}
                 onClick={handleNext}
-                className={`btn ${activeStep === steps.length - 1 ? 'btn-success' : 'btn-primary'} ms-auto`}
                 disabled={isCreating}
+                sx={{ ml: 'auto' }}
+                startIcon={isCreating ? <CircularProgress size={20} color="inherit" /> : null}
               >
-                {activeStep === steps.length - 1 ? 'Create Token' : 'Next'}
-              </button>
+                {activeStep === steps.length - 1 
+                  ? (isCreating ? 'Creating...' : 'Create Token') 
+                  : 'Next'}
+              </Button>
             )}
           </Box>
         </Box>

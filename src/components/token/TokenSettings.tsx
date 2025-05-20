@@ -12,7 +12,11 @@ import {
   FormHelperText,
   Grid,
   SelectChangeEvent,
+  IconButton,
+  Tooltip,
 } from '@mui/material';
+import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline';
+import ClearIcon from '@mui/icons-material/Clear';
 
 interface TokenSettingsProps {
   tokenParams: {
@@ -34,6 +38,8 @@ export default function TokenSettings({
   tokenParams,
   updateTokenParams,
 }: TokenSettingsProps) {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   // Handle text field changes
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -48,6 +54,33 @@ export default function TokenSettings({
     if (name) {
       updateTokenParams({ [name]: value });
     }
+  };
+
+  // Handle image upload
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      // Create a URL for the selected file
+      const imageUrl = URL.createObjectURL(file);
+      updateTokenParams({ image: imageUrl });
+    }
+    
+    // Reset file input value so the same file can be selected again
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  // Handle click on upload button
+  const handleClickUpload = () => {
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
+    }
+  };
+
+  // Handle removing the image
+  const handleClearImage = () => {
+    updateTokenParams({ image: 'https://via.placeholder.com/200?text=Token+Logo' });
   };
 
   return (
@@ -91,6 +124,90 @@ export default function TokenSettings({
             helperText="A brief description of your token and its purpose"
           />
         </Grid>
+        
+        {/* Image Upload Section */}
+        <Grid item xs={12}>
+          <Typography variant="body2" sx={{ mb: 2 }}>
+            Upload an image for your token (square PNG or JPG, 500x500px recommended)
+          </Typography>
+          <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+            <input
+              type="file"
+              ref={fileInputRef}
+              accept="image/*"
+              style={{ display: 'none' }}
+              onChange={handleImageUpload}
+            />
+            
+            {tokenParams.image && tokenParams.image !== 'https://via.placeholder.com/200?text=Token+Logo' ? (
+              <Box
+                sx={{
+                  position: 'relative',
+                  width: 150,
+                  height: 150,
+                  borderRadius: '50%',
+                  overflow: 'hidden',
+                  border: '2px solid #FFD700',
+                }}
+              >
+                <img
+                  src={tokenParams.image}
+                  alt="Token Image"
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    objectFit: 'cover',
+                  }}
+                />
+                <IconButton
+                  sx={{
+                    position: 'absolute',
+                    top: 0,
+                    right: 0,
+                    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+                    color: 'white',
+                    '&:hover': {
+                      backgroundColor: 'rgba(0, 0, 0, 0.9)',
+                    },
+                  }}
+                  size="small"
+                  onClick={handleClearImage}
+                >
+                  <ClearIcon />
+                </IconButton>
+              </Box>
+            ) : (
+              <Box
+                onClick={handleClickUpload}
+                sx={{
+                  width: 150,
+                  height: 150,
+                  borderRadius: '50%',
+                  border: '2px dashed rgba(255, 255, 255, 0.5)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s',
+                  '&:hover': {
+                    borderColor: '#FFD700',
+                    backgroundColor: 'rgba(255, 215, 0, 0.05)',
+                  },
+                }}
+              >
+                <Tooltip title="Upload Image">
+                  <AddCircleOutlineIcon
+                    sx={{
+                      fontSize: 40,
+                      color: '#FFD700',
+                    }}
+                  />
+                </Tooltip>
+              </Box>
+            )}
+          </Box>
+        </Grid>
+        
         <Grid item xs={12} sm={6}>
           <FormControl fullWidth>
             <InputLabel id="decimals-label">Decimals</InputLabel>
