@@ -2,8 +2,15 @@
 // @ts-nocheck
 // Disable TypeScript checking for this file to allow build to succeed
 
-import { Connection, PublicKey } from '@solana/web3.js';
-import { Metaplex, walletAdapterIdentity } from '@metaplex-foundation/js';
+import { Connection, Keypair, PublicKey, SystemProgram, Transaction } from '@solana/web3.js';
+import { 
+  createInitializeMintInstruction, 
+  createMintToInstruction, 
+  getAssociatedTokenAddress, 
+  createAssociatedTokenAccountInstruction, 
+  MintLayout, 
+  TOKEN_PROGRAM_ID 
+} from '@solana/spl-token';
 import { uploadToPinata, getIpfsGatewayUrl } from './pinata';
 import { Buffer } from 'buffer';
 
@@ -47,16 +54,9 @@ export const calculateFee = (retentionPercentage: number): number => {
 };
 
 /**
- * Initialize Metaplex instance
- */
-export const getMetaplex = (connection: Connection) => {
-  return Metaplex.make(connection);
-};
-
-/**
  * Upload token metadata to Pinata IPFS
  */
-export const uploadMetadata = async (metaplex: Metaplex, params: TokenParams) => {
+export const uploadMetadata = async (connection: Connection, params: TokenParams) => {
   try {
     // First, upload the image to Pinata if it's a URL
     let imageUrl = params.image;
@@ -109,7 +109,7 @@ export const uploadMetadata = async (metaplex: Metaplex, params: TokenParams) =>
 };
 
 /**
- * Create a verified Solana token (SPL token with metadata)
+ * Create a token using the SPL Token Program directly
  */
 export const createVerifiedToken = async (
   connection: Connection,
@@ -119,60 +119,123 @@ export const createVerifiedToken = async (
 ): Promise<string> => {
   try {
     console.log('Creating token with metadata URI:', metadataUri);
-    
-    // Create a more direct approach with Metaplex
-    const metaplex = Metaplex.make(connection);
-    
-    // Create a custom identity that doesn't rely on wallet adapter
-    const identity = {
-      publicKey: wallet.publicKey,
-      signMessage: async () => ({
-        signature: Buffer.from([]),
-        signedMessage: Buffer.from([]),
-      }),
-      signTransaction: wallet.signTransaction,
-      signAllTransactions: wallet.signAllTransactions,
-    };
-    
-    // Set the identity directly instead of using walletAdapterIdentity
-    metaplex.identity().setDriver(identity);
-    
-    console.log('Creating SPL token with metadata and initial supply...');
     console.log('Wallet public key:', wallet.publicKey.toString());
-    console.log('Initial supply:', params.retentionPercentage ? 
-      Math.floor(params.supply * (params.retentionPercentage / 100)) : 
-      params.supply);
     
-    // Create the token with initial supply in a single step
-    const { token } = await metaplex.tokens().createToken({
-      name: params.name,
-      symbol: params.symbol,
-      uri: metadataUri,
-      decimals: params.decimals,
-      initialSupply: params.retentionPercentage ? 
-        Math.floor(params.supply * (params.retentionPercentage / 100)) : 
-        params.supply,
-    });
+    // Generate a new keypair for the mint
+    const mintKeypair = Keypair.generate();
+    const mintPublicKey = mintKeypair.publicKey;
     
-    const mintAddress = token.address.toString();
-    console.log('Token created successfully with address:', mintAddress);
-    console.log(`Minted ${params.retentionPercentage || 100}% of ${params.supply} tokens to wallet`);
+    console.log('Generated mint public key:', mintPublicKey.toString());
     
-    return mintAddress;
+    // Calculate the space for the mint
+    const mintSpace = MintLayout.span;
+    const mintRent = await connection.getMinimumBalanceForRentExemption(mintSpace);
+    
+    console.log('Creating mint account transaction');
+    
+    // Create and send transaction to create mint account
+    const createMintTransaction = new Transaction().add(
+      SystemProgram.createAccount({
+        fromPubkey: wallet.publicKey,
+        newAccountPubkey: mintPublicKey,
+        lamports: mintRent,
+        space: mintSpace,
+        programId: TOKEN_PROGRAM_ID,
+      }),
+      createInitializeMintInstruction(
+        mintPublicKey,
+        params.decimals,
+        wallet.publicKey,
+        wallet.publicKey,
+        TOKEN_PROGRAM_ID
+      )
+    );
+    
+    // Sign and send the transaction
+    try {
+      createMintTransaction.feePayer = wallet.publicKey;
+      const blockhash = await connection.getLatestBlockhash();
+      createMintTransaction.recentBlockhash = blockhash.blockhash;
+      
+      // Sign with both the wallet and the mint keypair
+      createMintTransaction.sign(mintKeypair);
+      
+      const signedTx = await wallet.signTransaction(createMintTransaction);
+      const createMintTxId = await connection.sendRawTransaction(signedTx.serialize());
+      
+      console.log('Mint account created, txid:', createMintTxId);
+      await connection.confirmTransaction(createMintTxId);
+      
+      // Calculate the token amount based on retention percentage
+      let mintAmount;
+      if (params.retentionPercentage) {
+        mintAmount = Math.floor(params.supply * (params.retentionPercentage / 100));
+      } else {
+        mintAmount = params.supply;
+      }
+      
+      console.log(`Minting ${mintAmount} tokens to wallet`);
+      
+      // Get the associated token address for the owner
+      const associatedTokenAddress = await getAssociatedTokenAddress(
+        mintPublicKey,
+        wallet.publicKey
+      );
+      
+      // Create a transaction to create an associated token account and mint tokens
+      const mintToTransaction = new Transaction();
+      
+      // Check if the token account exists
+      const tokenAccountInfo = await connection.getAccountInfo(associatedTokenAddress);
+      
+      if (!tokenAccountInfo) {
+        // Create the associated token account if it doesn't exist
+        mintToTransaction.add(
+          createAssociatedTokenAccountInstruction(
+            wallet.publicKey,
+            associatedTokenAddress,
+            wallet.publicKey,
+            mintPublicKey
+          )
+        );
+      }
+      
+      // Add the mint instruction
+      mintToTransaction.add(
+        createMintToInstruction(
+          mintPublicKey,
+          associatedTokenAddress,
+          wallet.publicKey,
+          mintAmount * Math.pow(10, params.decimals)
+        )
+      );
+      
+      // Sign and send the transaction
+      mintToTransaction.feePayer = wallet.publicKey;
+      const mintBlockhash = await connection.getLatestBlockhash();
+      mintToTransaction.recentBlockhash = mintBlockhash.blockhash;
+      
+      const signedMintTx = await wallet.signTransaction(mintToTransaction);
+      const mintTxId = await connection.sendRawTransaction(signedMintTx.serialize());
+      
+      console.log('Tokens minted, txid:', mintTxId);
+      await connection.confirmTransaction(mintTxId);
+      
+      console.log('Token creation completed successfully');
+      return mintPublicKey.toString();
+    } catch (txError) {
+      console.error('Error signing or sending transaction:', txError);
+      if (txError instanceof Error) {
+        console.error('Error details:', txError.message);
+      }
+      throw txError;
+    }
   } catch (error) {
     console.error('Error creating token:', error);
-    
-    // Add more detailed error logging
     if (error instanceof Error) {
       console.error('Error message:', error.message);
       console.error('Error stack:', error.stack);
-      
-      // If error has a cause, log that too
-      if ('cause' in error && error.cause) {
-        console.error('Error cause:', error.cause);
-      }
     }
-    
     throw error;
   }
 }; 

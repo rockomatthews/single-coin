@@ -14,7 +14,7 @@ declare global {
 import { useState, useCallback } from 'react';
 import { useConnection, useWallet } from '@solana/wallet-adapter-react';
 import { TokenParams, createVerifiedToken, uploadMetadata } from '@/utils/solana';
-import { Metaplex } from '@metaplex-foundation/js';
+import { Connection, PublicKey } from '@solana/web3.js';
 import { createLiquidityPool } from '@/utils/raydium';
 
 /**
@@ -90,21 +90,6 @@ export function useTokenCreation() {
     });
 
     try {
-      // 1. Create wallet adapter for metaplex that matches expected structure
-      const wallet = {
-        publicKey, // This is already a PublicKey object from @solana/web3.js
-        signTransaction,
-        signAllTransactions,
-        // Optional: Add a signMessage method if it's available or provide a no-op implementation
-        signMessage: async (message: Uint8Array) => {
-          if (typeof window !== 'undefined' && window.solana && window.solana.signMessage) {
-            return await window.solana.signMessage(message);
-          }
-          // Return a placeholder signature for environments where signing messages isn't supported
-          return { signature: new Uint8Array(0) };
-        }
-      };
-
       // Debug output the wallet for inspection
       console.log('Using wallet for token creation:', {
         publicKey: publicKey.toString(),
@@ -112,25 +97,29 @@ export function useTokenCreation() {
         hasSignAllTransactions: !!signAllTransactions,
       });
 
-      // 2. Create Metaplex instance
-      const metaplex = new Metaplex(connection);
-      
-      // 3. Upload metadata to Pinata
-      console.log('Uploading metadata to Pinata with:', tokenData);
-      const metadataUri = await uploadMetadata(metaplex, tokenData);
+      // Create wallet adapter for SPL token operations
+      const wallet = {
+        publicKey, 
+        signTransaction,
+        signAllTransactions,
+      };
       
       // Calculate token distribution
       const retentionPercentage = tokenData.retentionPercentage || 50;
       const totalSupply = tokenData.supply;
       const retainedAmount = tokenData.retainedAmount || 
-                           Math.floor(totalSupply * (retentionPercentage / 100));
+                          Math.floor(totalSupply * (retentionPercentage / 100));
       const liquidityAmount = tokenData.liquidityAmount || 
                             (totalSupply - retainedAmount);
+      
+      // Upload metadata to Pinata
+      console.log('Uploading metadata to Pinata with:', tokenData);
+      const metadataUri = await uploadMetadata(connection, tokenData);
       
       console.log('Creating token with metadata URI:', metadataUri);
       
       try {
-        // 4. Create token with metadata - now with extra try-catch block for better error handling
+        // Create token with direct SPL token approach
         const tokenAddress = await createVerifiedToken(
           connection, 
           wallet, 
