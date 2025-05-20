@@ -90,11 +90,19 @@ export function useTokenCreation() {
     });
 
     try {
-      // 1. Create wallet adapter for metaplex
+      // 1. Create wallet adapter for metaplex that matches expected structure
       const wallet = {
-        publicKey,
+        publicKey, // This is already a PublicKey object from @solana/web3.js
         signTransaction,
         signAllTransactions,
+        // Optional: Add a signMessage method if it's available or provide a no-op implementation
+        signMessage: async (message: Uint8Array) => {
+          if (typeof window !== 'undefined' && window.solana && window.solana.signMessage) {
+            return await window.solana.signMessage(message);
+          }
+          // Return a placeholder signature for environments where signing messages isn't supported
+          return { signature: new Uint8Array(0) };
+        }
       };
 
       // 2. Create Metaplex instance
@@ -108,9 +116,9 @@ export function useTokenCreation() {
       const retentionPercentage = tokenData.retentionPercentage || 50;
       const totalSupply = tokenData.supply;
       const retainedAmount = tokenData.retainedAmount || 
-                             Math.floor(totalSupply * (retentionPercentage / 100));
+                           Math.floor(totalSupply * (retentionPercentage / 100));
       const liquidityAmount = tokenData.liquidityAmount || 
-                              (totalSupply - retainedAmount);
+                            (totalSupply - retainedAmount);
       
       console.log('Creating token with metadata URI:', metadataUri);
       

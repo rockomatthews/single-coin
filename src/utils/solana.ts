@@ -121,8 +121,17 @@ export const createVerifiedToken = async (
     console.log('Creating token with metadata URI:', metadataUri);
     const metaplex = getMetaplex(connection);
     
-    // Use wallet adapter identity
-    metaplex.use(walletAdapterIdentity(wallet));
+    // Ensure the wallet has the correct structure expected by Metaplex
+    const adaptedWallet = {
+      publicKey: new PublicKey(wallet.publicKey.toString()),
+      signTransaction: wallet.signTransaction,
+      signAllTransactions: wallet.signAllTransactions,
+      // Add required methods that might be missing
+      signMessage: wallet.signMessage || (async (message: Uint8Array) => ({ signature: Buffer.from([]) })),
+    };
+    
+    // Use wallet adapter identity with the adapted wallet
+    metaplex.use(walletAdapterIdentity(adaptedWallet));
     
     console.log('Creating SPL token with metadata and initial supply...');
     
