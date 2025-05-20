@@ -259,31 +259,30 @@ export const createVerifiedToken = async (
       try {
         const memoTransaction = new Transaction();
         
-        // Format the memo according to the format recognized by Solscan and Phantom wallet
-        // This exact format is critical for metadata recognition
-        const metadataText = `Token Metadata: ${metadataUri}`;
-        
-        // Add a memo instruction with the metadata URI in the correct format recognized by Solscan
+        // Most reliable format for metadata in memo - both Solscan and Phantom recognize this
         memoTransaction.add(
           new TransactionInstruction({
-            keys: [
-              {
-                pubkey: mintPublicKey,
-                isSigner: false,
-                isWritable: false,
-              }
-            ],
+            keys: [],  // No keys needed for basic memo
             programId: new PublicKey('MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr'),
-            data: Buffer.from(metadataText)
+            data: Buffer.from(`URI: ${metadataUri}`)
           })
         );
         
-        // Add additional metadata info in another memo for redundancy
+        // Add token name and symbol in the same memo transaction
         memoTransaction.add(
           new TransactionInstruction({
-            keys: [],
+            keys: [],  // No keys needed for basic memo
             programId: new PublicKey('MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr'),
-            data: Buffer.from(`{"name":"${params.name}","symbol":"${params.symbol}","uri":"${metadataUri}"}`)
+            data: Buffer.from(`Name: ${params.name}, Symbol: ${params.symbol}`)
+          })
+        );
+        
+        // JSON metadata format that some indexers use
+        memoTransaction.add(
+          new TransactionInstruction({
+            keys: [],  // No keys needed for basic memo
+            programId: new PublicKey('MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr'),
+            data: Buffer.from(`{"token":"${mintPublicKey.toString()}","name":"${params.name}","symbol":"${params.symbol}","uri":"${metadataUri}"}`)
           })
         );
         
@@ -296,41 +295,6 @@ export const createVerifiedToken = async (
         
         console.log('Metadata memo added, txid:', memoTxId);
         await connection.confirmTransaction(memoTxId);
-        
-        // Register with token-list - this creates a more stable reference
-        try {
-          const tokenListTransaction = new Transaction();
-          tokenListTransaction.add(
-            new TransactionInstruction({
-              keys: [
-                {
-                  pubkey: mintPublicKey,
-                  isSigner: false,
-                  isWritable: false,
-                },
-                {
-                  pubkey: wallet.publicKey,
-                  isSigner: true,
-                  isWritable: false,
-                }
-              ],
-              programId: new PublicKey('MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr'),
-              data: Buffer.from(`TokenStandard: ${metadataUri}`)
-            })
-          );
-          
-          tokenListTransaction.feePayer = wallet.publicKey;
-          const tlBlockhash = await connection.getLatestBlockhash();
-          tokenListTransaction.recentBlockhash = tlBlockhash.blockhash;
-          
-          const signedTLTx = await wallet.signTransaction(tokenListTransaction);
-          const tlTxId = await connection.sendRawTransaction(signedTLTx.serialize());
-          
-          console.log('Token list memo added, txid:', tlTxId);
-          await connection.confirmTransaction(tlTxId);
-        } catch (tlError) {
-          console.log('Non-critical: Failed to add token list memo:', tlError);
-        }
       } catch (memoError) {
         // If memo fails, it's not critical - the token still works
         console.log('Non-critical: Failed to add metadata memo:', memoError);
