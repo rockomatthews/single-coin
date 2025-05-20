@@ -105,6 +105,13 @@ export function useTokenCreation() {
         }
       };
 
+      // Debug output the wallet for inspection
+      console.log('Using wallet for token creation:', {
+        publicKey: publicKey.toString(),
+        hasSignTransaction: !!signTransaction,
+        hasSignAllTransactions: !!signAllTransactions,
+      });
+
       // 2. Create Metaplex instance
       const metaplex = new Metaplex(connection);
       
@@ -122,84 +129,93 @@ export function useTokenCreation() {
       
       console.log('Creating token with metadata URI:', metadataUri);
       
-      // 4. Create token with metadata
-      const tokenAddress = await createVerifiedToken(
-        connection, 
-        wallet, 
-        metadataUri, 
-        {
-          ...tokenData,
-          retentionPercentage,
-          retainedAmount,
-          liquidityAmount
-        }
-      );
-      
-      if (!tokenAddress) {
-        throw new Error('Failed to create token - no token address returned');
-      }
-      
-      console.log('Token created successfully with address:', tokenAddress);
-      
-      // Automatically add token to wallet
-      await addTokenToPhantomWallet(tokenAddress);
-      
-      // 5. Create Raydium liquidity pool if requested
-      let poolTxId = null;
-      if (tokenData.createPool && tokenData.liquiditySolAmount && tokenData.liquiditySolAmount > 0) {
-        try {
-          console.log(`Creating Raydium liquidity pool with ${liquidityAmount} tokens and ${tokenData.liquiditySolAmount} SOL`);
-          
-          poolTxId = await createLiquidityPool(
-            connection,
-            wallet,
-            tokenAddress,
-            liquidityAmount,
-            tokenData.liquiditySolAmount,
-            true // Send fee to fee recipient
-          );
-          
-          console.log('Liquidity pool created with txId:', poolTxId);
-        } catch (poolError) {
-          console.error('Error creating liquidity pool:', poolError);
-          // Continue even if pool creation fails - the token was still created
-        }
-      }
-      
-      // 6. Save token to database
-      const response = await fetch('/api/create-token', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          userAddress: publicKey.toString(),
-          tokenAddress,
-          tokenData: {
+      try {
+        // 4. Create token with metadata - now with extra try-catch block for better error handling
+        const tokenAddress = await createVerifiedToken(
+          connection, 
+          wallet, 
+          metadataUri, 
+          {
             ...tokenData,
             retentionPercentage,
             retainedAmount,
             liquidityAmount
+          }
+        );
+        
+        if (!tokenAddress) {
+          throw new Error('Failed to create token - no token address returned');
+        }
+        
+        console.log('Token created successfully with address:', tokenAddress);
+        
+        // Automatically add token to wallet
+        await addTokenToPhantomWallet(tokenAddress);
+        
+        // 5. Create Raydium liquidity pool if requested
+        let poolTxId = null;
+        if (tokenData.createPool && tokenData.liquiditySolAmount && tokenData.liquiditySolAmount > 0) {
+          try {
+            console.log(`Creating Raydium liquidity pool with ${liquidityAmount} tokens and ${tokenData.liquiditySolAmount} SOL`);
+            
+            poolTxId = await createLiquidityPool(
+              connection,
+              wallet,
+              tokenAddress,
+              liquidityAmount,
+              tokenData.liquiditySolAmount,
+              true // Send fee to fee recipient
+            );
+            
+            console.log('Liquidity pool created with txId:', poolTxId);
+          } catch (poolError) {
+            console.error('Error creating liquidity pool:', poolError);
+            // Continue even if pool creation fails - the token was still created
+          }
+        }
+        
+        // 6. Save token to database
+        const response = await fetch('/api/create-token', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
           },
-          poolTxId, // Include pool transaction ID if available
-        }),
-      });
+          body: JSON.stringify({
+            userAddress: publicKey.toString(),
+            tokenAddress,
+            tokenData: {
+              ...tokenData,
+              retentionPercentage,
+              retainedAmount,
+              liquidityAmount
+            },
+            poolTxId, // Include pool transaction ID if available
+          }),
+        });
 
-      const data = await response.json();
+        const data = await response.json();
 
-      if (!data.success) {
-        throw new Error(data.error || 'Failed to save token details');
+        if (!data.success) {
+          throw new Error(data.error || 'Failed to save token details');
+        }
+
+        setState({
+          isCreating: false,
+          error: null,
+          tokenAddress,
+          success: true,
+          poolTxId,
+        });
+        
+        return tokenAddress;
+      } catch (tokenError) {
+        console.error('Error in token creation step:', tokenError);
+        if (tokenError instanceof Error) {
+          console.error('Detailed error:', tokenError.message);
+          console.error('Error stack:', tokenError.stack);
+        }
+        throw tokenError;
       }
-
-      setState({
-        isCreating: false,
-        error: null,
-        tokenAddress,
-        success: true,
-        poolTxId,
-      });
-      
-      return tokenAddress;
     } catch (error) {
       console.error('Error creating token:', error);
       

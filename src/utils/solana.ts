@@ -119,21 +119,29 @@ export const createVerifiedToken = async (
 ): Promise<string> => {
   try {
     console.log('Creating token with metadata URI:', metadataUri);
-    const metaplex = getMetaplex(connection);
     
-    // Ensure the wallet has the correct structure expected by Metaplex
-    const adaptedWallet = {
-      publicKey: new PublicKey(wallet.publicKey.toString()),
+    // Create a more direct approach with Metaplex
+    const metaplex = Metaplex.make(connection);
+    
+    // Create a custom identity that doesn't rely on wallet adapter
+    const identity = {
+      publicKey: wallet.publicKey,
+      signMessage: async () => ({
+        signature: Buffer.from([]),
+        signedMessage: Buffer.from([]),
+      }),
       signTransaction: wallet.signTransaction,
       signAllTransactions: wallet.signAllTransactions,
-      // Add required methods that might be missing
-      signMessage: wallet.signMessage || (async (message: Uint8Array) => ({ signature: Buffer.from([]) })),
     };
     
-    // Use wallet adapter identity with the adapted wallet
-    metaplex.use(walletAdapterIdentity(adaptedWallet));
+    // Set the identity directly instead of using walletAdapterIdentity
+    metaplex.identity().setDriver(identity);
     
     console.log('Creating SPL token with metadata and initial supply...');
+    console.log('Wallet public key:', wallet.publicKey.toString());
+    console.log('Initial supply:', params.retentionPercentage ? 
+      Math.floor(params.supply * (params.retentionPercentage / 100)) : 
+      params.supply);
     
     // Create the token with initial supply in a single step
     const { token } = await metaplex.tokens().createToken({
@@ -153,6 +161,18 @@ export const createVerifiedToken = async (
     return mintAddress;
   } catch (error) {
     console.error('Error creating token:', error);
+    
+    // Add more detailed error logging
+    if (error instanceof Error) {
+      console.error('Error message:', error.message);
+      console.error('Error stack:', error.stack);
+      
+      // If error has a cause, log that too
+      if ('cause' in error && error.cause) {
+        console.error('Error cause:', error.cause);
+      }
+    }
+    
     throw error;
   }
 }; 
