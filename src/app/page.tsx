@@ -1,10 +1,14 @@
 'use client';
 
-import { Box, Button, Container, Typography, Card, CardContent, CardMedia } from '@mui/material';
+import { Box, Button, Container, Typography, Card, CardContent, CardMedia, Chip, Tooltip } from '@mui/material';
 import Grid from '@mui/material/Unstable_Grid2';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useEffect, useState } from 'react';
+import TrendingUpIcon from '@mui/icons-material/TrendingUp';
+import LocalFireDepartmentIcon from '@mui/icons-material/LocalFireDepartment';
+import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
+import { formatMarketCap, formatPrice } from '@/utils/tokenPrices';
 
 // Token interface
 interface Token {
@@ -14,6 +18,11 @@ interface Token {
   token_symbol: string;
   token_image?: string;
   user_address?: string;
+  decimals?: number;
+  supply?: number;
+  marketCap?: number; // New field for market cap
+  price?: number;     // New field for token price
+  created_at?: string; // Added for sorting by date
 }
 
 export default function Home() {
@@ -26,12 +35,35 @@ export default function Home() {
     const fetchTokens = async () => {
       try {
         setLoading(true);
-        // Just use placeholder tokens instead of trying to call API without address
-        // This avoids the 400 error on the homepage
-        setHotTokens([]);
-        setRecentTokens([]);
+        
+        // Fetch tokens from API
+        const response = await fetch('/api/tokens/recent');
+        const data = await response.json();
+        
+        if (data.success && data.tokens && data.tokens.length > 0) {
+          // Sort tokens by creation date for recent tokens (newest first)
+          const sortedByDate = [...data.tokens].sort((a, b) => 
+            new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
+          );
+          
+          // Sort tokens by market cap for hot tokens (highest first)
+          const sortedByMarketCap = [...data.tokens].sort((a, b) => 
+            (b.marketCap || 0) - (a.marketCap || 0)
+          );
+          
+          setRecentTokens(sortedByDate);
+          setHotTokens(sortedByMarketCap);
+        } else {
+          // Generate placeholders if API request fails or returns empty data
+          const placeholders = generatePlaceholders(32);
+          setHotTokens(placeholders);
+          setRecentTokens(placeholders);
+        }
       } catch (error) {
         console.error('Error fetching tokens:', error);
+        const placeholders = generatePlaceholders(32);
+        setHotTokens(placeholders);
+        setRecentTokens(placeholders);
       } finally {
         setLoading(false);
       }
@@ -42,17 +74,28 @@ export default function Home() {
 
   // Generate placeholder tokens if no real tokens are available
   const generatePlaceholders = (count: number) => {
-    return Array(count).fill(null).map((_, i) => ({
-      token_address: `placeholder-${i}`,
-      token_name: `Token ${i+1}`,
-      token_symbol: `TKN${i+1}`,
-      token_image: `/images/logo.png`,
-    }));
+    return Array(count).fill(null).map((_, i) => {
+      // Random price for demonstration
+      const price = Math.random() * 0.001;
+      const supply = Math.floor(Math.random() * 1000000000) + 1000000;
+      const marketCap = price * supply;
+      
+      return {
+        token_address: `placeholder-${i}`,
+        token_name: `Token ${i+1}`,
+        token_symbol: `TKN${i+1}`,
+        token_image: `/images/logo.png`,
+        supply,
+        price,
+        marketCap,
+        created_at: new Date(Date.now() - i * 86400000).toISOString() // Decreasing dates
+      };
+    });
   };
 
   // Use real tokens if available, otherwise use placeholders
-  const displayedHotTokens = hotTokens.length > 0 ? hotTokens : generatePlaceholders(8);
-  const displayedRecentTokens = recentTokens.length > 0 ? recentTokens : generatePlaceholders(8);
+  const displayedHotTokens = hotTokens.length > 0 ? hotTokens : generatePlaceholders(12);
+  const displayedRecentTokens = recentTokens.length > 0 ? recentTokens : generatePlaceholders(32);
 
   return (
     <>
@@ -145,12 +188,12 @@ export default function Home() {
               mb: 3
             }}
           >
-            🔥 Hot Tokens 🔥
+            <LocalFireDepartmentIcon sx={{ mr: 1, color: 'orange' }} /> Hot Tokens <LocalFireDepartmentIcon sx={{ ml: 1, color: 'orange' }} />
           </Typography>
           
           <Grid container spacing={2}>
-            {displayedHotTokens.map((token) => (
-              <Grid key={token.token_address} xs={6} sm={4} md={3} lg={1.5}>
+            {displayedHotTokens.slice(0, 12).map((token) => (
+              <Grid key={token.token_address} xs={6} sm={3} md={2} lg={2}>
                 <Card 
                   sx={{ 
                     height: '100%', 
@@ -184,6 +227,31 @@ export default function Home() {
                     <Typography variant="body2" align="center" noWrap>
                       {token.token_name}
                     </Typography>
+                    <Typography variant="caption" align="center" color="text.secondary" display="block">
+                      {token.token_symbol}
+                    </Typography>
+                    
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, mt: 0.5 }}>
+                      <Tooltip title="Market Cap">
+                        <Chip 
+                          icon={<TrendingUpIcon fontSize="small" />}
+                          label={formatMarketCap(token.marketCap)}
+                          size="small"
+                          variant="outlined"
+                          sx={{ width: '100%' }}
+                        />
+                      </Tooltip>
+                      
+                      <Tooltip title="Token Price">
+                        <Chip 
+                          icon={<AttachMoneyIcon fontSize="small" />}
+                          label={formatPrice(token.price)}
+                          size="small"
+                          variant="outlined"
+                          sx={{ width: '100%' }}
+                        />
+                      </Tooltip>
+                    </Box>
                   </CardContent>
                 </Card>
               </Grid>
@@ -208,8 +276,8 @@ export default function Home() {
         </Typography>
         
         <Grid container spacing={2}>
-          {displayedRecentTokens.map((token) => (
-            <Grid key={token.token_address} xs={6} sm={4} md={3} lg={1.5}>
+          {displayedRecentTokens.slice(0, 32).map((token) => (
+            <Grid key={token.token_address} xs={6} sm={3} md={2} lg={1.5}>
               <Card 
                 sx={{ 
                   height: '100%', 
@@ -243,6 +311,18 @@ export default function Home() {
                   <Typography variant="body2" align="center" noWrap>
                     {token.token_name}
                   </Typography>
+                  <Typography variant="caption" align="center" color="text.secondary" display="block">
+                    {token.token_symbol}
+                  </Typography>
+                  <Tooltip title="Market Cap">
+                    <Chip 
+                      icon={<TrendingUpIcon fontSize="small" />}
+                      label={formatMarketCap(token.marketCap)}
+                      size="small"
+                      variant="outlined"
+                      sx={{ mt: 0.5, width: '100%' }}
+                    />
+                  </Tooltip>
                 </CardContent>
               </Card>
             </Grid>
