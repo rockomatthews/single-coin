@@ -114,13 +114,15 @@ export default function TokenLiquidity({
               <Typography variant="body2">
                 • Initial price: {(tokenParams.liquiditySolAmount / liquidityTokens).toFixed(8)} SOL per token<br/>
                 • Market cap: ${((tokenParams.liquiditySolAmount / liquidityTokens) * tokenParams.supply * 200).toFixed(0)} (assuming $200 SOL)<br/>
-                • Pool liquidity: {tokenParams.liquiditySolAmount.toFixed(4)} SOL + {liquidityTokens.toLocaleString()} tokens<br/>
-                • Platform fee (3%): {(tokenParams.liquiditySolAmount * 0.03).toFixed(4)} SOL
+                • Your liquidity: {tokenParams.liquiditySolAmount.toFixed(4)} SOL + {liquidityTokens.toLocaleString()} tokens<br/>
+                • Platform fee: {(tokenParams.liquiditySolAmount * 0.03).toFixed(4)} SOL (3%)<br/>
+                • Raydium pool fees: 0.154 SOL (protocol costs)<br/>
+                • <strong>Total cost: {(tokenParams.liquiditySolAmount + 0.154 + (tokenParams.liquiditySolAmount * 0.03)).toFixed(4)} SOL</strong>
               </Typography>
             </Alert>
 
             <Typography variant="body2" color="text.secondary">
-              Higher SOL amounts provide better price stability and market visibility. Your tokens will be tradeable immediately after pool creation.
+              Total includes: Your liquidity + Platform fee (3%) + Raydium pool creation fees (0.154 SOL). Competitive pricing with real DEX integration!
             </Typography>
           </>
         )}

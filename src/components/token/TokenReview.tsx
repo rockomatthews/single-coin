@@ -120,24 +120,33 @@ export default function TokenReview({
         <Box sx={{ mt: 2 }}>
           <Stack spacing={1.5}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-              <Typography variant="subtitle2">Token Fee:</Typography>
+              <Typography variant="subtitle2">Platform Fee:</Typography>
               <Typography variant="subtitle2" fontWeight="bold">
                 {calculateFee()} SOL
               </Typography>
             </Box>
             
             {tokenParams.createPool && (
-              <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                <Typography variant="subtitle2">Liquidity:</Typography>
-                <Typography variant="subtitle2">
-                  {tokenParams.liquiditySolAmount.toFixed(4)} SOL
-                </Typography>
-              </Box>
+              <>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <Typography variant="subtitle2">Your Liquidity:</Typography>
+                  <Typography variant="subtitle2">
+                    {tokenParams.liquiditySolAmount.toFixed(4)} SOL
+                  </Typography>
+                </Box>
+                
+                <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <Typography variant="subtitle2">Raydium Pool Fees:</Typography>
+                  <Typography variant="subtitle2">
+                    0.154 SOL
+                  </Typography>
+                </Box>
+              </>
             )}
             
-            <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-              <Typography variant="subtitle2">Total Cost:</Typography>
-              <Typography variant="subtitle2" fontWeight="bold">
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', pt: 1, borderTop: 1, borderColor: 'divider' }}>
+              <Typography variant="subtitle2" fontWeight="bold">Total Cost:</Typography>
+              <Typography variant="subtitle2" fontWeight="bold" color="primary">
                 {calculateTotalCost()} SOL
               </Typography>
             </Box>

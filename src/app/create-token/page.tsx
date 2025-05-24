@@ -113,28 +113,31 @@ export default function CreateTokenPage() {
     }
   }, [tokenParams, isCreating, createToken]);
   
-  // Calculate fee based on parameters (exponential increase for higher retention)
+  // Calculate fee based on parameters (competitive pricing with Raydium costs)
   const calculateFee = useCallback(() => {
-    const BASE_FEE = 0.05; // Base fee in SOL
-    const FEE_MULTIPLIER = 0.85; // Multiplier for exponential growth
-    const FEE_EXPONENT = 3; // Exponent for curve steepness
+    // Base platform fee (competitive with other platforms)
+    const basePlatformFee = 0.03; // $6-9 at current SOL prices
     
     // Get retention percentage
     const retentionPercentage = tokenParams.retentionPercentage || 20;
     
-    // Calculate fee with exponential increase as retention grows
-    // Formula: BASE_FEE + (FEE_MULTIPLIER * (retention/100)^FEE_EXPONENT)
-    const calculatedFee = BASE_FEE + (FEE_MULTIPLIER * Math.pow(retentionPercentage/100, FEE_EXPONENT));
+    // Additional fee for higher retention (discourages hoarding)
+    const retentionPenalty = Math.pow(Math.max(0, retentionPercentage - 20) / 100, 2.5) * 0.45;
+    
+    // Total platform fee
+    const totalPlatformFee = basePlatformFee + retentionPenalty;
     
     // Return fee in SOL with 4 decimal precision
-    return Math.min(Math.max(calculatedFee, BASE_FEE), 1.0).toFixed(4);
+    return Math.max(totalPlatformFee, 0.03).toFixed(4);
   }, [tokenParams.retentionPercentage]);
 
-  // Calculate total cost (fee + liquidity)
+  // Calculate total cost (platform fee + liquidity + Raydium fees)
   const calculateTotalCost = useCallback(() => {
-    const fee = parseFloat(calculateFee());
+    const platformFee = parseFloat(calculateFee());
     const liquiditySol = tokenParams.liquiditySolAmount || 0;
-    return (fee + liquiditySol).toFixed(4);
+    const raydiumFees = 0.154; // Actual Raydium pool creation costs
+    
+    return (platformFee + liquiditySol + raydiumFees).toFixed(4);
   }, [calculateFee, tokenParams.liquiditySolAmount]);
 
   // Convert SOL to lamports

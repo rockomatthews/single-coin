@@ -40,6 +40,12 @@ const POOL_SEED = "pool";
 const POOL_VAULT_SEED = "pool_vault";
 const POOL_LP_MINT_SEED = "pool_lp_mint";
 
+// Actual Raydium CPMM Pool Creation Fees (from official docs)
+const RAYDIUM_PROTOCOL_FEE = 0.15;        // 0.15 SOL - Raydium's protocol fee
+const RAYDIUM_NETWORK_FEES = 0.002;       // ~0.002 SOL for network fees
+const RAYDIUM_LP_ACCOUNT_FEE = 0.00203928; // LP token account creation
+const TOTAL_RAYDIUM_FEES = RAYDIUM_PROTOCOL_FEE + RAYDIUM_NETWORK_FEES + RAYDIUM_LP_ACCOUNT_FEE; // ~0.154 SOL
+
 /**
  * REAL Raydium CPMM Pool Creation - Creates Immediately Tradeable Pools
  * Uses Raydium's new CPMM program that doesn't require OpenBook markets
@@ -64,12 +70,21 @@ export async function createLiquidityPool(
     const FEE_RECIPIENT_ADDRESS = process.env.NEXT_PUBLIC_FEE_RECIPIENT_ADDRESS || '';
     const FEE_PERCENTAGE = 0.03; // 3%
     
-    const feeSol = solAmount * FEE_PERCENTAGE;
-    const remainingSol = solAmount - feeSol;
+    // Calculate fees properly
+    const platformFeeSol = solAmount * FEE_PERCENTAGE;
+    const remainingAfterPlatformFee = solAmount - platformFeeSol;
+    
+    // Reserve Raydium's fees from the remaining amount
+    const actualLiquiditySol = remainingAfterPlatformFee - TOTAL_RAYDIUM_FEES;
+    
+    if (actualLiquiditySol <= 0) {
+      throw new Error(`❌ Insufficient SOL. Need at least ${(platformFeeSol + TOTAL_RAYDIUM_FEES).toFixed(4)} SOL to cover platform fees (${platformFeeSol.toFixed(4)}) + Raydium fees (${TOTAL_RAYDIUM_FEES.toFixed(4)})`);
+    }
     
     console.log(`🌐 Network: ${isDevnet ? 'devnet' : 'mainnet'}`);
-    console.log(`💸 Platform fee: ${feeSol.toFixed(4)} SOL (3%)`);
-    console.log(`🏊 Pool liquidity: ${remainingSol.toFixed(4)} SOL + ${tokenAmount.toLocaleString()} tokens`);
+    console.log(`💸 Platform fee (3%): ${platformFeeSol.toFixed(4)} SOL`);
+    console.log(`🏗️ Raydium pool creation fees: ${TOTAL_RAYDIUM_FEES.toFixed(4)} SOL`);
+    console.log(`🏊 Actual pool liquidity: ${actualLiquiditySol.toFixed(4)} SOL + ${tokenAmount.toLocaleString()} tokens`);
     
     // Step 1: Send platform fee
     if (sendFeeToFeeRecipient && FEE_RECIPIENT_ADDRESS) {
@@ -79,7 +94,7 @@ export async function createLiquidityPool(
           SystemProgram.transfer({
             fromPubkey: wallet.publicKey,
             toPubkey: new PublicKey(FEE_RECIPIENT_ADDRESS),
-            lamports: Math.floor(feeSol * LAMPORTS_PER_SOL),
+            lamports: Math.floor(platformFeeSol * LAMPORTS_PER_SOL),
           })
         );
         
@@ -113,10 +128,10 @@ export async function createLiquidityPool(
     
     // Step 3: Calculate amounts with proper decimals
     const tokenAmountWithDecimals = BigInt(Math.floor(tokenAmount * Math.pow(10, decimals)));
-    const solLamports = BigInt(Math.floor(remainingSol * LAMPORTS_PER_SOL));
+    const solLamports = BigInt(Math.floor(actualLiquiditySol * LAMPORTS_PER_SOL));
     
     console.log(`📊 Token Amount: ${tokenAmountWithDecimals.toString()} (${tokenAmount.toLocaleString()} tokens)`);
-    console.log(`📊 SOL Amount: ${solLamports.toString()} (${remainingSol} SOL)`);
+    console.log(`📊 SOL Amount: ${solLamports.toString()} (${actualLiquiditySol} SOL)`);
     
     // Step 4: Verify user has sufficient balance
     const userTokenAccount = await token.getAssociatedTokenAddress(
@@ -280,7 +295,7 @@ export async function createLiquidityPool(
           poolId: poolId.toString(),
           tokenMint: tokenMint,
           tokenAmount: tokenAmount.toString(),
-          solAmount: remainingSol.toString(),
+          solAmount: actualLiquiditySol.toString(),
           lpMint: lpMint.toString(),
           timestamp: Math.floor(Date.now() / 1000),
           tradingEnabled: true,
@@ -310,7 +325,7 @@ export async function createLiquidityPool(
 ✅ What was accomplished:
 • Real Raydium CPMM pool created on mainnet
 • ${tokenAmount.toLocaleString()} tokens added to liquidity
-• ${remainingSol} SOL added to liquidity
+• ${actualLiquiditySol} SOL added to liquidity
 • Pool is IMMEDIATELY tradeable on all DEXes!
 
 🔗 LIVE Trading URLs (share these NOW):

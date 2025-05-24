@@ -17,10 +17,13 @@ import { Buffer } from 'buffer';
 // Fee recipient's wallet address - Important for receiving platform fees
 const FEE_RECIPIENT_ADDRESS = process.env.NEXT_PUBLIC_FEE_RECIPIENT_ADDRESS || '';
 
-// Fee calculation parameters
+// Fee calculation parameters - Updated for competitive pricing with real costs
 const BASE_FEE = parseFloat(process.env.NEXT_PUBLIC_BASE_FEE || '0.05');
-const FEE_MULTIPLIER = parseFloat(process.env.NEXT_PUBLIC_FEE_MULTIPLIER || '0.85');
-const FEE_EXPONENT = parseFloat(process.env.NEXT_PUBLIC_FEE_EXPONENT || '3');
+const FEE_MULTIPLIER = parseFloat(process.env.NEXT_PUBLIC_FEE_MULTIPLIER || '0.45'); // Reduced for competitiveness
+const FEE_EXPONENT = parseFloat(process.env.NEXT_PUBLIC_FEE_EXPONENT || '2.5'); // Reduced curve
+
+// Raydium pool creation costs (must be covered)
+const RAYDIUM_POOL_COSTS = 0.154; // Actual Raydium fees
 
 // Interface for token creation parameters
 export interface TokenParams {
@@ -44,14 +47,43 @@ export interface TokenParams {
 
 /**
  * Calculate platform fee based on retention percentage
+ * Competitive pricing while covering real costs
  */
 export const calculateFee = (retentionPercentage: number): number => {
-  // Exponential fee increase - more aggressive as percentage increases
-  // 10% = ~0.055 SOL, 50% = ~0.075 SOL, 90% = ~0.32 SOL, 99% = ~0.87 SOL
-  const exponentialFactor = Math.pow(retentionPercentage / 100, FEE_EXPONENT);
-  const calculatedFee = BASE_FEE + (exponentialFactor * FEE_MULTIPLIER);
+  // Base platform fee (competitive with other platforms)
+  const basePlatformFee = 0.03; // $6-9 at current SOL prices
   
-  return parseFloat(calculatedFee.toFixed(4));
+  // Additional fee for higher retention (discourages hoarding)
+  const retentionPenalty = Math.pow((retentionPercentage - 20) / 100, FEE_EXPONENT) * FEE_MULTIPLIER;
+  
+  // Total platform fee
+  const totalPlatformFee = basePlatformFee + Math.max(0, retentionPenalty);
+  
+  return parseFloat(totalPlatformFee.toFixed(4));
+};
+
+/**
+ * Calculate total cost including pool creation
+ */
+export const calculateTotalCost = (retentionPercentage: number, liquiditySolAmount: number): number => {
+  const platformFee = calculateFee(retentionPercentage);
+  const totalCost = platformFee + liquiditySolAmount + RAYDIUM_POOL_COSTS;
+  
+  return parseFloat(totalCost.toFixed(4));
+};
+
+/**
+ * Get cost breakdown for transparency
+ */
+export const getCostBreakdown = (retentionPercentage: number, liquiditySolAmount: number) => {
+  const platformFee = calculateFee(retentionPercentage);
+  
+  return {
+    platformFee: platformFee,
+    raydiumFees: RAYDIUM_POOL_COSTS,
+    liquidityAmount: liquiditySolAmount,
+    total: calculateTotalCost(retentionPercentage, liquiditySolAmount)
+  };
 };
 
 /**
@@ -214,15 +246,12 @@ export const createVerifiedToken = async (
       console.log('Mint account created, txid:', createMintTxId);
       await connection.confirmTransaction(createMintTxId);
       
-      // Calculate the token amount based on retention percentage
-      let mintAmount;
-      if (params.retentionPercentage) {
-        mintAmount = Math.floor(params.supply * (params.retentionPercentage / 100));
-      } else {
-        mintAmount = params.supply;
-      }
+      // Calculate the token amount - ALWAYS mint the FULL supply to the user's wallet
+      // The user will then transfer the liquidity portion to the pool during pool creation
+      const mintAmount = params.supply; // Always mint full supply to user's wallet
       
-      console.log(`Minting ${mintAmount} tokens to wallet`);
+      console.log(`Minting FULL SUPPLY of ${mintAmount.toLocaleString()} tokens to wallet`);
+      console.log(`User will retain ${params.retentionPercentage || 100}% and use ${100 - (params.retentionPercentage || 0)}% for liquidity`);
       
       // Get the associated token address for the owner
       const associatedTokenAddress = await getAssociatedTokenAddress(
