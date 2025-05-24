@@ -9,9 +9,7 @@ import {
   Keypair
 } from '@solana/web3.js';
 import * as token from '@solana/spl-token';
-
-// Use Buffer from global scope (available in browser/Node environments)
-const { Buffer } = globalThis;
+import { Buffer } from 'buffer';
 
 // Define proper types for wallet functions
 interface WalletAdapter {
@@ -148,6 +146,11 @@ export async function createLiquidityPool(
     
     console.log(`✅ Token balance verified: ${userTokenBalance} >= ${tokenAmountWithDecimals}`);
     
+    // Calculate what user should have after pool creation
+    const retainedTokens = userTokenBalance - tokenAmountWithDecimals;
+    console.log(`📊 After pool creation, user will have: ${retainedTokens} tokens remaining in wallet`);
+    console.log(`📊 Pool will receive: ${tokenAmountWithDecimals} tokens for liquidity`);
+    
     // Step 5: Generate Pool PDAs (Program Derived Addresses)
     console.log('🏗️ Generating pool addresses...');
     
@@ -263,6 +266,56 @@ export async function createLiquidityPool(
       wallet.publicKey
     );
     
+    // Create LP token account if it doesn't exist
+    try {
+      const lpAccountInfo = await connection.getAccountInfo(userLpAccount);
+      if (!lpAccountInfo) {
+        poolTransaction.add(
+          token.createAssociatedTokenAccountInstruction(
+            wallet.publicKey,
+            userLpAccount,
+            wallet.publicKey,
+            lpMint
+          )
+        );
+      }
+    } catch (error) {
+      // Create LP account
+      poolTransaction.add(
+        token.createAssociatedTokenAccountInstruction(
+          wallet.publicKey,
+          userLpAccount,
+          wallet.publicKey,
+          lpMint
+        )
+      );
+    }
+    
+    // CRITICAL: Transfer liquidity tokens from user wallet to pool vault
+    console.log(`🔄 Transferring ${tokenAmount.toLocaleString()} tokens from user wallet to liquidity pool`);
+    console.log(`💰 User will keep remaining tokens in their wallet after pool creation`);
+    
+    // IMPORTANT: This transfers the liquidity portion (e.g., 800M tokens) to the pool
+    // The user retains the rest (e.g., 200M tokens) in their wallet
+    poolTransaction.add(
+      token.createTransferInstruction(
+        userTokenAccount,        // from: user's token account (has 1B tokens)
+        tokenVault,             // to: pool's token vault
+        wallet.publicKey,       // authority: user's wallet
+        tokenAmountWithDecimals // amount: liquidity portion (800M tokens)
+      )
+    );
+    
+    // Transfer WSOL from user to pool vault
+    poolTransaction.add(
+      token.createTransferInstruction(
+        userWsolAccount,        // from: user's WSOL account
+        solVault,              // to: pool's SOL vault
+        wallet.publicKey,      // authority: user's wallet
+        solLamports           // amount: SOL for liquidity
+      )
+    );
+    
     // Create the actual Raydium CPMM pool initialization instruction
     const createPoolInstruction = createCpmmPoolInstruction({
       ammConfig,
@@ -324,9 +377,14 @@ export async function createLiquidityPool(
 
 ✅ What was accomplished:
 • Real Raydium CPMM pool created on mainnet
-• ${tokenAmount.toLocaleString()} tokens added to liquidity
-• ${actualLiquiditySol} SOL added to liquidity
+• ${tokenAmount.toLocaleString()} tokens transferred to liquidity pool
+• ${actualLiquiditySol.toFixed(4)} SOL added to liquidity
 • Pool is IMMEDIATELY tradeable on all DEXes!
+
+💰 Your Token Distribution:
+• In your wallet: Remaining tokens (retention amount)
+• In liquidity pool: ${tokenAmount.toLocaleString()} tokens + ${actualLiquiditySol.toFixed(4)} SOL
+• Ready for trading on all major DEXes!
 
 🔗 LIVE Trading URLs (share these NOW):
 • Raydium: https://raydium.io/swap/?inputCurrency=sol&outputCurrency=${tokenMint}
