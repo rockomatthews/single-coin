@@ -37,22 +37,40 @@ export default function SafeImage({
   };
 
   const handleLoad = () => {
-    console.log('Image loaded successfully:', imageSrc);
+    if (imageSrc.startsWith('data:image/')) {
+      console.log('✅ Uploaded image (base64) loaded successfully');
+    } else if (imageSrc.startsWith('blob:')) {
+      console.log('⚠️ Blob URL loaded (but will be replaced on refresh)');
+    } else {
+      console.log('✅ Image loaded successfully:', imageSrc.substring(0, 50) + '...');
+    }
     onLoad?.();
   };
 
   // Filter out blob URLs and data URLs that might be problematic
   const isValidUrl = (url: string) => {
+    // Always reject blob URLs (these are the problematic ones)
     if (url.startsWith('blob:')) {
       console.warn('Blob URL detected, using fallback:', url);
       return false;
     }
     
-    if (url.startsWith('data:') && url.length > 100000) {
-      console.warn('Large data URL detected, using fallback');
-      return false;
+    // Allow data URLs (base64 encoded images from uploads) - these are good!
+    if (url.startsWith('data:image/')) {
+      return true;
     }
     
+    // Allow http/https URLs
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      return true;
+    }
+    
+    // Allow relative paths
+    if (url.startsWith('/')) {
+      return true;
+    }
+    
+    // For any other format, allow it and let the browser handle it
     return true;
   };
 
