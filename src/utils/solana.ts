@@ -9,7 +9,9 @@ import {
   getAssociatedTokenAddress, 
   createAssociatedTokenAccountInstruction, 
   MintLayout, 
-  TOKEN_PROGRAM_ID 
+  TOKEN_PROGRAM_ID,
+  createSetAuthorityInstruction,
+  AuthorityType
 } from '@solana/spl-token';
 import { uploadToPinata, getIpfsGatewayUrl } from './pinata';
 import { Buffer } from 'buffer';
@@ -43,6 +45,10 @@ export interface TokenParams {
   createPool?: boolean;         // Whether to create a liquidity pool
   liquiditySolAmount?: number;  // Amount of SOL to add to the liquidity pool
   uri?: string;                // URI pointing to token metadata
+  // Security features
+  revokeUpdateAuthority?: boolean;  // Revoke metadata update authority
+  revokeFreezeAuthority?: boolean;  // Revoke freeze authority
+  revokeMintAuthority?: boolean;    // Revoke mint authority (make unmintable)
 }
 
 /**
@@ -297,6 +303,52 @@ export const createVerifiedToken = async (
       
       console.log('Tokens minted, txid:', mintTxId);
       await connection.confirmTransaction(mintTxId);
+      
+      // Revoke authorities if requested
+      if (params.revokeMintAuthority || params.revokeFreezeAuthority) {
+        console.log('🔒 Revoking token authorities for enhanced security...');
+        
+        const revokeTransaction = new Transaction();
+        
+        // Revoke mint authority (make token unmintable)
+        if (params.revokeMintAuthority) {
+          console.log('🚫 Revoking mint authority - token will become unmintable');
+          revokeTransaction.add(
+            createSetAuthorityInstruction(
+              mintPublicKey,        // mint account
+              wallet.publicKey,     // current authority
+              AuthorityType.MintTokens,  // authority type
+              null                  // new authority (null = revoke)
+            )
+          );
+        }
+        
+        // Revoke freeze authority
+        if (params.revokeFreezeAuthority) {
+          console.log('❄️ Revoking freeze authority - accounts cannot be frozen');
+          revokeTransaction.add(
+            createSetAuthorityInstruction(
+              mintPublicKey,        // mint account
+              wallet.publicKey,     // current authority
+              AuthorityType.FreezeAccount,  // authority type
+              null                  // new authority (null = revoke)
+            )
+          );
+        }
+        
+        // Sign and send the revocation transaction
+        revokeTransaction.feePayer = wallet.publicKey;
+        const revokeBlockhash = await connection.getLatestBlockhash();
+        revokeTransaction.recentBlockhash = revokeBlockhash.blockhash;
+        
+        const signedRevokeTx = await wallet.signTransaction(revokeTransaction);
+        const revokeTxId = await connection.sendRawTransaction(signedRevokeTx.serialize());
+        
+        console.log('Authorities revoked, txid:', revokeTxId);
+        await connection.confirmTransaction(revokeTxId);
+        
+        console.log('✅ Token security enhanced - dangerous authorities revoked');
+      }
       
       // Store the metadata URI in a transaction memo following the format expected by explorers
       try {

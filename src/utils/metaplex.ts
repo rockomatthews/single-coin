@@ -71,6 +71,12 @@ export async function createTokenMetadata(
       }
     ];
 
+    // Determine if metadata should be mutable
+    // If revokeUpdateAuthority is true, make metadata immutable
+    const isMutable = !params.revokeUpdateAuthority;
+    
+    console.log(`Setting metadata as ${isMutable ? 'mutable' : 'immutable'}`);
+
     // Prepare extended metadata
     const tokenMetadata: DataV2 = {
       name: params.name,
@@ -94,7 +100,7 @@ export async function createTokenMetadata(
       {
         createMetadataAccountArgsV3: {
           data: tokenMetadata,
-          isMutable: true,
+          isMutable: isMutable,
           collectionDetails: null,
         }
       }
@@ -110,6 +116,33 @@ export async function createTokenMetadata(
       .add(modifyComputeUnits)
       .add(createMetadataInstruction);
     
+    // If revoking update authority, add an instruction to transfer it to System Program
+    if (params.revokeUpdateAuthority) {
+      console.log('🔒 Revoking metadata update authority for enhanced security...');
+      
+      // Use System Program address as a "dead" address since null doesn't work
+      const DEAD_ADDRESS = new PublicKey('11111111111111111111111111111111');
+      
+      const revokeUpdateInstruction = createUpdateMetadataAccountV2Instruction(
+        {
+          metadata: metadataPDA,
+          updateAuthority: wallet.publicKey,
+        },
+        {
+          updateMetadataAccountArgsV2: {
+            data: tokenMetadata,
+            updateAuthority: DEAD_ADDRESS, // Transfer to System Program (dead address)
+            primarySaleHappened: true,
+            isMutable: false, // Ensure metadata is immutable
+          }
+        }
+      );
+      
+      transaction.add(revokeUpdateInstruction);
+      
+      console.log('📝 Update authority will be transferred to System Program (effectively revoked)');
+    }
+    
     // Set recent blockhash and fee payer
     const { blockhash } = await connection.getLatestBlockhash();
     transaction.recentBlockhash = blockhash;
@@ -121,6 +154,10 @@ export async function createTokenMetadata(
     await connection.confirmTransaction(txid);
     
     console.log('Created on-chain metadata for token, txid:', txid);
+    
+    if (params.revokeUpdateAuthority) {
+      console.log('✅ Metadata security enhanced - update authority revoked');
+    }
 
     // Optionally, create a JSON format of complete metadata for reference
     const metadataDetails = JSON.stringify({
@@ -138,7 +175,11 @@ export async function createTokenMetadata(
       },
       mintAddress: mintAddress,
       metadataPDA: metadataPDA.toString(),
-      txid: txid
+      txid: txid,
+      securityFeatures: {
+        updateAuthorityRevoked: params.revokeUpdateAuthority,
+        metadataImmutable: !isMutable
+      }
     }, null, 2);
     console.log('Full token metadata details:', metadataDetails);
     

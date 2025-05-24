@@ -26,6 +26,9 @@ interface TokenReviewProps {
     retentionPercentage: number;
     createPool: boolean;
     liquiditySolAmount: number;
+    revokeMintAuthority?: boolean;
+    revokeFreezeAuthority?: boolean;
+    revokeUpdateAuthority?: boolean;
   };
   calculateFee: () => string;
   calculateTotalCost: () => string;
@@ -114,6 +117,42 @@ export default function TokenReview({
         ) : (
           <Typography variant="body1" gutterBottom>No liquidity pool will be created</Typography>
         )}
+        
+        <Divider sx={{ my: 2 }} />
+        
+        <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
+          🔒 Security Features
+        </Typography>
+        <Grid container spacing={2}>
+          <Grid item xs={12}>
+            {(tokenParams.revokeMintAuthority || tokenParams.revokeFreezeAuthority || tokenParams.revokeUpdateAuthority) ? (
+              <Box>
+                {tokenParams.revokeMintAuthority && (
+                  <Typography variant="body2" gutterBottom sx={{ color: 'success.main' }}>
+                    ✅ <strong>Make Unmintable:</strong> Mint authority will be revoked - no new tokens can be created
+                  </Typography>
+                )}
+                {tokenParams.revokeUpdateAuthority && (
+                  <Typography variant="body2" gutterBottom sx={{ color: 'success.main' }}>
+                    ✅ <strong>Make Information Immutable:</strong> Update authority will be revoked - metadata cannot be changed
+                  </Typography>
+                )}
+                {tokenParams.revokeFreezeAuthority && (
+                  <Typography variant="body2" gutterBottom sx={{ color: 'success.main' }}>
+                    ✅ <strong>Revoke Freeze Authority:</strong> Token accounts cannot be frozen
+                  </Typography>
+                )}
+                <Typography variant="body2" sx={{ mt: 1, fontStyle: 'italic', color: 'text.secondary' }}>
+                  These security features will show as green checkmarks in Phantom wallet and build trust with holders.
+                </Typography>
+              </Box>
+            ) : (
+              <Typography variant="body2" color="text.secondary">
+                No additional security features selected. Consider enabling these for increased trust.
+              </Typography>
+            )}
+          </Grid>
+        </Grid>
         
         <Divider sx={{ my: 2 }} />
         

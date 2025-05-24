@@ -14,9 +14,17 @@ import {
   SelectChangeEvent,
   IconButton,
   Tooltip,
+  FormControlLabel,
+  Checkbox,
+  Paper,
+  Alert,
 } from '@mui/material';
 import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline';
 import ClearIcon from '@mui/icons-material/Clear';
+import SecurityIcon from '@mui/icons-material/Security';
+import LockIcon from '@mui/icons-material/Lock';
+import BlockIcon from '@mui/icons-material/Block';
+import EditOffIcon from '@mui/icons-material/EditOff';
 
 interface TokenSettingsProps {
   tokenParams: {
@@ -30,6 +38,10 @@ interface TokenSettingsProps {
     twitter?: string;
     telegram?: string;
     discord?: string;
+    // Security features
+    revokeUpdateAuthority?: boolean;
+    revokeFreezeAuthority?: boolean;
+    revokeMintAuthority?: boolean;
   };
   updateTokenParams: (params: Partial<TokenSettingsProps['tokenParams']>) => void;
 }
@@ -299,6 +311,134 @@ export default function TokenSettings({
             placeholder="https://discord.gg/yourserver"
             helperText="Optional: Your token's Discord server"
           />
+        </Grid>
+
+        {/* Security Features Section */}
+        <Grid item xs={12}>
+          <Paper 
+            variant="outlined" 
+            sx={{ 
+              p: 3, 
+              mt: 2, 
+              backgroundColor: 'rgba(255, 215, 0, 0.05)',
+              border: '1px solid rgba(255, 215, 0, 0.3)'
+            }}
+          >
+            <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+              <SecurityIcon sx={{ color: '#FFD700', mr: 1 }} />
+              <Typography variant="h6" sx={{ color: '#FFD700' }}>
+                🔒 Security Features
+              </Typography>
+            </Box>
+            
+            <Alert severity="info" sx={{ mb: 3 }}>
+              <Typography variant="body2">
+                <strong>Enhanced Security Options:</strong> These features permanently secure your token by revoking dangerous authorities. 
+                Once enabled, these actions cannot be reversed. These features show up in Phantom wallet and build trust with holders.
+              </Typography>
+            </Alert>
+
+            <Grid container spacing={2}>
+              <Grid item xs={12}>
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={tokenParams.revokeMintAuthority || false}
+                      onChange={(e) => updateTokenParams({ revokeMintAuthority: e.target.checked })}
+                      sx={{ 
+                        color: '#FFD700',
+                        '&.Mui-checked': {
+                          color: '#FFD700',
+                        },
+                      }}
+                    />
+                  }
+                  label={
+                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                      <LockIcon sx={{ mr: 1, fontSize: 18 }} />
+                      <Box>
+                        <Typography variant="subtitle2" fontWeight="bold">
+                          Make Unmintable (Recommended)
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          Permanently prevents creating new tokens. Shows "✅ Mint Revoked" in Phantom wallet.
+                        </Typography>
+                      </Box>
+                    </Box>
+                  }
+                />
+              </Grid>
+
+              <Grid item xs={12}>
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={tokenParams.revokeUpdateAuthority || false}
+                      onChange={(e) => updateTokenParams({ revokeUpdateAuthority: e.target.checked })}
+                      sx={{ 
+                        color: '#FFD700',
+                        '&.Mui-checked': {
+                          color: '#FFD700',
+                        },
+                      }}
+                    />
+                  }
+                  label={
+                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                      <EditOffIcon sx={{ mr: 1, fontSize: 18 }} />
+                      <Box>
+                        <Typography variant="subtitle2" fontWeight="bold">
+                          Make Information Immutable (Recommended)
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          Prevents changing token name, symbol, or image. Shows "✅ Update Authority Revoked" in Phantom.
+                        </Typography>
+                      </Box>
+                    </Box>
+                  }
+                />
+              </Grid>
+
+              <Grid item xs={12}>
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={tokenParams.revokeFreezeAuthority || false}
+                      onChange={(e) => updateTokenParams({ revokeFreezeAuthority: e.target.checked })}
+                      sx={{ 
+                        color: '#FFD700',
+                        '&.Mui-checked': {
+                          color: '#FFD700',
+                        },
+                      }}
+                    />
+                  }
+                  label={
+                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                      <BlockIcon sx={{ mr: 1, fontSize: 18 }} />
+                      <Box>
+                        <Typography variant="subtitle2" fontWeight="bold">
+                          Revoke Freeze Authority (Recommended)
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          Prevents freezing token accounts. Shows "✅ Freeze Authority Revoked" in Phantom wallet.
+                        </Typography>
+                      </Box>
+                    </Box>
+                  }
+                />
+              </Grid>
+            </Grid>
+
+            {(tokenParams.revokeMintAuthority || tokenParams.revokeUpdateAuthority || tokenParams.revokeFreezeAuthority) && (
+              <Alert severity="success" sx={{ mt: 2 }}>
+                <Typography variant="body2">
+                  <strong>✨ Trust Enhanced!</strong> Your selected security features will make your token more trustworthy. 
+                  These show up as green checkmarks in Phantom wallet and on token scanners.
+                </Typography>
+              </Alert>
+            )}
+          </Paper>
         </Grid>
       </Grid>
     </Box>

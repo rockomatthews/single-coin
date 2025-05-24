@@ -39,6 +39,10 @@ const DEFAULT_TOKEN_PARAMS = {
   retentionPercentage: 20,
   liquiditySolAmount: 0.1,
   createPool: true,
+  // Security features - default to false for user choice
+  revokeUpdateAuthority: false,
+  revokeFreezeAuthority: false,
+  revokeMintAuthority: false,
 };
 
 export default function CreateTokenPage() {
@@ -124,12 +128,18 @@ export default function CreateTokenPage() {
     // Additional fee for higher retention (discourages hoarding)
     const retentionPenalty = Math.pow(Math.max(0, retentionPercentage - 20) / 100, 2.5) * 0.45;
     
+    // Small discount for security features (encourages trust-building)
+    const securityFeaturesCount = (tokenParams.revokeMintAuthority ? 1 : 0) + 
+                                  (tokenParams.revokeFreezeAuthority ? 1 : 0) + 
+                                  (tokenParams.revokeUpdateAuthority ? 1 : 0);
+    const securityDiscount = securityFeaturesCount * 0.002; // 0.002 SOL discount per feature
+    
     // Total platform fee
-    const totalPlatformFee = basePlatformFee + retentionPenalty;
+    const totalPlatformFee = Math.max(basePlatformFee + retentionPenalty - securityDiscount, 0.025);
     
     // Return fee in SOL with 4 decimal precision
-    return Math.max(totalPlatformFee, 0.03).toFixed(4);
-  }, [tokenParams.retentionPercentage]);
+    return totalPlatformFee.toFixed(4);
+  }, [tokenParams.retentionPercentage, tokenParams.revokeMintAuthority, tokenParams.revokeFreezeAuthority, tokenParams.revokeUpdateAuthority]);
 
   // Calculate total cost (platform fee + liquidity + Raydium fees)
   const calculateTotalCost = useCallback(() => {
