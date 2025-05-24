@@ -60,9 +60,17 @@ export default function TokenSettings({
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      // Create a URL for the selected file
-      const imageUrl = URL.createObjectURL(file);
-      updateTokenParams({ image: imageUrl });
+      // Convert the file to a base64 data URL which persists across page refreshes
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64String = reader.result as string;
+        updateTokenParams({ image: base64String });
+      };
+      reader.onerror = () => {
+        console.error('Error reading file');
+        alert('Error reading the selected file. Please try again.');
+      };
+      reader.readAsDataURL(file);
     }
     
     // Reset file input value so the same file can be selected again
@@ -157,6 +165,14 @@ export default function TokenSettings({
                     width: '100%',
                     height: '100%',
                     objectFit: 'cover',
+                  }}
+                  onError={(e) => {
+                    console.error('Failed to load image:', tokenParams.image);
+                    // Reset to placeholder on error
+                    updateTokenParams({ image: 'https://via.placeholder.com/200?text=Token+Logo' });
+                  }}
+                  onLoad={() => {
+                    console.log('Image loaded successfully');
                   }}
                 />
                 <IconButton

@@ -4,6 +4,7 @@ import { Box, Button, Container, Typography, Card, CardContent, CardMedia, Chip,
 import Grid from '@mui/material/Unstable_Grid2';
 import Link from 'next/link';
 import Image from 'next/image';
+import SafeImage from '@/components/common/SafeImage';
 import { useEffect, useState } from 'react';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import LocalFireDepartmentIcon from '@mui/icons-material/LocalFireDepartment';
@@ -214,8 +215,7 @@ export default function Home() {
                       paddingTop: '100%', // 1:1 aspect ratio
                     }}
                   >
-                    <Box 
-                      component={Image}
+                    <SafeImage
                       src={token.token_image || '/images/logo.png'}
                       alt={token.token_name}
                       fill
@@ -298,8 +298,7 @@ export default function Home() {
                     paddingTop: '100%', // 1:1 aspect ratio
                   }}
                 >
-                  <Box 
-                    component={Image}
+                  <SafeImage
                     src={token.token_image || '/images/logo.png'}
                     alt={token.token_name}
                     fill
