@@ -76,6 +76,45 @@ Vercel automatically redeploys your application when you push changes to your re
 - View and manage your created tokens
 - Get direct links to add liquidity to your tokens via Raydium
 
+## 🚀 New: FungibleAsset Standard & Rich Metadata Display
+
+Coinbull now uses the **FungibleAsset** token standard by default, which provides significantly better metadata display in Phantom wallet and other Solana wallets.
+
+### What's Changed?
+
+#### **FungibleAsset vs Fungible Tokens**
+- **FungibleAsset (0 decimals)**: Rich metadata display with description, links, and attributes
+- **Fungible (9 decimals)**: Basic display with only name, symbol, and image
+
+#### **Enhanced Metadata**
+Your tokens now include:
+- ✅ **Rich Descriptions**: Full project descriptions displayed in wallets
+- ✅ **External Links**: Website and social media links shown in token details
+- ✅ **Attributes**: Token type, supply, and creation info displayed as traits
+- ✅ **Collection Info**: Tokens are grouped under "Coinbull Tokens" family
+
+#### **Phantom Shortcuts Integration**
+Tokens created with Coinbull automatically include action shortcuts in Phantom wallet:
+- 🔗 **View on Coinbull**: Direct link to token page
+- 🛠️ **Create Token**: Link to create more tokens
+- 💬 **Join Discord**: Community engagement
+- 🐦 **Follow Twitter**: Social media connection
+- 📈 **Trade on DEX**: Direct trading links
+- 📊 **View Analytics**: Price and trading data
+
+### **CoinGecko Ready**
+All tokens are automatically formatted for easy CoinGecko submission:
+- Professional metadata formatting
+- Complete token information
+- Proper external URL configuration
+- Enhanced wallet display compatibility
+
+See `COINGECKO_SUBMISSION.md` for detailed submission guide.
+
+### **API Endpoints**
+- `/api/shortcuts` - Dynamic shortcuts based on token address
+- `/shortcuts.json` - Standard endpoint for Phantom wallet integration
+
 ## Tech Stack
 
 - **Frontend**: Next.js, Material UI, React

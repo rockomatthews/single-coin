@@ -70,8 +70,8 @@ export const uploadMetadata = async (connection: Connection, params: TokenParams
       console.log('Image uploaded, got IPFS URL:', imageUrl);
     }
     
-    // Format metadata according to Solana Token Metadata standard used by Phantom and Solscan
-    // This follows the comprehensive standard for maximum compatibility
+    // Format metadata according to FungibleAsset Token Metadata standard for rich display in Phantom
+    // This follows the FungibleAsset schema which shows description, external_url, and attributes
     const metadata = {
       // Basic token information (required fields)
       name: params.name,
@@ -80,51 +80,64 @@ export const uploadMetadata = async (connection: Connection, params: TokenParams
       
       // CRITICAL: These image fields are essential for wallet display
       image: imageUrl,         // Main image used by most wallets
-      logo: imageUrl,          // Legacy field used by some explorers
       
-      // External link (important for verification)
-      external_url: params.website || '',
+      // External URL (critical for FungibleAsset display and shortcuts feature)
+      external_url: params.website || 'https://coinbull.vercel.app',
+      
+      // Animation URL for dynamic content (optional but good for rich display)
+      animation_url: "",
       
       // Token details (important for display accuracy)
       decimals: params.decimals,
       supply: params.supply.toString(),
       
-      // Additional fields that help with explorer display
-      tags: ["solana", "token", "coinbull"],
+      // Attributes array (displayed in FungibleAsset tokens)
+      attributes: [
+        { trait_type: "Token Type", value: params.decimals === 0 ? "FungibleAsset" : "Fungible" },
+        { trait_type: "Decimals", value: params.decimals },
+        { trait_type: "Total Supply", value: params.supply.toLocaleString() },
+        { trait_type: "Created With", value: "Coinbull" },
+        { trait_type: "Network", value: "Solana" }
+      ],
       
-      // Format for Phantom wallet recognition
+      // Additional properties for rich display
       properties: {
         files: [
           {
             uri: imageUrl,
-            type: "image/png"
+            type: "image/png",
+            cdn: false
           }
         ],
         category: "image",
-        creators: []
+        creators: [],
+        // Additional metadata for better indexing
+        external_url: params.website || 'https://coinbull.vercel.app',
+        social_links: {
+          website: params.website || '',
+          twitter: params.twitter || '',
+          telegram: params.telegram || '',
+          discord: params.discord || ''
+        }
       },
       
-      // Social links in both formats for maximum compatibility
-      // Traditional format
+      // Collection info (helps with grouping and verification)
+      collection: {
+        name: "Coinbull Tokens",
+        family: "Coinbull"
+      },
+      
+      // Social links in root level for maximum compatibility
       website: params.website || '',
       twitter: params.twitter || '',
       telegram: params.telegram || '',
       discord: params.discord || '',
       
-      // Nested format used by some explorers
-      links: {
-        website: params.website || '',
-        twitter: params.twitter || '',
-        telegram: params.telegram || '',
-        discord: params.discord || ''
-      },
+      // Additional fields for explorers and indexers
+      tags: ["solana", "token", "coinbull", params.decimals === 0 ? "fungible-asset" : "fungible"],
       
-      // Token attributes that help with display
-      attributes: [
-        { trait_type: "Decimals", value: params.decimals },
-        { trait_type: "Supply", value: params.supply },
-        { trait_type: "Created With", value: "Coinbull" }
-      ]
+      // Token metadata version
+      token_standard: params.decimals === 0 ? "FungibleAsset" : "Fungible"
     };
     
     console.log('Uploading metadata to Pinata:', metadata);

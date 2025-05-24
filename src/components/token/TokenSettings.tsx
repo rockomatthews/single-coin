@@ -218,13 +218,13 @@ export default function TokenSettings({
               label="Decimals"
               onChange={handleSelectChange}
             >
-              <MenuItem value={0}>0</MenuItem>
+              <MenuItem value={0}>0 - FungibleAsset (Best for meme coins, shows more metadata)</MenuItem>
               <MenuItem value={6}>6</MenuItem>
-              <MenuItem value={9}>9</MenuItem>
+              <MenuItem value={9}>9 - Standard Fungible</MenuItem>
               <MenuItem value={12}>12</MenuItem>
             </Select>
             <FormHelperText>
-              Number of decimal places (9 is standard for most tokens)
+              0 decimals = FungibleAsset with rich metadata display (description, links) in Phantom wallet. 9 decimals = standard fungible token with basic display.
             </FormHelperText>
           </FormControl>
         </Grid>
