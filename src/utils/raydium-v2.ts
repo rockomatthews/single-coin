@@ -158,38 +158,31 @@ export async function createRaydiumCpmmPool(
     
     console.log(`📋 Using fee config: ${feeConfigs[0].id}`);
     
-    // Step 4: Calculate amounts with proper decimals - simplified approach
+    // Step 4: Calculate amounts with proper decimals - use string-based approach to avoid MAX_SAFE_INTEGER issues
     console.log(`🔢 Calculating token amounts with decimals...`);
     console.log(`Raw token amount: ${tokenAmount}`);
     console.log(`Token decimals: ${mintA.decimals}`);
     console.log(`Raw SOL amount: ${actualLiquiditySol}`);
     
-    // Use more conservative BN creation to avoid assertion errors
+    // Use string-based BN creation to avoid JavaScript MAX_SAFE_INTEGER limits
     let tokenAmountWithDecimals: BN;
     let solAmountWithDecimals: BN;
     
     try {
-      // Calculate token amount with decimals
-      const tokenMultiplier = Math.pow(10, mintA.decimals);
-      const tokenAmountRaw = Math.floor(tokenAmount * tokenMultiplier);
+      // For token amount: convert to string and add zeros for decimals
+      // This avoids the multiplication that causes overflow
+      const tokenAmountStr = Math.floor(tokenAmount).toString();
+      const decimalsStr = '0'.repeat(mintA.decimals);
+      const tokenAmountWithDecimalsStr = tokenAmountStr + decimalsStr;
       
-      console.log(`🔍 Debug calculations:`);
-      console.log(`  tokenAmount: ${tokenAmount}`);
-      console.log(`  tokenMultiplier: ${tokenMultiplier}`);
-      console.log(`  tokenAmountRaw: ${tokenAmountRaw}`);
-      console.log(`  MAX_SAFE_INTEGER: ${Number.MAX_SAFE_INTEGER}`);
-      console.log(`  Is safe: ${tokenAmountRaw <= Number.MAX_SAFE_INTEGER}`);
+      console.log(`🔢 Token amount string: ${tokenAmountStr}`);
+      console.log(`🔢 Decimals string: ${decimalsStr}`);
+      console.log(`🔢 Final token amount string: ${tokenAmountWithDecimalsStr}`);
       
-      // Ensure we don't exceed JavaScript's safe integer limit
-      if (tokenAmountRaw > Number.MAX_SAFE_INTEGER) {
-        throw new Error('Token amount too large for JavaScript number precision');
-      }
-      
-      console.log(`🔢 Creating BN for token amount: ${tokenAmountRaw.toString()}`);
-      tokenAmountWithDecimals = new BN(tokenAmountRaw.toString());
+      tokenAmountWithDecimals = new BN(tokenAmountWithDecimalsStr);
       console.log(`✅ Token BN created successfully: ${tokenAmountWithDecimals.toString()}`);
       
-      // Calculate SOL amount in lamports
+      // For SOL amount: use LAMPORTS_PER_SOL constant
       const solAmountRaw = Math.floor(actualLiquiditySol * LAMPORTS_PER_SOL);
       console.log(`🔢 Creating BN for SOL amount: ${solAmountRaw.toString()}`);
       solAmountWithDecimals = new BN(solAmountRaw.toString());
