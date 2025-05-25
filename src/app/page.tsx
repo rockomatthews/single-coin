@@ -30,8 +30,7 @@ export default function Home() {
   const [hotTokens, setHotTokens] = useState<Token[]>([]);
   const [recentTokens, setRecentTokens] = useState<Token[]>([]);
   const [loading, setLoading] = useState(true);
-  const [hotTokensToShow, setHotTokensToShow] = useState(28); // 14 x 2 rows
-  const [recentTokensToShow, setRecentTokensToShow] = useState(50);
+  const [showMoreRecent, setShowMoreRecent] = useState(false);
 
   // Fetch tokens from the API
   useEffect(() => {
@@ -94,15 +93,6 @@ export default function Home() {
         created_at: new Date(Date.now() - i * 86400000).toISOString() // Decreasing dates
       };
     });
-  };
-
-  // Load more functions
-  const loadMoreHotTokens = () => {
-    setHotTokensToShow(prev => prev + 28);
-  };
-
-  const loadMoreRecentTokens = () => {
-    setRecentTokensToShow(prev => prev + 50);
   };
 
   // Use real tokens if available, otherwise show empty state
@@ -171,11 +161,11 @@ export default function Home() {
               maxWidth: { xs: '80px', sm: '100px' }, 
               height: { xs: '80px', sm: '100px' }
             }}>
-              <Image
+        <Image
                 src="/images/logo.png" 
                 alt="Coinbull Logo" 
                 fill
-                priority
+          priority
                 style={{ 
                   objectFit: 'contain',
                 }} 
@@ -185,9 +175,10 @@ export default function Home() {
         </Grid>
       </Container>
 
-      {/* Hot Tokens Section - Coin Wall */}
-      <Box sx={{ bgcolor: 'background.paper', py: 4, px: 0 }}>
-        <Container maxWidth="lg" sx={{ px: 0 }}>
+      {/* Hot Tokens Section - NO SIDE PADDING */}
+      <Box sx={{ bgcolor: 'background.paper', py: 3 }}>
+        {/* Title with minimal container */}
+        <Container maxWidth="lg" sx={{ mb: 2 }}>
           <Typography 
             variant="h4" 
             component="h2" 
@@ -198,121 +189,133 @@ export default function Home() {
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              mb: 3,
-              px: 2
+              mb: 2,
+              fontSize: { xs: '1.75rem', md: '2rem' }
             }}
           >
             <LocalFireDepartmentIcon sx={{ mr: 1, color: 'orange' }} /> 🔥Hot Tokens🔥 <LocalFireDepartmentIcon sx={{ ml: 1, color: 'orange' }} />
           </Typography>
-          
-          {/* Custom CSS Grid for exactly 14 across */}
-          <Box sx={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(14, 1fr)',
-            gap: '4px',
-            px: '2px',
-            '@media (max-width: 1200px)': {
-              gridTemplateColumns: 'repeat(10, 1fr)',
-            },
-            '@media (max-width: 900px)': {
-              gridTemplateColumns: 'repeat(6, 1fr)',
-            },
-            '@media (max-width: 600px)': {
-              gridTemplateColumns: 'repeat(4, 1fr)',
-            },
-          }}>
+        </Container>
+
+        {/* Tokens grid - FULL WIDTH, NO PADDING */}
+        <Box sx={{ px: { xs: 0.5, sm: 1 } }}>
+          <Grid container spacing={{ xs: 0.5, sm: 1 }}>
             {displayedHotTokens.length > 0 ? (
-              displayedHotTokens.slice(0, hotTokensToShow).map((token) => (
-                <Card 
-                  key={token.token_address}
-                  sx={{ 
-                    aspectRatio: '1',
-                    display: 'flex', 
-                    flexDirection: 'column',
-                    transition: 'transform 0.2s',
-                    '&:hover': {
-                      transform: 'scale(1.05)',
-                      zIndex: 1,
-                    },
-                    cursor: 'pointer',
+              displayedHotTokens.slice(0, 20).map((token) => (
+                <Grid 
+                  key={token.token_address} 
+                  xs={6} 
+                  sm={4} 
+                  md={2.4} 
+                  lg={1.2} 
+                  xl={1.2}
+                  sx={{
+                    // Custom breakpoint for huge screens (10 across)
+                    '@media (min-width: 1920px)': {
+                      flexBasis: '10%',
+                      maxWidth: '10%'
+                    }
                   }}
-                  component={Link}
-                  href={`/token/${token.token_address}`}
                 >
-                  <CardMedia 
-                    component="div"
-                    sx={{
-                      position: 'relative',
-                      paddingTop: '70%',
-                      flex: 1,
+                  <Card 
+                    sx={{ 
+                      height: '100%', 
+                      display: 'flex', 
+                      flexDirection: 'column',
+                      transition: 'transform 0.2s',
+                      '&:hover': {
+                        transform: 'scale(1.03)',
+                      }
                     }}
+                    component={Link}
+                    href={`/token/${token.token_address}`}
                   >
-                    <SafeImage
-                      src={token.token_image || '/images/logo.png'}
-                      alt={token.token_name}
-                      fill
-                      sizes="100px"
-                      style={{ objectFit: 'cover' }}
-                    />
-                  </CardMedia>
-                  <CardContent sx={{ p: '4px !important', minHeight: '40px' }}>
-                    <Typography variant="caption" align="center" noWrap sx={{ fontSize: '0.65rem', lineHeight: 1 }}>
-                      {token.token_symbol}
-                    </Typography>
-                    <Typography variant="caption" align="center" color="text.secondary" display="block" sx={{ fontSize: '0.55rem' }}>
-                      {formatMarketCap(token.marketCap)}
-                    </Typography>
-                  </CardContent>
-                </Card>
+                    <CardMedia 
+                      component="div"
+                      sx={{
+                        position: 'relative',
+                        paddingTop: '100%', // 1:1 aspect ratio
+                      }}
+                    >
+                      <SafeImage
+                        src={token.token_image || '/images/logo.png'}
+                        alt={token.token_name}
+                        fill
+                        sizes="(max-width: 600px) 50vw, (max-width: 960px) 33vw, (max-width: 1920px) 20vw, 10vw"
+                        style={{ objectFit: 'cover' }}
+                      />
+                    </CardMedia>
+                    <CardContent sx={{ flexGrow: 1, p: 0.75, '&:last-child': { pb: 0.75 } }}>
+                      <Typography variant="caption" align="center" noWrap sx={{ fontWeight: 'bold', display: 'block', lineHeight: 1.2 }}>
+                        {token.token_name}
+                      </Typography>
+                      <Typography variant="caption" align="center" color="text.secondary" display="block" sx={{ fontSize: '0.65rem', mb: 0.5 }}>
+                        {token.token_symbol}
+                      </Typography>
+                      
+                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25 }}>
+                        <Tooltip title="Market Cap">
+                          <Chip 
+                            icon={<TrendingUpIcon sx={{ fontSize: '0.75rem !important' }} />}
+                            label={formatMarketCap(token.marketCap)}
+                            size="small"
+                            variant="outlined"
+                            sx={{ 
+                              width: '100%', 
+                              height: '20px',
+                              '& .MuiChip-label': { 
+                                fontSize: '0.6rem',
+                                px: 0.5
+                              }
+                            }}
+                          />
+                        </Tooltip>
+                        
+                        <Tooltip title="Token Price">
+                          <Chip 
+                            icon={<AttachMoneyIcon sx={{ fontSize: '0.75rem !important' }} />}
+                            label={formatPrice(token.price)}
+                            size="small"
+                            variant="outlined"
+                            sx={{ 
+                              width: '100%',
+                              height: '20px',
+                              '& .MuiChip-label': { 
+                                fontSize: '0.6rem',
+                                px: 0.5
+                              }
+                            }}
+                          />
+                        </Tooltip>
+                      </Box>
+                    </CardContent>
+                  </Card>
+                </Grid>
               ))
             ) : (
-              Array(28).fill(null).map((_, i) => (
-                <Card 
-                  key={`placeholder-${i}`}
-                  sx={{ 
-                    aspectRatio: '1',
-                    display: 'flex', 
-                    flexDirection: 'column',
-                    opacity: 0.3,
-                  }}
-                >
-                  <CardMedia 
-                    component="div"
-                    sx={{
-                      position: 'relative',
-                      paddingTop: '70%',
-                      flex: 1,
-                      bgcolor: 'grey.200'
-                    }}
-                  />
-                  <CardContent sx={{ p: '4px !important', minHeight: '40px' }}>
-                    <Typography variant="caption" align="center" sx={{ fontSize: '0.65rem' }}>
-                      ---
-                    </Typography>
-                  </CardContent>
-                </Card>
-              ))
+              <Grid xs={12}>
+                <Box sx={{ 
+                  textAlign: 'center', 
+                  py: 6,
+                  color: 'text.secondary'
+                }}>
+                  <Typography variant="h6" gutterBottom>
+                    🚀 No hot tokens yet!
+                  </Typography>
+                  <Typography variant="body2">
+                    Be the first to create a token that gets trending
+                  </Typography>
+                </Box>
+              </Grid>
             )}
-          </Box>
-
-          {/* Load More Hot Tokens */}
-          {displayedHotTokens.length > hotTokensToShow && (
-            <Box sx={{ textAlign: 'center', mt: 3 }}>
-              <Button 
-                variant="outlined" 
-                onClick={loadMoreHotTokens}
-                sx={{ px: 4 }}
-              >
-                Load More Hot Tokens
-              </Button>
-            </Box>
-          )}
-        </Container>
+          </Grid>
+        </Box>
       </Box>
 
-      {/* Recently Created Tokens Section - Smaller Coin Wall */}
-      <Box sx={{ py: 4, px: 0 }}>
-        <Container maxWidth="lg" sx={{ px: 0 }}>
+      {/* Recently Created Tokens Section - NO SIDE PADDING */}
+      <Box sx={{ py: 3 }}>
+        {/* Title with minimal container */}
+        <Container maxWidth="lg" sx={{ mb: 2 }}>
           <Typography 
             variant="h4" 
             component="h2" 
@@ -320,141 +323,139 @@ export default function Home() {
             gutterBottom
             sx={{ 
               fontWeight: 'bold',
-              mb: 3,
-              px: 2
+              mb: 2,
+              fontSize: { xs: '1.5rem', md: '1.75rem' }
             }}
           >
             Recently Created Tokens
           </Typography>
-          
-          {/* Custom CSS Grid for smaller tokens - more across */}
-          <Box sx={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(25, 1fr)',
-            gap: '2px',
-            px: '1px',
-            '@media (max-width: 1400px)': {
-              gridTemplateColumns: 'repeat(20, 1fr)',
-            },
-            '@media (max-width: 1200px)': {
-              gridTemplateColumns: 'repeat(15, 1fr)',
-            },
-            '@media (max-width: 900px)': {
-              gridTemplateColumns: 'repeat(10, 1fr)',
-            },
-            '@media (max-width: 600px)': {
-              gridTemplateColumns: 'repeat(6, 1fr)',
-            },
-          }}>
+        </Container>
+
+        {/* Tokens grid - FULL WIDTH, NO PADDING, EVEN SMALLER */}
+        <Box sx={{ px: { xs: 0.25, sm: 0.5 } }}>
+          <Grid container spacing={{ xs: 0.25, sm: 0.5 }}>
             {displayedRecentTokens.length > 0 ? (
-              displayedRecentTokens.slice(0, recentTokensToShow).map((token) => (
-                <Card 
-                  key={token.token_address}
-                  sx={{ 
-                    aspectRatio: '1',
-                    display: 'flex', 
-                    flexDirection: 'column',
-                    transition: 'transform 0.2s',
-                    '&:hover': {
-                      transform: 'scale(1.1)',
-                      zIndex: 1,
-                    },
-                    cursor: 'pointer',
+              displayedRecentTokens.slice(0, showMoreRecent ? 100 : 50).map((token) => (
+                <Grid 
+                  key={token.token_address} 
+                  xs={6} 
+                  sm={3} 
+                  md={1.5} 
+                  lg={0.8} 
+                  xl={0.8}
+                  sx={{
+                    // Custom breakpoint for huge screens (15 across)
+                    '@media (min-width: 1920px)': {
+                      flexBasis: '6.666%',
+                      maxWidth: '6.666%'
+                    }
                   }}
-                  component={Link}
-                  href={`/token/${token.token_address}`}
                 >
-                  <CardMedia 
-                    component="div"
-                    sx={{
-                      position: 'relative',
-                      paddingTop: '80%',
-                      flex: 1,
+                  <Card 
+                    sx={{ 
+                      height: '100%', 
+                      display: 'flex', 
+                      flexDirection: 'column',
+                      transition: 'transform 0.2s',
+                      '&:hover': {
+                        transform: 'scale(1.05)',
+                      }
                     }}
+                    component={Link}
+                    href={`/token/${token.token_address}`}
                   >
-                    <SafeImage
-                      src={token.token_image || '/images/logo.png'}
-                      alt={token.token_name}
-                      fill
-                      sizes="60px"
-                      style={{ objectFit: 'cover' }}
-                    />
-                  </CardMedia>
-                  <CardContent sx={{ p: '2px !important', minHeight: '20px' }}>
-                    <Typography variant="caption" align="center" noWrap sx={{ fontSize: '0.5rem', lineHeight: 1 }}>
-                      {token.token_symbol}
-                    </Typography>
-                  </CardContent>
-                </Card>
+                    <CardMedia 
+                      component="div"
+                      sx={{
+                        position: 'relative',
+                        paddingTop: '100%', // 1:1 aspect ratio
+                      }}
+                    >
+                      <SafeImage
+                        src={token.token_image || '/images/logo.png'}
+                        alt={token.token_name}
+                        fill
+                        sizes="(max-width: 600px) 50vw, (max-width: 960px) 25vw, (max-width: 1920px) 12vw, 6.666vw"
+                        style={{ objectFit: 'cover' }}
+                      />
+                    </CardMedia>
+                    <CardContent sx={{ flexGrow: 1, p: 0.5, '&:last-child': { pb: 0.5 } }}>
+                      <Typography variant="caption" align="center" noWrap sx={{ 
+                        fontWeight: 'bold', 
+                        display: 'block', 
+                        lineHeight: 1.1,
+                        fontSize: '0.65rem'
+                      }}>
+                        {token.token_name}
+                      </Typography>
+                      <Typography variant="caption" align="center" color="text.secondary" display="block" sx={{ 
+                        fontSize: '0.55rem', 
+                        mb: 0.25,
+                        lineHeight: 1
+                      }}>
+                        {token.token_symbol}
+                      </Typography>
+                      <Tooltip title="Market Cap">
+                        <Chip 
+                          icon={<TrendingUpIcon sx={{ fontSize: '0.65rem !important' }} />}
+                          label={formatMarketCap(token.marketCap)}
+                          size="small"
+                          variant="outlined"
+                          sx={{ 
+                            width: '100%',
+                            height: '18px',
+                            '& .MuiChip-label': { 
+                              fontSize: '0.55rem',
+                              px: 0.25
+                            }
+                          }}
+                        />
+                      </Tooltip>
+                    </CardContent>
+                  </Card>
+                </Grid>
               ))
             ) : (
-              Array(50).fill(null).map((_, i) => (
-                <Card 
-                  key={`recent-placeholder-${i}`}
-                  sx={{ 
-                    aspectRatio: '1',
-                    display: 'flex', 
-                    flexDirection: 'column',
-                    opacity: 0.2,
-                  }}
-                >
-                  <CardMedia 
-                    component="div"
-                    sx={{
-                      position: 'relative',
-                      paddingTop: '80%',
-                      flex: 1,
-                      bgcolor: 'grey.200'
-                    }}
-                  />
-                  <CardContent sx={{ p: '2px !important', minHeight: '20px' }}>
-                    <Typography variant="caption" align="center" sx={{ fontSize: '0.5rem' }}>
-                      --
-                    </Typography>
-                  </CardContent>
-                </Card>
-              ))
+              <Grid xs={12}>
+                <Box sx={{ 
+                  textAlign: 'center', 
+                  py: 6,
+                  color: 'text.secondary'
+                }}>
+                  <Typography variant="h6" gutterBottom>
+                    🎯 No tokens created yet!
+                  </Typography>
+                  <Typography variant="body2" gutterBottom>
+                    Start creating the first meme coin on Coinbull
+                  </Typography>
+                  <Button 
+                    component={Link}
+                    href="/create-token"
+                    variant="contained"
+                    color="primary"
+                    sx={{ mt: 2 }}
+                  >
+                    Create Your First Token
+                  </Button>
+                </Box>
+              </Grid>
             )}
-          </Box>
+          </Grid>
 
-          {/* Load More Recent Tokens */}
-          {displayedRecentTokens.length > recentTokensToShow && (
+          {/* Load More Button */}
+          {displayedRecentTokens.length > 50 && !showMoreRecent && (
             <Box sx={{ textAlign: 'center', mt: 3 }}>
               <Button 
                 variant="outlined" 
-                onClick={loadMoreRecentTokens}
+                onClick={() => setShowMoreRecent(true)}
+                size="large"
                 sx={{ px: 4 }}
               >
-                Load More Recent Tokens
+                Load More Tokens
               </Button>
             </Box>
           )}
-
-          {/* Empty state for recent tokens */}
-          {displayedRecentTokens.length === 0 && (
-            <Box sx={{ 
-              textAlign: 'center', 
-              py: 8,
-              color: 'text.secondary'
-            }}>
-              <Typography variant="h6" gutterBottom>
-                🎯 No tokens created yet!
-              </Typography>
-              <Typography variant="body2" gutterBottom>
-                Start creating the first meme coin on Coinbull
-              </Typography>
-              <Button 
-                component={Link}
-                href="/create-token"
-                variant="contained"
-                color="primary"
-                sx={{ mt: 2 }}
-              >
-                Create Your First Token
-              </Button>
-            </Box>
-          )}
-        </Container>
+        </Box>
       </Box>
     </>
   );
