@@ -203,28 +203,68 @@ export function useTokenCreation() {
         let poolTxId = null;
         if (tokenData.createPool && tokenData.liquiditySolAmount && tokenData.liquiditySolAmount > 0) {
           try {
-            console.log(`Creating Raydium liquidity pool with ${liquidityAmount} tokens and ${tokenData.liquiditySolAmount} SOL`);
-            
-            // Calculate the TOTAL cost that user pays through Phantom
-            const totalCost = calculateTotalCost(retentionPercentage, tokenData.liquiditySolAmount);
-            console.log(`Total cost shown to user: ${totalCost.toFixed(4)} SOL`);
-            
-            // Fee to recipient should be 3% of TOTAL cost, not the entire platform fee
-            const feeToRecipient = totalCost * 0.03;
-            console.log(`Fee to recipient (3% of total): ${feeToRecipient.toFixed(4)} SOL`);
-            console.log(`Remaining for liquidity + Raydium fees: ${(totalCost - feeToRecipient).toFixed(4)} SOL`);
-            
-            poolTxId = await createLiquidityPool(
-              connection,
-              wallet,
-              tokenAddress,
-              liquidityAmount,
-              totalCost, // Pass total cost as solAmount (what user pays)
-              true, // Send fee to fee recipient
-              feeToRecipient // Pass 3% of total cost as the fee
-            );
-            
-            console.log('Liquidity pool created with txId:', poolTxId);
+            // Check for Token Extensions compatibility with Raydium
+            if (tokenData.decimals === 0) {
+              console.log('⚠️ Skipping Raydium pool creation for 0-decimal FungibleAsset token');
+              console.log('🔍 0-decimal tokens use Token Extensions program, which is incompatible with Raydium CPMM');
+              console.log('💡 Consider using 9 decimals for Raydium compatibility, or manually create pools later');
+              
+              // Still send the fee since user paid for it
+              const totalCost = calculateTotalCost(retentionPercentage, tokenData.liquiditySolAmount);
+              const feeToRecipient = totalCost * 0.03;
+              
+              // Send fee to recipient
+              const FEE_RECIPIENT_ADDRESS = process.env.NEXT_PUBLIC_FEE_RECIPIENT_ADDRESS;
+              if (FEE_RECIPIENT_ADDRESS) {
+                try {
+                  const { SystemProgram, Transaction, LAMPORTS_PER_SOL, PublicKey } = await import('@solana/web3.js');
+                  
+                  const feeTransaction = new Transaction();
+                  feeTransaction.add(
+                    SystemProgram.transfer({
+                      fromPubkey: wallet.publicKey,
+                      toPubkey: new PublicKey(FEE_RECIPIENT_ADDRESS),
+                      lamports: Math.floor(feeToRecipient * LAMPORTS_PER_SOL),
+                    })
+                  );
+                  
+                  const { blockhash } = await connection.getLatestBlockhash();
+                  feeTransaction.recentBlockhash = blockhash;
+                  feeTransaction.feePayer = wallet.publicKey;
+                  
+                  const signedFeeTx = await wallet.signTransaction(feeTransaction);
+                  const feeTxId = await connection.sendRawTransaction(signedFeeTx.serialize());
+                  await connection.confirmTransaction(feeTxId);
+                  
+                  console.log(`✅ Platform fee sent (pool creation skipped): ${feeTxId}`);
+                } catch (feeError) {
+                  console.error('❌ Error sending fee:', feeError);
+                }
+              }
+            } else {
+              console.log(`Creating Raydium liquidity pool with ${liquidityAmount} tokens and ${tokenData.liquiditySolAmount} SOL`);
+              
+              // Calculate the TOTAL cost that user pays through Phantom
+              const totalCost = calculateTotalCost(retentionPercentage, tokenData.liquiditySolAmount);
+              console.log(`Total cost shown to user: ${totalCost.toFixed(4)} SOL`);
+              
+              // Fee to recipient should be 3% of TOTAL cost, not the entire platform fee
+              const feeToRecipient = totalCost * 0.03;
+              console.log(`Fee to recipient (3% of total): ${feeToRecipient.toFixed(4)} SOL`);
+              console.log(`Remaining for liquidity + Raydium fees: ${(totalCost - feeToRecipient).toFixed(4)} SOL`);
+              
+              poolTxId = await createLiquidityPool(
+                connection,
+                wallet,
+                tokenAddress,
+                liquidityAmount,
+                totalCost, // Pass total cost as solAmount (what user pays)
+                true, // Send fee to fee recipient
+                feeToRecipient // Pass 3% of total cost as the fee
+              );
+              
+              console.log('Liquidity pool created with txId:', poolTxId);
+            }
           } catch (poolError) {
             console.error('Error creating liquidity pool:', poolError);
             // Continue even if pool creation fails - the token was still created

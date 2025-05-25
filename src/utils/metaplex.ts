@@ -71,11 +71,16 @@ export async function createTokenMetadata(
       }
     ];
 
-    // Determine if metadata should be mutable
-    // If revokeUpdateAuthority is true, make metadata immutable
+    // Determine if metadata should be mutable and what update authority to use
+    // If revokeUpdateAuthority is true, set update authority to System Program during creation
     const isMutable = !params.revokeUpdateAuthority;
+    const DEAD_ADDRESS = new PublicKey('11111111111111111111111111111111');
+    const updateAuthority = params.revokeUpdateAuthority ? DEAD_ADDRESS : wallet.publicKey;
     
     console.log(`Setting metadata as ${isMutable ? 'mutable' : 'immutable'}`);
+    if (params.revokeUpdateAuthority) {
+      console.log('🔒 Setting update authority to System Program during creation (effectively revoked)');
+    }
 
     // Prepare extended metadata
     const tokenMetadata: DataV2 = {
@@ -88,14 +93,14 @@ export async function createTokenMetadata(
       uses: null
     };
     
-    // Create the instruction to create metadata
+    // Create the instruction to create metadata with correct update authority
     const createMetadataInstruction = createCreateMetadataAccountV3Instruction(
       {
         metadata: metadataPDA,
         mint: mintPubkey,
         mintAuthority: wallet.publicKey,
         payer: wallet.publicKey,
-        updateAuthority: wallet.publicKey,
+        updateAuthority: updateAuthority, // Set correct authority during creation
       },
       {
         createMetadataAccountArgsV3: {
@@ -111,37 +116,10 @@ export async function createTokenMetadata(
       units: 400000
     });
     
-    // Create and send the transaction
+    // Create and send the transaction (no need for update instruction)
     const transaction = new Transaction()
       .add(modifyComputeUnits)
       .add(createMetadataInstruction);
-    
-    // If revoking update authority, add an instruction to transfer it to System Program
-    if (params.revokeUpdateAuthority) {
-      console.log('🔒 Revoking metadata update authority for enhanced security...');
-      
-      // Use System Program address as a "dead" address since null doesn't work
-      const DEAD_ADDRESS = new PublicKey('11111111111111111111111111111111');
-      
-      const revokeUpdateInstruction = createUpdateMetadataAccountV2Instruction(
-        {
-          metadata: metadataPDA,
-          updateAuthority: wallet.publicKey,
-        },
-        {
-          updateMetadataAccountArgsV2: {
-            data: tokenMetadata,
-            updateAuthority: DEAD_ADDRESS, // Transfer to System Program (dead address)
-            primarySaleHappened: true,
-            isMutable: false, // Ensure metadata is immutable
-          }
-        }
-      );
-      
-      transaction.add(revokeUpdateInstruction);
-      
-      console.log('📝 Update authority will be transferred to System Program (effectively revoked)');
-    }
     
     // Set recent blockhash and fee payer
     const { blockhash } = await connection.getLatestBlockhash();
