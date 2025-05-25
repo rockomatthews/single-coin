@@ -16,7 +16,7 @@ declare global {
 
 import { useState, useCallback } from 'react';
 import { useConnection, useWallet } from '@solana/wallet-adapter-react';
-import { createVerifiedToken, uploadMetadata, TokenParams } from '../utils/solana';
+import { createVerifiedToken, uploadMetadata, TokenParams, revokeTokenAuthorities } from '../utils/solana';
 import { createLiquidityPool } from '../utils/raydium';
 import { createTokenMetadata } from '../utils/metaplex';
 
@@ -143,7 +143,7 @@ export function useTokenCreation() {
       console.log('Creating token with metadata URI:', metadataUri);
       
       try {
-        // 1. Create token with direct SPL token approach
+        // 1. Create token WITHOUT revoking authorities yet
         const tokenAddress = await createVerifiedToken(
           connection, 
           wallet, 
@@ -163,7 +163,7 @@ export function useTokenCreation() {
         
         console.log('Token created successfully with address:', tokenAddress);
         
-        // 2. Create proper on-chain metadata using Metaplex
+        // 2. Create proper on-chain metadata using Metaplex (while still having mint authority)
         try {
           const metadataTxId = await createTokenMetadata(
             connection,
@@ -180,10 +180,26 @@ export function useTokenCreation() {
           // Continue with the process even if Metaplex fails
         }
         
-        // 3. Automatically add token to wallet
+        // 3. NOW revoke authorities after metadata is created
+        try {
+          const revokeTxId = await revokeTokenAuthorities(
+            connection,
+            wallet,
+            tokenAddress,
+            tokenData
+          );
+          if (revokeTxId) {
+            console.log('Token authorities revoked, txId:', revokeTxId);
+          }
+        } catch (revokeError) {
+          console.error('Error revoking authorities:', revokeError);
+          // Continue even if revocation fails - the token was still created
+        }
+        
+        // 4. Automatically add token to wallet
         await addTokenToPhantomWallet(tokenAddress);
         
-        // 4. Create Raydium liquidity pool if requested
+        // 5. Create Raydium liquidity pool if requested
         let poolTxId = null;
         if (tokenData.createPool && tokenData.liquiditySolAmount && tokenData.liquiditySolAmount > 0) {
           try {

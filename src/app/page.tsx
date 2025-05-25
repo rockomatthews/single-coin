@@ -160,11 +160,11 @@ export default function Home() {
               maxWidth: { xs: '80px', sm: '100px' }, 
               height: { xs: '80px', sm: '100px' }
             }}>
-              <Image 
+        <Image
                 src="/images/logo.png" 
                 alt="Coinbull Logo" 
                 fill
-                priority
+          priority
                 style={{ 
                   objectFit: 'contain',
                 }} 
