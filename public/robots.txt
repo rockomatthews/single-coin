@@ -1,0 +1,24 @@
+User-agent: *
+Allow: /
+
+# Optimize for social media crawlers
+User-agent: facebookexternalhit/*
+Allow: /
+
+User-agent: Twitterbot
+Allow: /
+
+User-agent: LinkedInBot
+Allow: /
+
+User-agent: WhatsApp
+Allow: /
+
+User-agent: Applebot
+Allow: /
+
+# Sitemap
+Sitemap: https://coinbull.app/sitemap.xml
+
+# Crawl delay
+Crawl-delay: 1 
