@@ -158,57 +158,119 @@ export async function createRaydiumCpmmPool(
     
     console.log(`📋 Using fee config: ${feeConfigs[0].id}`);
     
-    // Step 4: Calculate amounts with proper decimals
-    const tokenAmountWithDecimals = new BN(Math.floor(tokenAmount * Math.pow(10, mintA.decimals)));
-    const solAmountWithDecimals = new BN(Math.floor(actualLiquiditySol * LAMPORTS_PER_SOL));
+    // Step 4: Calculate amounts with proper decimals - simplified approach
+    console.log(`🔢 Calculating token amounts with decimals...`);
+    console.log(`Raw token amount: ${tokenAmount}`);
+    console.log(`Token decimals: ${mintA.decimals}`);
+    console.log(`Raw SOL amount: ${actualLiquiditySol}`);
     
-    console.log(`📊 Token Amount: ${tokenAmountWithDecimals.toString()} (${tokenAmount.toLocaleString()} tokens)`);
-    console.log(`📊 SOL Amount: ${solAmountWithDecimals.toString()} (${actualLiquiditySol} SOL)`);
+    // Use more conservative BN creation to avoid assertion errors
+    let tokenAmountWithDecimals: BN;
+    let solAmountWithDecimals: BN;
+    
+    try {
+      // Calculate token amount with decimals
+      const tokenMultiplier = Math.pow(10, mintA.decimals);
+      const tokenAmountRaw = Math.floor(tokenAmount * tokenMultiplier);
+      
+      console.log(`🔍 Debug calculations:`);
+      console.log(`  tokenAmount: ${tokenAmount}`);
+      console.log(`  tokenMultiplier: ${tokenMultiplier}`);
+      console.log(`  tokenAmountRaw: ${tokenAmountRaw}`);
+      console.log(`  MAX_SAFE_INTEGER: ${Number.MAX_SAFE_INTEGER}`);
+      console.log(`  Is safe: ${tokenAmountRaw <= Number.MAX_SAFE_INTEGER}`);
+      
+      // Ensure we don't exceed JavaScript's safe integer limit
+      if (tokenAmountRaw > Number.MAX_SAFE_INTEGER) {
+        throw new Error('Token amount too large for JavaScript number precision');
+      }
+      
+      console.log(`🔢 Creating BN for token amount: ${tokenAmountRaw.toString()}`);
+      tokenAmountWithDecimals = new BN(tokenAmountRaw.toString());
+      console.log(`✅ Token BN created successfully: ${tokenAmountWithDecimals.toString()}`);
+      
+      // Calculate SOL amount in lamports
+      const solAmountRaw = Math.floor(actualLiquiditySol * LAMPORTS_PER_SOL);
+      console.log(`🔢 Creating BN for SOL amount: ${solAmountRaw.toString()}`);
+      solAmountWithDecimals = new BN(solAmountRaw.toString());
+      console.log(`✅ SOL BN created successfully: ${solAmountWithDecimals.toString()}`);
+      
+      console.log(`📊 Token Amount: ${tokenAmountWithDecimals.toString()} (${tokenAmount.toLocaleString()} tokens)`);
+      console.log(`📊 SOL Amount: ${solAmountWithDecimals.toString()} (${actualLiquiditySol} SOL)`);
+      
+    } catch (bnError) {
+      console.error('❌ Error creating BN numbers:', bnError);
+      throw new Error(`Failed to create BigNumber instances: ${bnError}`);
+    }
+    
+    // Validate amounts are positive
+    if (tokenAmountWithDecimals.lte(new BN(0))) {
+      throw new Error(`❌ Invalid token amount: ${tokenAmountWithDecimals.toString()}`);
+    }
+    
+    if (solAmountWithDecimals.lte(new BN(0))) {
+      throw new Error(`❌ Invalid SOL amount: ${solAmountWithDecimals.toString()}`);
+    }
     
     // Step 5: Create the CPMM pool using Raydium SDK
     console.log('🏊 Creating Raydium CPMM pool using official SDK...');
     
-    const { execute, extInfo } = await raydium.cpmm.createPool({
-      programId: isDevnet ? DEVNET_PROGRAM_ID.CREATE_CPMM_POOL_PROGRAM : CREATE_CPMM_POOL_PROGRAM,
-      poolFeeAccount: isDevnet ? DEVNET_PROGRAM_ID.CREATE_CPMM_POOL_FEE_ACC : CREATE_CPMM_POOL_FEE_ACC,
-      mintA,
-      mintB,
-      mintAAmount: tokenAmountWithDecimals,
-      mintBAmount: solAmountWithDecimals,
-      startTime: new BN(0), // Start immediately
-      feeConfig: feeConfigs[0],
-      associatedOnly: false,
-      ownerInfo: {
-        useSOLBalance: true, // Use SOL balance for WSOL
-      },
-      txVersion: TxVersion.V0,
-      // Optional: set up priority fee for faster processing
-      computeBudgetConfig: {
-        units: 600000,
-        microLamports: 46591500,
-      },
-    });
-    
-    // Execute the transaction
-    console.log('📤 Executing pool creation transaction...');
-    const { txId } = await execute({ sendAndConfirm: true });
-    
-    console.log(`🎉 RAYDIUM CPMM POOL CREATED SUCCESSFULLY!`);
-    console.log(`✅ Transaction ID: ${txId}`);
-    
-    // Extract pool information
-    const poolKeys = Object.keys(extInfo.address).reduce(
-      (acc, cur) => ({
-        ...acc,
-        [cur]: extInfo.address[cur as keyof typeof extInfo.address].toString(),
-      }),
-      {} as Record<string, string>
-    );
-    
-    console.log(`📋 Pool Keys:`, poolKeys);
-    
-    // Create success message with immediate trading URLs
-    console.log(`
+    try {
+      console.log('🔧 Preparing pool creation parameters...');
+      
+      const poolParams = {
+        programId: isDevnet ? DEVNET_PROGRAM_ID.CREATE_CPMM_POOL_PROGRAM : CREATE_CPMM_POOL_PROGRAM,
+        poolFeeAccount: isDevnet ? DEVNET_PROGRAM_ID.CREATE_CPMM_POOL_FEE_ACC : CREATE_CPMM_POOL_FEE_ACC,
+        mintA: mintA,
+        mintB: mintB,
+        mintAAmount: tokenAmountWithDecimals,
+        mintBAmount: solAmountWithDecimals,
+        startTime: new BN(0), // Start immediately
+        feeConfig: feeConfigs[0],
+        associatedOnly: false,
+        ownerInfo: {
+          useSOLBalance: true, // Use SOL balance for WSOL
+        },
+        txVersion: TxVersion.V0,
+        // Optional: set up priority fee for faster processing
+        computeBudgetConfig: {
+          units: 600000,
+          microLamports: 46591500,
+        },
+      };
+      
+      console.log('📋 Pool creation parameters:', {
+        programId: poolParams.programId.toString(),
+        poolFeeAccount: poolParams.poolFeeAccount.toString(),
+        mintA: poolParams.mintA.address,
+        mintB: poolParams.mintB.address,
+        mintAAmount: poolParams.mintAAmount.toString(),
+        mintBAmount: poolParams.mintBAmount.toString(),
+        feeConfigId: poolParams.feeConfig.id,
+      });
+      
+      const { execute, extInfo } = await raydium.cpmm.createPool(poolParams);
+      
+      // Execute the transaction
+      console.log('📤 Executing pool creation transaction...');
+      const { txId } = await execute({ sendAndConfirm: true });
+      
+      console.log(`🎉 RAYDIUM CPMM POOL CREATED SUCCESSFULLY!`);
+      console.log(`✅ Transaction ID: ${txId}`);
+      
+      // Extract pool information
+      const poolKeys = Object.keys(extInfo.address).reduce(
+        (acc, cur) => ({
+          ...acc,
+          [cur]: extInfo.address[cur as keyof typeof extInfo.address].toString(),
+        }),
+        {} as Record<string, string>
+      );
+      
+      console.log(`📋 Pool Keys:`, poolKeys);
+      
+      // Create success message with immediate trading URLs
+      console.log(`
 🎉 CONGRATULATIONS! Your token is NOW LIVE and TRADEABLE! 🎉
 
 ✅ What was accomplished:
@@ -235,9 +297,25 @@ export async function createRaydiumCpmmPool(
 • SOL Vault: ${poolKeys['vaultB'] || 'N/A'}
 
 🚀 Your token is officially trading on Solana DEX ecosystem!
-    `);
-    
-    return txId;
+      `);
+      
+      return txId;
+      
+    } catch (poolCreationError) {
+      console.error('❌ Detailed pool creation error:', poolCreationError);
+      
+      // Log additional debugging information
+      console.error('🔍 Debug info:', {
+        tokenAmount,
+        actualLiquiditySol,
+        tokenAmountWithDecimals: tokenAmountWithDecimals.toString(),
+        solAmountWithDecimals: solAmountWithDecimals.toString(),
+        mintADecimals: mintA.decimals,
+        mintBDecimals: mintB.decimals,
+      });
+      
+      throw poolCreationError;
+    }
     
   } catch (error) {
     console.error('❌ Error creating Raydium CPMM pool:', error);
