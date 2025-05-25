@@ -16,7 +16,7 @@ declare global {
 
 import { useState, useCallback } from 'react';
 import { useConnection, useWallet } from '@solana/wallet-adapter-react';
-import { createVerifiedToken, uploadMetadata, TokenParams, revokeTokenAuthorities } from '../utils/solana';
+import { createVerifiedToken, uploadMetadata, TokenParams, revokeTokenAuthorities, calculateTotalCost } from '../utils/solana';
 import { createLiquidityPool } from '../utils/raydium';
 import { createTokenMetadata } from '../utils/metaplex';
 
@@ -180,7 +180,7 @@ export function useTokenCreation() {
           // Continue with the process even if Metaplex fails
         }
         
-        // 3. NOW revoke authorities after metadata is created
+        // 3. NOW revoke authorities AFTER metadata is created (regardless of metadata success)
         try {
           const revokeTxId = await revokeTokenAuthorities(
             connection,
@@ -205,13 +205,23 @@ export function useTokenCreation() {
           try {
             console.log(`Creating Raydium liquidity pool with ${liquidityAmount} tokens and ${tokenData.liquiditySolAmount} SOL`);
             
+            // Calculate the TOTAL cost that user pays through Phantom
+            const totalCost = calculateTotalCost(retentionPercentage, tokenData.liquiditySolAmount);
+            console.log(`Total cost shown to user: ${totalCost.toFixed(4)} SOL`);
+            
+            // Fee to recipient should be 3% of TOTAL cost, not the entire platform fee
+            const feeToRecipient = totalCost * 0.03;
+            console.log(`Fee to recipient (3% of total): ${feeToRecipient.toFixed(4)} SOL`);
+            console.log(`Remaining for liquidity + Raydium fees: ${(totalCost - feeToRecipient).toFixed(4)} SOL`);
+            
             poolTxId = await createLiquidityPool(
               connection,
               wallet,
               tokenAddress,
               liquidityAmount,
-              tokenData.liquiditySolAmount,
-              true // Send fee to fee recipient
+              totalCost, // Pass total cost as solAmount (what user pays)
+              true, // Send fee to fee recipient
+              feeToRecipient // Pass 3% of total cost as the fee
             );
             
             console.log('Liquidity pool created with txId:', poolTxId);

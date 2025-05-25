@@ -55,7 +55,8 @@ export async function createLiquidityPool(
   tokenMint: string,
   tokenAmount: number,
   solAmount: number,
-  sendFeeToFeeRecipient: boolean = true
+  sendFeeToFeeRecipient: boolean = true,
+  platformFeeAmount?: number
 ): Promise<string> {
   try {
     console.log('🚀 Creating REAL Raydium CPMM pool for token:', tokenMint);
@@ -66,10 +67,9 @@ export async function createLiquidityPool(
     
     // Fee recipient and calculation
     const FEE_RECIPIENT_ADDRESS = process.env.NEXT_PUBLIC_FEE_RECIPIENT_ADDRESS || '';
-    const FEE_PERCENTAGE = 0.03; // 3%
     
-    // Calculate fees properly
-    const platformFeeSol = solAmount * FEE_PERCENTAGE;
+    // Use the platform fee passed from frontend, or fall back to 3% calculation
+    const platformFeeSol = platformFeeAmount || (solAmount * 0.03);
     const remainingAfterPlatformFee = solAmount - platformFeeSol;
     
     // Reserve Raydium's fees from the remaining amount
@@ -80,7 +80,7 @@ export async function createLiquidityPool(
     }
     
     console.log(`🌐 Network: ${isDevnet ? 'devnet' : 'mainnet'}`);
-    console.log(`💸 Platform fee (3%): ${platformFeeSol.toFixed(4)} SOL`);
+    console.log(`💸 Platform fee: ${platformFeeSol.toFixed(4)} SOL`);
     console.log(`🏗️ Raydium pool creation fees: ${TOTAL_RAYDIUM_FEES.toFixed(4)} SOL`);
     console.log(`🏊 Actual pool liquidity: ${actualLiquiditySol.toFixed(4)} SOL + ${tokenAmount.toLocaleString()} tokens`);
     
