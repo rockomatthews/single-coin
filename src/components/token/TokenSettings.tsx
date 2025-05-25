@@ -246,13 +246,15 @@ export default function TokenSettings({
               label="Decimals"
               onChange={handleSelectChange}
             >
-              <MenuItem value={0}>0 - FungibleAsset (Best for meme coins, shows more metadata)</MenuItem>
-              <MenuItem value={6}>6</MenuItem>
-              <MenuItem value={9}>9 - Standard Fungible</MenuItem>
-              <MenuItem value={12}>12</MenuItem>
+              <MenuItem value={9}>9 - Standard Fungible (Recommended - Full Raydium compatibility)</MenuItem>
+              <MenuItem value={6}>6 - Standard Fungible</MenuItem>
+              <MenuItem value={0}>0 - FungibleAsset (Rich metadata display, no auto-pools)</MenuItem>
+              <MenuItem value={12}>12 - High precision</MenuItem>
             </Select>
             <FormHelperText>
-              0 decimals = FungibleAsset with rich metadata display (description, links) in Phantom wallet. 9 decimals = standard fungible token with basic display.
+              <strong>9 decimals (Recommended):</strong> Full Raydium pool compatibility + good metadata display. 
+              <br />
+              <strong>0 decimals:</strong> Rich metadata in Phantom but no automatic Raydium pools.
             </FormHelperText>
           </FormControl>
         </Grid>

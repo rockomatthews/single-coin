@@ -34,7 +34,7 @@ const DEFAULT_TOKEN_PARAMS = {
   twitter: '',
   telegram: '',
   discord: '',
-  decimals: 0,
+  decimals: 9,
   supply: 1000000000,
   retentionPercentage: 20,
   liquiditySolAmount: 0.1,

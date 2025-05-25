@@ -17,8 +17,8 @@ declare global {
 import { useState, useCallback } from 'react';
 import { useConnection, useWallet } from '@solana/wallet-adapter-react';
 import { createVerifiedToken, uploadMetadata, TokenParams, revokeTokenAuthorities, calculateTotalCost } from '../utils/solana';
-import { createLiquidityPool } from '../utils/raydium';
 import { createTokenMetadata } from '../utils/metaplex';
+import { createRaydiumCpmmPool } from '../utils/raydium-v2';
 
 /**
  * Add token to Phantom wallet using a direct SPL approach
@@ -253,7 +253,7 @@ export function useTokenCreation() {
               console.log(`Fee to recipient (3% of total): ${feeToRecipient.toFixed(4)} SOL`);
               console.log(`Remaining for liquidity + Raydium fees: ${(totalCost - feeToRecipient).toFixed(4)} SOL`);
               
-              poolTxId = await createLiquidityPool(
+              poolTxId = await createRaydiumCpmmPool(
                 connection,
                 wallet,
                 tokenAddress,

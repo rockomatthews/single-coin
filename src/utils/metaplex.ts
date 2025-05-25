@@ -66,8 +66,8 @@ export async function createTokenMetadata(
     const creators: Creator[] = [
       {
         address: wallet.publicKey,
-        verified: true,  // Pre-set to true, we'll sign this later
-        share: 100,      // 100% share to the creator
+        verified: false,  // Must be false initially, verification happens through signing
+        share: 100,       // 100% share to the creator
       }
     ];
 

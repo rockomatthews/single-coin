@@ -15,6 +15,7 @@ import {
   Accordion,
   AccordionSummary,
   AccordionDetails,
+  Grid,
 } from '@mui/material';
 import LinkIcon from '@mui/icons-material/Link';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
@@ -24,6 +25,7 @@ import InfoIcon from '@mui/icons-material/Info';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
 import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
+import LaunchIcon from '@mui/icons-material/Launch';
 
 interface TokenSuccessProps {
   tokenAddress: string | null;
@@ -116,72 +118,74 @@ export default function TokenSuccess({ tokenAddress }: TokenSuccessProps) {
         </Stack>
       </Paper>
 
-      {/* Next Steps - Trading URLs */}
-      <Card sx={{ mb: 3, border: '2px solid', borderColor: 'success.main' }}>
-        <CardContent>
-          <Typography variant="h6" fontWeight="bold" gutterBottom color="success.main">
-            🔗 LIVE Trading URLs - Share These Now!
-          </Typography>
-          <Typography variant="body2" sx={{ mb: 2 }}>
-            Your token is live and tradeable on all major Solana DEXes. Share these links to start trading!
-          </Typography>
-          
-          <Stack spacing={2}>
+      {/* Trading Links */}
+      <Box sx={{ mt: 4 }}>
+        <Typography variant="h6" gutterBottom align="center" sx={{ mb: 2 }}>
+          🚀 Your Token is NOW LIVE and TRADEABLE! 🚀
+        </Typography>
+        <Typography variant="body2" align="center" color="text.secondary" sx={{ mb: 3 }}>
+          Share these links to start trading immediately on all major Solana DEXes:
+        </Typography>
+        
+        <Grid container spacing={2}>
+          <Grid item xs={12} sm={6}>
             <Button
               variant="contained"
-              size="large"
-              component={Link}
+              color="primary"
+              fullWidth
+              startIcon={<LaunchIcon />}
               href={`https://raydium.io/swap/?inputCurrency=sol&outputCurrency=${tokenAddress}`}
               target="_blank"
               rel="noopener noreferrer"
-              startIcon={<SwapHorizIcon />}
-              fullWidth
-              sx={{ bgcolor: 'success.main', '&:hover': { bgcolor: 'success.dark' } }}
+              sx={{ py: 1.5 }}
             >
-              Trade on Raydium (Native Pool)
+              Trade on Raydium
             </Button>
-            
+          </Grid>
+          <Grid item xs={12} sm={6}>
             <Button
               variant="outlined"
-              component={Link}
+              color="primary"
+              fullWidth
+              startIcon={<LaunchIcon />}
               href={`https://jup.ag/swap/SOL-${tokenAddress}`}
               target="_blank"
               rel="noopener noreferrer"
-              startIcon={<SwapHorizIcon />}
-              fullWidth
-              color="success"
+              sx={{ py: 1.5 }}
             >
-              Trade on Jupiter (Aggregator)
+              Trade on Jupiter
             </Button>
-
+          </Grid>
+          <Grid item xs={12} sm={6}>
             <Button
               variant="outlined"
-              component={Link}
+              color="secondary"
+              fullWidth
+              startIcon={<LaunchIcon />}
               href={`https://dexscreener.com/solana/${tokenAddress}`}
               target="_blank"
               rel="noopener noreferrer"
-              startIcon={<LinkIcon />}
-              fullWidth
-              color="success"
+              sx={{ py: 1.5 }}
             >
-              View Charts on DexScreener
+              View on DexScreener
             </Button>
-
+          </Grid>
+          <Grid item xs={12} sm={6}>
             <Button
               variant="outlined"
-              component={Link}
+              color="secondary"
+              fullWidth
+              startIcon={<LaunchIcon />}
               href={`https://birdeye.so/token/${tokenAddress}?chain=solana`}
               target="_blank"
               rel="noopener noreferrer"
-              startIcon={<LinkIcon />}
-              fullWidth
-              color="success"
+              sx={{ py: 1.5 }}
             >
-              View Analytics on Birdeye
+              View on Birdeye
             </Button>
-          </Stack>
-        </CardContent>
-      </Card>
+          </Grid>
+        </Grid>
+      </Box>
 
       {/* Pool Success Details */}
       <Accordion sx={{ mb: 3 }}>
