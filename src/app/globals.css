@@ -1,3 +1,11 @@
+@font-face {
+  font-family: 'Nitro Chargers';
+  src: url('/fonts/nitro.otf') format('opentype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
   --foreground-rgb: 255, 255, 255;
   --background-start-rgb: 0, 0, 0;

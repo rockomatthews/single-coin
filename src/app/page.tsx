@@ -115,7 +115,8 @@ export default function Home() {
               color: 'primary.main', 
               fontWeight: 'bold',
               fontSize: { xs: '1.5rem', md: '1.8rem' },
-              mb: 1
+              mb: 1,
+              fontFamily: '"Nitro Chargers", Arial, sans-serif'
             }}>
               Coinbull
             </Typography>
@@ -190,7 +191,8 @@ export default function Home() {
               alignItems: 'center',
               justifyContent: 'center',
               mb: 2,
-              fontSize: { xs: '1.75rem', md: '2rem' }
+              fontSize: { xs: '1.75rem', md: '2rem' },
+              fontFamily: '"Nitro Chargers", Arial, sans-serif'
             }}
           >
             <LocalFireDepartmentIcon sx={{ mr: 1, color: 'orange' }} /> 🔥Hot Tokens🔥 <LocalFireDepartmentIcon sx={{ ml: 1, color: 'orange' }} />
@@ -235,6 +237,10 @@ export default function Home() {
                       sx={{
                         position: 'relative',
                         paddingTop: '100%', // 1:1 aspect ratio
+                        borderRadius: '50%',
+                        overflow: 'hidden',
+                        border: '2px solid #333',
+                        boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
                       }}
                     >
                       <SafeImage
@@ -245,26 +251,26 @@ export default function Home() {
                         style={{ objectFit: 'cover' }}
                       />
                     </CardMedia>
-                    <CardContent sx={{ flexGrow: 1, p: 0.75, '&:last-child': { pb: 0.75 } }}>
-                      <Typography variant="caption" align="center" noWrap sx={{ fontWeight: 'bold', display: 'block', lineHeight: 1.2 }}>
+                    <CardContent sx={{ flexGrow: 1, p: 1, '&:last-child': { pb: 1 } }}>
+                      <Typography variant="caption" align="center" noWrap sx={{ fontWeight: 'bold', display: 'block', lineHeight: 1.2, mb: 0.5 }}>
                         {token.token_name}
                       </Typography>
-                      <Typography variant="caption" align="center" color="text.secondary" display="block" sx={{ fontSize: '0.65rem', mb: 0.5 }}>
+                      <Typography variant="caption" align="center" color="text.secondary" display="block" sx={{ fontSize: '0.65rem', mb: 0.75 }}>
                         {token.token_symbol}
                       </Typography>
                       
-                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25 }}>
+                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
                         <Tooltip title="Market Cap">
                           <Chip 
-                            icon={<TrendingUpIcon sx={{ fontSize: '0.75rem !important' }} />}
+                            icon={<TrendingUpIcon sx={{ fontSize: '0.8rem !important' }} />}
                             label={formatMarketCap(token.marketCap)}
                             size="small"
                             variant="outlined"
                             sx={{ 
                               width: '100%', 
-                              height: '20px',
+                              height: '24px',
                               '& .MuiChip-label': { 
-                                fontSize: '0.6rem',
+                                fontSize: '0.65rem',
                                 px: 0.5
                               }
                             }}
@@ -273,15 +279,15 @@ export default function Home() {
                         
                         <Tooltip title="Token Price">
                           <Chip 
-                            icon={<AttachMoneyIcon sx={{ fontSize: '0.75rem !important' }} />}
+                            icon={<AttachMoneyIcon sx={{ fontSize: '0.8rem !important' }} />}
                             label={formatPrice(token.price)}
                             size="small"
                             variant="outlined"
                             sx={{ 
                               width: '100%',
-                              height: '20px',
+                              height: '24px',
                               '& .MuiChip-label': { 
-                                fontSize: '0.6rem',
+                                fontSize: '0.65rem',
                                 px: 0.5
                               }
                             }}
@@ -324,7 +330,8 @@ export default function Home() {
             sx={{ 
               fontWeight: 'bold',
               mb: 2,
-              fontSize: { xs: '1.5rem', md: '1.75rem' }
+              fontSize: { xs: '1.5rem', md: '1.75rem' },
+              fontFamily: '"Nitro Chargers", Arial, sans-serif'
             }}
           >
             Recently Created Tokens
@@ -369,6 +376,10 @@ export default function Home() {
                       sx={{
                         position: 'relative',
                         paddingTop: '100%', // 1:1 aspect ratio
+                        borderRadius: '50%',
+                        overflow: 'hidden',
+                        border: '2px solid #333',
+                        boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
                       }}
                     >
                       <SafeImage
@@ -379,33 +390,34 @@ export default function Home() {
                         style={{ objectFit: 'cover' }}
                       />
                     </CardMedia>
-                    <CardContent sx={{ flexGrow: 1, p: 0.5, '&:last-child': { pb: 0.5 } }}>
+                    <CardContent sx={{ flexGrow: 1, p: 0.75, '&:last-child': { pb: 0.75 } }}>
                       <Typography variant="caption" align="center" noWrap sx={{ 
                         fontWeight: 'bold', 
                         display: 'block', 
                         lineHeight: 1.1,
-                        fontSize: '0.65rem'
+                        fontSize: '0.65rem',
+                        mb: 0.25
                       }}>
                         {token.token_name}
                       </Typography>
                       <Typography variant="caption" align="center" color="text.secondary" display="block" sx={{ 
                         fontSize: '0.55rem', 
-                        mb: 0.25,
+                        mb: 0.5,
                         lineHeight: 1
                       }}>
                         {token.token_symbol}
                       </Typography>
                       <Tooltip title="Market Cap">
                         <Chip 
-                          icon={<TrendingUpIcon sx={{ fontSize: '0.65rem !important' }} />}
+                          icon={<TrendingUpIcon sx={{ fontSize: '0.7rem !important' }} />}
                           label={formatMarketCap(token.marketCap)}
                           size="small"
                           variant="outlined"
                           sx={{ 
                             width: '100%',
-                            height: '18px',
+                            height: '20px',
                             '& .MuiChip-label': { 
-                              fontSize: '0.55rem',
+                              fontSize: '0.6rem',
                               px: 0.25
                             }
                           }}
