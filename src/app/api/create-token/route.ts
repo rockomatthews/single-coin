@@ -70,7 +70,13 @@ export async function POST(request: NextRequest) {
       totalSupply,
       retentionPercentage,
       retainedAmount,
-      liquidityAmount
+      liquidityAmount,
+      tokenData.description || '',
+      tokenData.website || '',
+      tokenData.twitter || '',
+      tokenData.telegram || '',
+      tokenData.discord || '',
+      tokenData.metadataUri || ''
     );
     
     console.log('Token saved successfully to database');

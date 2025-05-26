@@ -11,8 +11,10 @@ import {
   Container, 
   Divider, 
   Grid, 
+  IconButton,
   Link as MuiLink, 
   Paper, 
+  Stack,
   Table, 
   TableBody, 
   TableCell, 
@@ -20,6 +22,13 @@ import {
   TableRow, 
   Typography 
 } from '@mui/material';
+import { 
+  Language as WebsiteIcon,
+  Twitter as TwitterIcon,
+  Telegram as TelegramIcon,
+  Forum as DiscordIcon,
+  OpenInNew as ExternalLinkIcon
+} from '@mui/icons-material';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { Connection, PublicKey } from '@solana/web3.js';
@@ -129,6 +138,95 @@ export default function TokenDetailPage() {
                 <Typography variant="body2" paragraph>
                   Created on {new Date(token.created_at).toLocaleString()}
                 </Typography>
+                
+                {/* Token Description */}
+                {token.token_description && (
+                  <Box sx={{ mb: 2 }}>
+                    <Typography variant="body1" paragraph sx={{ 
+                      fontStyle: 'italic', 
+                      color: 'text.secondary',
+                      backgroundColor: 'background.paper',
+                      p: 2,
+                      borderRadius: 1,
+                      border: '1px solid',
+                      borderColor: 'divider'
+                    }}>
+                      "{token.token_description}"
+                    </Typography>
+                  </Box>
+                )}
+                
+                {/* Social Links */}
+                {(token.website || token.twitter || token.telegram || token.discord) && (
+                  <Box sx={{ mb: 2 }}>
+                    <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 'bold' }}>
+                      Links & Social Media
+                    </Typography>
+                    <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                      {token.website && (
+                        <Button
+                          variant="outlined"
+                          size="small"
+                          startIcon={<WebsiteIcon />}
+                          endIcon={<ExternalLinkIcon fontSize="small" />}
+                          component={MuiLink}
+                          href={token.website}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          sx={{ textTransform: 'none' }}
+                        >
+                          Website
+                        </Button>
+                      )}
+                      {token.twitter && (
+                        <Button
+                          variant="outlined"
+                          size="small"
+                          startIcon={<TwitterIcon />}
+                          endIcon={<ExternalLinkIcon fontSize="small" />}
+                          component={MuiLink}
+                          href={token.twitter}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          sx={{ textTransform: 'none', color: '#1DA1F2', borderColor: '#1DA1F2' }}
+                        >
+                          Twitter
+                        </Button>
+                      )}
+                      {token.telegram && (
+                        <Button
+                          variant="outlined"
+                          size="small"
+                          startIcon={<TelegramIcon />}
+                          endIcon={<ExternalLinkIcon fontSize="small" />}
+                          component={MuiLink}
+                          href={token.telegram}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          sx={{ textTransform: 'none', color: '#0088cc', borderColor: '#0088cc' }}
+                        >
+                          Telegram
+                        </Button>
+                      )}
+                      {token.discord && (
+                        <Button
+                          variant="outlined"
+                          size="small"
+                          startIcon={<DiscordIcon />}
+                          endIcon={<ExternalLinkIcon fontSize="small" />}
+                          component={MuiLink}
+                          href={token.discord}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          sx={{ textTransform: 'none', color: '#5865F2', borderColor: '#5865F2' }}
+                        >
+                          Discord
+                        </Button>
+                      )}
+                    </Stack>
+                  </Box>
+                )}
+                
                 <Box sx={{ mt: 2 }}>
                   <Button
                     variant="contained"

@@ -11,6 +11,12 @@ export interface UserToken {
   token_name: string;
   token_symbol: string;
   token_image: string;
+  token_description?: string;
+  website?: string;
+  twitter?: string;
+  telegram?: string;
+  discord?: string;
+  metadata_uri?: string;
   decimals: number;
   supply: number;
   retained_amount: number;
@@ -30,7 +36,13 @@ export async function saveTokenToDatabase(
   supply: number,
   retentionPercentage: number = 100,
   retainedAmount?: number,
-  liquidityAmount?: number
+  liquidityAmount?: number,
+  tokenDescription?: string,
+  website?: string,
+  twitter?: string,
+  telegram?: string,
+  discord?: string,
+  metadataUri?: string
 ): Promise<void> {
   try {
     // Calculate amounts if not provided
@@ -45,6 +57,12 @@ export async function saveTokenToDatabase(
         token_name TEXT NOT NULL,
         token_symbol TEXT NOT NULL,
         token_image TEXT,
+        token_description TEXT,
+        website TEXT,
+        twitter TEXT,
+        telegram TEXT,
+        discord TEXT,
+        metadata_uri TEXT,
         decimals INTEGER NOT NULL,
         supply BIGINT NOT NULL,
         retained_amount BIGINT NOT NULL,
@@ -57,9 +75,11 @@ export async function saveTokenToDatabase(
     await sql`
       INSERT INTO user_tokens (
         user_address, token_address, token_name, token_symbol, token_image, 
+        token_description, website, twitter, telegram, discord, metadata_uri,
         decimals, supply, retained_amount, liquidity_amount, retention_percentage
       ) VALUES (
         ${userAddress}, ${tokenAddress}, ${tokenName}, ${tokenSymbol}, ${tokenImage}, 
+        ${tokenDescription}, ${website}, ${twitter}, ${telegram}, ${discord}, ${metadataUri},
         ${decimals}, ${supply}, ${actualRetainedAmount}, ${actualLiquidityAmount}, ${retentionPercentage}
       )
     `;

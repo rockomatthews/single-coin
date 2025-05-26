@@ -328,36 +328,9 @@ export async function createRaydiumCpmmPool(
       console.log('📤 Executing pool creation transaction...');
       
       try {
-        // Try to execute with sendAndConfirm first
-        const result = await execute({ sendAndConfirm: false });
-        
-        let txId: string;
-        
-        if ('txs' in result && Array.isArray(result.txs)) {
-          // Handle multiple transactions
-          console.log(`🔐 Need to sign ${result.txs.length} transactions`);
-          const raydiumWallet = createRaydiumWalletAdapter(wallet);
-          const signedTxs = await raydiumWallet.signAllTransactions(result.txs as Transaction[]);
-          
-          // Send transactions manually
-          const txIds = [];
-          for (const signedTx of signedTxs) {
-            const currentTxId = await connection.sendRawTransaction(signedTx.serialize());
-            await connection.confirmTransaction(currentTxId);
-            txIds.push(currentTxId);
-          }
-          
-          txId = txIds[txIds.length - 1]; // Use the last transaction ID
-        } else if ('signedTx' in result) {
-          // Handle single transaction
-          console.log('🔐 Signing single transaction');
-          const transaction = result.signedTx as Transaction;
-          const signedTx = await wallet.signTransaction(transaction);
-          txId = await connection.sendRawTransaction(signedTx.serialize());
-          await connection.confirmTransaction(txId);
-        } else {
-          throw new Error('Unexpected result format from Raydium SDK');
-        }
+        // Now that signAllTransactions is working, use sendAndConfirm: true
+        const result = await execute({ sendAndConfirm: true });
+        const txId = result.txId;
         
         console.log(`🎉 RAYDIUM CPMM POOL CREATED SUCCESSFULLY!`);
         console.log(`✅ Transaction ID: ${txId}`);
@@ -406,21 +379,8 @@ export async function createRaydiumCpmmPool(
         return txId;
       } catch (executeError) {
         console.error('❌ Execute error:', executeError);
-        
-        // Try manual execution as fallback
-        console.log('🔄 Attempting manual transaction execution...');
-        const result = await execute({ sendAndConfirm: false });
-        
-        if ('signedTx' in result) {
-          const transaction = result.signedTx as Transaction;
-          const signedTx = await wallet.signTransaction(transaction);
-          const txId = await connection.sendRawTransaction(signedTx.serialize());
-          await connection.confirmTransaction(txId);
-          return txId;
-        } else {
-          throw new Error('Unable to execute pool creation transaction');
-        }
-              }
+        throw executeError;
+      }
         
         // This code should not be reached due to returns above, but keeping for safety
         throw new Error('Pool creation completed but no transaction ID returned');
