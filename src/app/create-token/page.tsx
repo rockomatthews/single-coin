@@ -57,15 +57,23 @@ export default function CreateTokenPage() {
     tokenAddress: string | null;
     poolTxId: string | null;
   } | null>(null);
+  const [isCheckingWallet, setIsCheckingWallet] = useState(true);
   
-  // Auto-redirect to home if not connected
+  // Auto-redirect to home if not connected (with delay to allow wallet to connect)
   useEffect(() => {
     // Check URL first
     const skipCheck = searchParams.get('skipCheck') === 'true';
     
-    if (!skipCheck && !connected) {
-      router.push('/');
-    }
+    // Add a small delay to allow wallet to connect on page load
+    const timer = setTimeout(() => {
+      setIsCheckingWallet(false);
+      if (!skipCheck && !connected) {
+        console.log('Redirecting to home - wallet not connected');
+        router.push('/');
+      }
+    }, 2000); // 2 second delay to allow wallet connection
+    
+    return () => clearTimeout(timer);
   }, [connected, router, searchParams]);
 
   // Handle advancing to next step
@@ -194,6 +202,44 @@ export default function CreateTokenPage() {
     creationResult, 
     tokenAddress
   ]);
+
+  // Show loading while checking wallet connection
+  if (isCheckingWallet) {
+    return (
+      <Container maxWidth="md" sx={{ py: 4 }}>
+        <Paper elevation={3} sx={{ p: 4, borderRadius: 2, textAlign: 'center' }}>
+          <CircularProgress sx={{ mb: 2 }} />
+          <Typography variant="h6">
+            Checking wallet connection...
+          </Typography>
+        </Paper>
+      </Container>
+    );
+  }
+
+  // Show wallet connection prompt if not connected
+  if (!connected) {
+    return (
+      <Container maxWidth="md" sx={{ py: 4 }}>
+        <Paper elevation={3} sx={{ p: 4, borderRadius: 2, textAlign: 'center' }}>
+          <Typography variant="h4" component="h1" gutterBottom fontWeight="bold">
+            Connect Your Wallet
+          </Typography>
+          <Typography variant="body1" sx={{ mb: 3 }}>
+            Please connect your Solana wallet to create a token.
+          </Typography>
+          <Button
+            variant="contained"
+            color="primary"
+            onClick={() => router.push('/')}
+            sx={{ mt: 2 }}
+          >
+            Go Back to Homepage
+          </Button>
+        </Paper>
+      </Container>
+    );
+  }
 
   return (
     <Container maxWidth="md" sx={{ py: 4 }}>

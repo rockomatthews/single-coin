@@ -109,7 +109,7 @@ export default function Home() {
             flexDirection: 'column',
             justifyContent: 'center',
             alignItems: 'center',
-            textAlign: 'center'
+            textAlign: 'left'
           }}>
             <Typography variant="h4" component="h1" gutterBottom sx={{ 
               color: 'primary.main', 
@@ -121,7 +121,7 @@ export default function Home() {
               Coin Bull
             </Typography>
             <Typography variant="body2" component="h2" color="text.secondary" paragraph sx={{ mb: 1.5 }}>
-              Create verified Solana meme coins with a liquidity pool and a rich metadata display in just one step.
+              Create DEX-tradable SOL coins with liquidity pools in just one step.
             </Typography>
             <Box sx={{ 
               display: 'flex', 
