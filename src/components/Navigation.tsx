@@ -33,9 +33,10 @@ export const Navigation = () => {
                   fontWeight: 700,
                   color: 'secondary.main',
                   textDecoration: 'none',
+                  fontFamily: '"Nitro Chargers", Arial, sans-serif'
                 }}
               >
-                COINBULL
+                COIN BULL
               </Typography>
             </Link>
           </Box>

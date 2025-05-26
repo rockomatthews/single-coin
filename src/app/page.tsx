@@ -118,7 +118,7 @@ export default function Home() {
               mb: 1,
               fontFamily: '"Nitro Chargers", Arial, sans-serif'
             }}>
-              Coinbull
+              Coin Bull
             </Typography>
             <Typography variant="body2" component="h2" color="text.secondary" paragraph sx={{ mb: 1.5 }}>
               Create verified Solana meme coins with a liquidity pool and a rich metadata display in just one step.
@@ -191,8 +191,7 @@ export default function Home() {
               alignItems: 'center',
               justifyContent: 'center',
               mb: 2,
-              fontSize: { xs: '1.75rem', md: '2rem' },
-              fontFamily: '"Nitro Chargers", Arial, sans-serif'
+              fontSize: { xs: '1.75rem', md: '2rem' }
             }}
           >
             <LocalFireDepartmentIcon sx={{ mr: 1, color: 'orange' }} /> 🔥Hot Tokens🔥 <LocalFireDepartmentIcon sx={{ ml: 1, color: 'orange' }} />
@@ -330,8 +329,7 @@ export default function Home() {
             sx={{ 
               fontWeight: 'bold',
               mb: 2,
-              fontSize: { xs: '1.5rem', md: '1.75rem' },
-              fontFamily: '"Nitro Chargers", Arial, sans-serif'
+              fontSize: { xs: '1.5rem', md: '1.75rem' }
             }}
           >
             Recently Created Tokens
