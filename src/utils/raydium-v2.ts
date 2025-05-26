@@ -69,20 +69,50 @@ function createRaydiumWalletAdapter(wallet: WalletAdapter) {
 async function initRaydiumSDK(connection: Connection, wallet: WalletAdapter): Promise<Raydium> {
   const cluster = process.env.NEXT_PUBLIC_SOLANA_NETWORK?.toLowerCase() === 'devnet' ? 'devnet' : 'mainnet';
   
-  console.log('🔧 Initializing Raydium SDK with signAllTransactions');
+  console.log('🔧 Initializing Raydium SDK with signAllTransactions v2');
   console.log('📋 Wallet capabilities:', {
     hasPublicKey: !!wallet.publicKey,
     hasSignTransaction: !!wallet.signTransaction,
     hasSignAllTransactions: !!wallet.signAllTransactions,
   });
   
-  // Create the proper wallet adapter for Raydium SDK
-  const raydiumWallet = createRaydiumWalletAdapter(wallet);
+  // Create the signAllTransactions function that Raydium SDK expects
+  const signAllTransactions = async <T extends Transaction | VersionedTransaction>(transactions: T[]): Promise<T[]> => {
+    console.log(`🔐 Raydium SDK requesting to sign ${transactions.length} transactions`);
+    
+    if (wallet.signAllTransactions) {
+      try {
+        console.log('✅ Using wallet.signAllTransactions');
+        const result = await wallet.signAllTransactions(transactions as any[]);
+        console.log(`✅ Successfully signed ${result.length} transactions via signAllTransactions`);
+        return result as T[];
+      } catch (error) {
+        console.error('❌ wallet.signAllTransactions failed:', error);
+        // Fall back to individual signing
+      }
+    }
+    
+    // Fallback: sign transactions one by one
+    console.log('🔄 Falling back to individual transaction signing');
+    const signedTransactions: T[] = [];
+    for (let i = 0; i < transactions.length; i++) {
+      try {
+        console.log(`🔐 Signing transaction ${i + 1}/${transactions.length}`);
+        const signedTx = await wallet.signTransaction(transactions[i] as any);
+        signedTransactions.push(signedTx as T);
+      } catch (error) {
+        console.error(`❌ Failed to sign transaction ${i + 1}:`, error);
+        throw error;
+      }
+    }
+    console.log(`✅ Successfully signed all ${signedTransactions.length} transactions individually`);
+    return signedTransactions;
+  };
   
   const raydium = await Raydium.load({
     connection,
     owner: wallet.publicKey, // Use publicKey for owner
-    signAllTransactions: raydiumWallet.signAllTransactions, // Pass signAllTransactions function
+    signAllTransactions, // Pass the signAllTransactions function directly
     cluster,
     disableFeatureCheck: true,
     disableLoadToken: false,
