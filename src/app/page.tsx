@@ -108,8 +108,8 @@ export default function Home() {
             display: 'flex', 
             flexDirection: 'column',
             justifyContent: 'center',
-            alignItems: { xs: 'center', md: 'flex-start' },
-            textAlign: { xs: 'center', md: 'left' }
+            alignItems: 'center',
+            textAlign: 'center'
           }}>
             <Typography variant="h4" component="h1" gutterBottom sx={{ 
               color: 'primary.main', 
@@ -127,7 +127,8 @@ export default function Home() {
               display: 'flex', 
               gap: 1.5, 
               mt: 0,
-              flexDirection: { xs: 'column', sm: 'row' }
+              flexDirection: { xs: 'column', sm: 'row' },
+              justifyContent: 'center'
             }}>
               <Button 
                 component={Link}
@@ -194,7 +195,7 @@ export default function Home() {
               fontSize: { xs: '1.75rem', md: '2rem' }
             }}
           >
-            <LocalFireDepartmentIcon sx={{ mr: 1, color: 'orange' }} /> 🔥Hot Tokens🔥 <LocalFireDepartmentIcon sx={{ ml: 1, color: 'orange' }} />
+            <LocalFireDepartmentIcon sx={{ mr: 1, color: 'orange' }} /> Hot Tokens <LocalFireDepartmentIcon sx={{ ml: 1, color: 'orange' }} />
           </Typography>
         </Container>
 
