@@ -3,6 +3,7 @@ import {
   PublicKey, 
   LAMPORTS_PER_SOL, 
   Transaction, 
+  VersionedTransaction,
   SystemProgram,
   Keypair
 } from '@solana/web3.js';
@@ -29,14 +30,14 @@ function createRaydiumWalletAdapter(wallet: WalletAdapter) {
   return {
     publicKey: wallet.publicKey,
     signTransaction: wallet.signTransaction,
-    signAllTransactions: async (transactions: Transaction[]) => {
+    signAllTransactions: async <T extends Transaction | VersionedTransaction>(transactions: T[]): Promise<T[]> => {
       console.log(`🔐 Signing ${transactions.length} transactions for Raydium SDK`);
       
       if (wallet.signAllTransactions) {
         try {
-          const result = await wallet.signAllTransactions(transactions);
+          const result = await wallet.signAllTransactions(transactions as any[]);
           console.log(`✅ Successfully signed ${result.length} transactions`);
-          return result;
+          return result as T[];
         } catch (error) {
           console.error('❌ signAllTransactions failed:', error);
           // Fall back to individual signing
@@ -45,12 +46,12 @@ function createRaydiumWalletAdapter(wallet: WalletAdapter) {
       
       // Fallback: sign transactions one by one
       console.log('🔄 Falling back to individual transaction signing');
-      const signedTransactions: Transaction[] = [];
+      const signedTransactions: T[] = [];
       for (let i = 0; i < transactions.length; i++) {
         try {
           console.log(`🔐 Signing transaction ${i + 1}/${transactions.length}`);
-          const signedTx = await wallet.signTransaction(transactions[i]);
-          signedTransactions.push(signedTx);
+          const signedTx = await wallet.signTransaction(transactions[i] as any);
+          signedTransactions.push(signedTx as T);
         } catch (error) {
           console.error(`❌ Failed to sign transaction ${i + 1}:`, error);
           throw error;
@@ -68,16 +69,20 @@ function createRaydiumWalletAdapter(wallet: WalletAdapter) {
 async function initRaydiumSDK(connection: Connection, wallet: WalletAdapter): Promise<Raydium> {
   const cluster = process.env.NEXT_PUBLIC_SOLANA_NETWORK?.toLowerCase() === 'devnet' ? 'devnet' : 'mainnet';
   
-  console.log('🔧 Initializing Raydium SDK');
+  console.log('🔧 Initializing Raydium SDK with signAllTransactions');
   console.log('📋 Wallet capabilities:', {
     hasPublicKey: !!wallet.publicKey,
     hasSignTransaction: !!wallet.signTransaction,
     hasSignAllTransactions: !!wallet.signAllTransactions,
   });
   
+  // Create the proper wallet adapter for Raydium SDK
+  const raydiumWallet = createRaydiumWalletAdapter(wallet);
+  
   const raydium = await Raydium.load({
     connection,
-    owner: wallet.publicKey, // Use publicKey for initialization
+    owner: wallet.publicKey, // Use publicKey for owner
+    signAllTransactions: raydiumWallet.signAllTransactions, // Pass signAllTransactions function
     cluster,
     disableFeatureCheck: true,
     disableLoadToken: false,
