@@ -99,7 +99,7 @@ export function useTokenCreation() {
 
   // Create token
   const createToken = useCallback(async (tokenData: TokenParams) => {
-    if (!publicKey || !signTransaction || !signAllTransactions) {
+    if (!publicKey || !signTransaction) {
       setState({
         ...state,
         error: 'Wallet not connected or missing signing capabilities',
@@ -121,11 +121,24 @@ export function useTokenCreation() {
         hasSignAllTransactions: !!signAllTransactions,
       });
 
-      // Create wallet adapter for SPL token operations
+      // Create wallet adapter for SPL token operations with guaranteed signAllTransactions
       const wallet = {
         publicKey, 
         signTransaction,
-        signAllTransactions,
+        signAllTransactions: signAllTransactions ? 
+          (async (transactions: any[]) => {
+            const result = await signAllTransactions(transactions);
+            return result as any[];
+          }) : 
+          (async (transactions: any[]) => {
+            // If signAllTransactions is not available, sign them one by one
+            const signedTransactions = [];
+            for (const transaction of transactions) {
+              const signedTx = await signTransaction(transaction);
+              signedTransactions.push(signedTx);
+            }
+            return signedTransactions;
+          }),
       };
       
       // Calculate token distribution

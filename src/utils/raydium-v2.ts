@@ -24,6 +24,23 @@ interface WalletAdapter {
   signAllTransactions?: (transactions: Transaction[]) => Promise<Transaction[]>;
 }
 
+// Create a wallet adapter that works with Raydium SDK
+function createRaydiumWalletAdapter(wallet: WalletAdapter) {
+  return {
+    publicKey: wallet.publicKey,
+    signTransaction: wallet.signTransaction,
+    signAllTransactions: wallet.signAllTransactions || (async (transactions: Transaction[]) => {
+      // If signAllTransactions is not available, sign them one by one
+      const signedTransactions: Transaction[] = [];
+      for (const transaction of transactions) {
+        const signedTx = await wallet.signTransaction(transaction);
+        signedTransactions.push(signedTx);
+      }
+      return signedTransactions;
+    })
+  };
+}
+
 /**
  * Initialize Raydium SDK v2
  */
@@ -32,7 +49,7 @@ async function initRaydiumSDK(connection: Connection, wallet: WalletAdapter): Pr
   
   const raydium = await Raydium.load({
     connection,
-    owner: wallet.publicKey,
+    owner: wallet.publicKey, // Use publicKey for read-only operations
     cluster,
     disableFeatureCheck: true,
     disableLoadToken: false,
@@ -246,24 +263,27 @@ export async function createRaydiumCpmmPool(
       
       // Execute the transaction
       console.log('📤 Executing pool creation transaction...');
-      const { txId } = await execute({ sendAndConfirm: true });
       
-      console.log(`🎉 RAYDIUM CPMM POOL CREATED SUCCESSFULLY!`);
-      console.log(`✅ Transaction ID: ${txId}`);
-      
-      // Extract pool information
-      const poolKeys = Object.keys(extInfo.address).reduce(
-        (acc, cur) => ({
-          ...acc,
-          [cur]: extInfo.address[cur as keyof typeof extInfo.address].toString(),
-        }),
-        {} as Record<string, string>
-      );
-      
-      console.log(`📋 Pool Keys:`, poolKeys);
-      
-      // Create success message with immediate trading URLs
-      console.log(`
+      try {
+        const result = await execute({ sendAndConfirm: true });
+        const txId = result.txId;
+        
+        console.log(`🎉 RAYDIUM CPMM POOL CREATED SUCCESSFULLY!`);
+        console.log(`✅ Transaction ID: ${txId}`);
+        
+        // Extract pool information
+        const poolKeys = Object.keys(extInfo.address).reduce(
+          (acc, cur) => ({
+            ...acc,
+            [cur]: extInfo.address[cur as keyof typeof extInfo.address].toString(),
+          }),
+          {} as Record<string, string>
+        );
+        
+        console.log(`📋 Pool Keys:`, poolKeys);
+        
+        // Create success message with immediate trading URLs
+        console.log(`
 🎉 CONGRATULATIONS! Your token is NOW LIVE and TRADEABLE! 🎉
 
 ✅ What was accomplished:
@@ -290,9 +310,28 @@ export async function createRaydiumCpmmPool(
 • SOL Vault: ${poolKeys['vaultB'] || 'N/A'}
 
 🚀 Your token is officially trading on Solana DEX ecosystem!
-      `);
-      
-      return txId;
+        `);
+        
+        return txId;
+      } catch (executeError) {
+        console.error('❌ Execute error:', executeError);
+        
+        // Try manual execution as fallback
+        console.log('🔄 Attempting manual transaction execution...');
+        const result = await execute({ sendAndConfirm: false });
+        
+        if ('signedTx' in result) {
+          const rawTx = result.signedTx.serialize();
+          const txId = await connection.sendRawTransaction(rawTx);
+          await connection.confirmTransaction(txId);
+          return txId;
+        } else {
+          throw new Error('Unable to execute pool creation transaction');
+        }
+              }
+        
+        // This code should not be reached due to returns above, but keeping for safety
+        throw new Error('Pool creation completed but no transaction ID returned');
       
     } catch (poolCreationError) {
       console.error('❌ Detailed pool creation error:', poolCreationError);
