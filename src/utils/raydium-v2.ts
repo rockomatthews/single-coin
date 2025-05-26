@@ -29,15 +29,36 @@ function createRaydiumWalletAdapter(wallet: WalletAdapter) {
   return {
     publicKey: wallet.publicKey,
     signTransaction: wallet.signTransaction,
-    signAllTransactions: wallet.signAllTransactions || (async (transactions: Transaction[]) => {
-      // If signAllTransactions is not available, sign them one by one
-      const signedTransactions: Transaction[] = [];
-      for (const transaction of transactions) {
-        const signedTx = await wallet.signTransaction(transaction);
-        signedTransactions.push(signedTx);
+    signAllTransactions: async (transactions: Transaction[]) => {
+      console.log(`🔐 Signing ${transactions.length} transactions for Raydium SDK`);
+      
+      if (wallet.signAllTransactions) {
+        try {
+          const result = await wallet.signAllTransactions(transactions);
+          console.log(`✅ Successfully signed ${result.length} transactions`);
+          return result;
+        } catch (error) {
+          console.error('❌ signAllTransactions failed:', error);
+          // Fall back to individual signing
+        }
       }
+      
+      // Fallback: sign transactions one by one
+      console.log('🔄 Falling back to individual transaction signing');
+      const signedTransactions: Transaction[] = [];
+      for (let i = 0; i < transactions.length; i++) {
+        try {
+          console.log(`🔐 Signing transaction ${i + 1}/${transactions.length}`);
+          const signedTx = await wallet.signTransaction(transactions[i]);
+          signedTransactions.push(signedTx);
+        } catch (error) {
+          console.error(`❌ Failed to sign transaction ${i + 1}:`, error);
+          throw error;
+        }
+      }
+      console.log(`✅ Successfully signed all ${signedTransactions.length} transactions individually`);
       return signedTransactions;
-    })
+    }
   };
 }
 
@@ -47,9 +68,16 @@ function createRaydiumWalletAdapter(wallet: WalletAdapter) {
 async function initRaydiumSDK(connection: Connection, wallet: WalletAdapter): Promise<Raydium> {
   const cluster = process.env.NEXT_PUBLIC_SOLANA_NETWORK?.toLowerCase() === 'devnet' ? 'devnet' : 'mainnet';
   
+  console.log('🔧 Initializing Raydium SDK');
+  console.log('📋 Wallet capabilities:', {
+    hasPublicKey: !!wallet.publicKey,
+    hasSignTransaction: !!wallet.signTransaction,
+    hasSignAllTransactions: !!wallet.signAllTransactions,
+  });
+  
   const raydium = await Raydium.load({
     connection,
-    owner: wallet.publicKey, // Use publicKey for read-only operations
+    owner: wallet.publicKey, // Use publicKey for initialization
     cluster,
     disableFeatureCheck: true,
     disableLoadToken: false,
@@ -265,8 +293,36 @@ export async function createRaydiumCpmmPool(
       console.log('📤 Executing pool creation transaction...');
       
       try {
-        const result = await execute({ sendAndConfirm: true });
-        const txId = result.txId;
+        // Try to execute with sendAndConfirm first
+        const result = await execute({ sendAndConfirm: false });
+        
+        let txId: string;
+        
+        if ('txs' in result && Array.isArray(result.txs)) {
+          // Handle multiple transactions
+          console.log(`🔐 Need to sign ${result.txs.length} transactions`);
+          const raydiumWallet = createRaydiumWalletAdapter(wallet);
+          const signedTxs = await raydiumWallet.signAllTransactions(result.txs as Transaction[]);
+          
+          // Send transactions manually
+          const txIds = [];
+          for (const signedTx of signedTxs) {
+            const currentTxId = await connection.sendRawTransaction(signedTx.serialize());
+            await connection.confirmTransaction(currentTxId);
+            txIds.push(currentTxId);
+          }
+          
+          txId = txIds[txIds.length - 1]; // Use the last transaction ID
+        } else if ('signedTx' in result) {
+          // Handle single transaction
+          console.log('🔐 Signing single transaction');
+          const transaction = result.signedTx as Transaction;
+          const signedTx = await wallet.signTransaction(transaction);
+          txId = await connection.sendRawTransaction(signedTx.serialize());
+          await connection.confirmTransaction(txId);
+        } else {
+          throw new Error('Unexpected result format from Raydium SDK');
+        }
         
         console.log(`🎉 RAYDIUM CPMM POOL CREATED SUCCESSFULLY!`);
         console.log(`✅ Transaction ID: ${txId}`);
@@ -321,8 +377,9 @@ export async function createRaydiumCpmmPool(
         const result = await execute({ sendAndConfirm: false });
         
         if ('signedTx' in result) {
-          const rawTx = result.signedTx.serialize();
-          const txId = await connection.sendRawTransaction(rawTx);
+          const transaction = result.signedTx as Transaction;
+          const signedTx = await wallet.signTransaction(transaction);
+          const txId = await connection.sendRawTransaction(signedTx.serialize());
           await connection.confirmTransaction(txId);
           return txId;
         } else {
