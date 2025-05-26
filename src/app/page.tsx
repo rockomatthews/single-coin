@@ -121,7 +121,7 @@ export default function Home() {
               Coin Bull
             </Typography>
             <Typography variant="body2" component="h2" color="text.secondary" paragraph sx={{ mb: 1.5 }}>
-              Create DEX-tradable SOL coins with liquidity pools in just one step.
+              Create DEX-tradable SOL coins with Raydium Liquidity Pools in just one step for less than Coinfactory, Slurf, or Streamflow. They suck
             </Typography>
             <Box sx={{ 
               display: 'flex', 
@@ -140,7 +140,7 @@ export default function Home() {
               >
                 Create Token
               </Button>
-              <Button 
+              {/* <Button 
                 component={Link}
                 href="/my-tokens"
                 variant="outlined" 
@@ -148,7 +148,7 @@ export default function Home() {
                 fullWidth={false}
               >
                 My Tokens
-              </Button>
+              </Button> */}
             </Box>
           </Grid>
           <Grid xs={12} md={6} sx={{ 
