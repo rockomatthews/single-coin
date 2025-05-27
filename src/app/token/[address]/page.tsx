@@ -321,59 +321,7 @@ export default function TokenDetailPage() {
           </Table>
         </TableContainer>
         
-        <Box sx={{ mt: 4 }}>
-          <Typography variant="h5" component="h2" gutterBottom>
-            Next Steps
-          </Typography>
-          <Grid container spacing={3}>
-            <Grid item xs={12} sm={6}>
-              <Card sx={{ height: '100%' }}>
-                <CardContent>
-                  <Typography variant="h6" gutterBottom>
-                    Create Liquidity Pool
-                  </Typography>
-                  <Typography variant="body2" paragraph>
-                    Add liquidity to make your token tradable on decentralized exchanges.
-                  </Typography>
-                  <Button 
-                    variant="outlined" 
-                    color="primary"
-                    component={MuiLink}
-                    href="https://raydium.io/liquidity/create/"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    fullWidth
-                  >
-                    Go to Raydium
-                  </Button>
-                </CardContent>
-              </Card>
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <Card sx={{ height: '100%' }}>
-                <CardContent>
-                  <Typography variant="h6" gutterBottom>
-                    Create Token Website
-                  </Typography>
-                  <Typography variant="body2" paragraph>
-                    Build a landing page for your meme coin to share with the community.
-                  </Typography>
-                  <Button 
-                    variant="outlined" 
-                    color="primary"
-                    component={MuiLink}
-                    href="https://coinfactory.app/en/token-page"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    fullWidth
-                  >
-                    Create Token Page
-                  </Button>
-                </CardContent>
-              </Card>
-            </Grid>
-          </Grid>
-        </Box>
+
       </Box>
     </Container>
   );

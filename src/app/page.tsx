@@ -121,7 +121,7 @@ export default function Home() {
               Coin Bull
             </Typography> */}
             <Typography variant="body2" component="h2" color="text.secondary" paragraph sx={{ mb: 1.5 }}>
-              Create DEX-tradable SOL coins with Raydium Liquidity Pools in just one step for less than Coinfactory, Slurf, or Streamflow. They suck
+              Create DEX-tradable SOL coins with Raydium Liquidity Pools in just one step for less money than Coinfactory, Slurf, or Streamflow
             </Typography>
             <Box sx={{ 
               display: 'flex', 
