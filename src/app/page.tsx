@@ -111,7 +111,7 @@ export default function Home() {
             alignItems: 'center',
             textAlign: 'left'
           }}>
-            <Typography variant="h4" component="h1" gutterBottom sx={{ 
+            {/* <Typography variant="h4" component="h1" gutterBottom sx={{ 
               color: 'primary.main', 
               fontWeight: 'bold',
               fontSize: { xs: '1.5rem', md: '1.8rem' },
@@ -119,7 +119,7 @@ export default function Home() {
               fontFamily: '"Nitro Chargers", Arial, sans-serif'
             }}>
               Coin Bull
-            </Typography>
+            </Typography> */}
             <Typography variant="body2" component="h2" color="text.secondary" paragraph sx={{ mb: 1.5 }}>
               Create DEX-tradable SOL coins with Raydium Liquidity Pools in just one step for less than Coinfactory, Slurf, or Streamflow. They suck
             </Typography>
