@@ -2,13 +2,23 @@
 // @ts-nocheck
 // Temporary disable TypeScript checking to allow build to succeed
 
+// Add Phantom wallet type declaration
+declare global {
+  interface Window {
+    phantom?: {
+      solana?: {
+        signAndSendTransaction: (transaction: any) => Promise<{ signature: string }>;
+      };
+    };
+  }
+}
+
 import {
   Connection,
   Keypair,
   PublicKey,
   SystemProgram,
   Transaction,
-  sendAndConfirmTransaction,
   TransactionInstruction,
   ComputeBudgetProgram
 } from '@solana/web3.js';
@@ -126,9 +136,27 @@ export async function createTokenMetadata(
     transaction.recentBlockhash = blockhash;
     transaction.feePayer = wallet.publicKey;
     
-    // Sign and send the transaction
-    const signedTx = await wallet.signTransaction(transaction);
-    const txid = await connection.sendRawTransaction(signedTx.serialize());
+    // Check if Phantom wallet is available for signAndSendTransaction
+    const isPhantomAvailable = window.phantom?.solana?.signAndSendTransaction;
+    console.log('Phantom wallet available for metadata creation:', !!isPhantomAvailable);
+    
+    // Sign and send the transaction using Phantom's signAndSendTransaction if available
+    let txid: string;
+    
+    if (isPhantomAvailable) {
+      console.log('Using Phantom signAndSendTransaction for metadata creation');
+      // Use Phantom's signAndSendTransaction method
+      const result = await window.phantom!.solana!.signAndSendTransaction(transaction);
+      txid = result.signature;
+      console.log('Created on-chain metadata via signAndSendTransaction, txid:', txid);
+    } else {
+      console.log('Falling back to signTransaction + sendRawTransaction for metadata creation');
+      // Fallback to the old method
+      const signedTx = await wallet.signTransaction(transaction);
+      txid = await connection.sendRawTransaction(signedTx.serialize());
+      console.log('Created on-chain metadata via fallback method, txid:', txid);
+    }
+    
     await connection.confirmTransaction(txid);
     
     console.log('Created on-chain metadata for token, txid:', txid);
@@ -237,9 +265,27 @@ export async function updateTokenMetadata(
     transaction.recentBlockhash = blockhash;
     transaction.feePayer = wallet.publicKey;
     
-    // Sign and send the transaction
-    const signedTx = await wallet.signTransaction(transaction);
-    const txid = await connection.sendRawTransaction(signedTx.serialize());
+    // Check if Phantom wallet is available for signAndSendTransaction
+    const isPhantomAvailable = window.phantom?.solana?.signAndSendTransaction;
+    console.log('Phantom wallet available for metadata update:', !!isPhantomAvailable);
+    
+    // Sign and send the transaction using Phantom's signAndSendTransaction if available
+    let txid: string;
+    
+    if (isPhantomAvailable) {
+      console.log('Using Phantom signAndSendTransaction for metadata update');
+      // Use Phantom's signAndSendTransaction method
+      const result = await window.phantom!.solana!.signAndSendTransaction(transaction);
+      txid = result.signature;
+      console.log('Updated token metadata via signAndSendTransaction, txid:', txid);
+    } else {
+      console.log('Falling back to signTransaction + sendRawTransaction for metadata update');
+      // Fallback to the old method
+      const signedTx = await wallet.signTransaction(transaction);
+      txid = await connection.sendRawTransaction(signedTx.serialize());
+      console.log('Updated token metadata via fallback method, txid:', txid);
+    }
+    
     await connection.confirmTransaction(txid);
     
     console.log('Updated token metadata, txid:', txid);

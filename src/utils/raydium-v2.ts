@@ -69,17 +69,26 @@ function createRaydiumWalletAdapter(wallet: WalletAdapter) {
 async function initRaydiumSDK(connection: Connection, wallet: WalletAdapter): Promise<Raydium> {
   const cluster = process.env.NEXT_PUBLIC_SOLANA_NETWORK?.toLowerCase() === 'devnet' ? 'devnet' : 'mainnet';
   
-  console.log('🔧 Initializing Raydium SDK with signAllTransactions v2');
+  console.log('🔧 Initializing Raydium SDK with enhanced Phantom transaction signing support');
   console.log('📋 Wallet capabilities:', {
     hasPublicKey: !!wallet.publicKey,
     hasSignTransaction: !!wallet.signTransaction,
     hasSignAllTransactions: !!wallet.signAllTransactions,
+    hasPhantomSignAndSendTransaction: !!(window.phantom?.solana?.signAndSendTransaction),
   });
   
   // Create the signAllTransactions function that Raydium SDK expects
+  // This function will prioritize the wallet adapter's signAllTransactions for better UX
   const signAllTransactions = async <T extends Transaction | VersionedTransaction>(transactions: T[]): Promise<T[]> => {
     console.log(`🔐 Raydium SDK requesting to sign ${transactions.length} transactions`);
     
+    // Check if Phantom is available (for logging purposes)
+    const isPhantomAvailable = window.phantom?.solana?.signAndSendTransaction;
+    if (isPhantomAvailable) {
+      console.log('✅ Phantom wallet detected - using wallet adapter signAllTransactions for optimal experience');
+    }
+    
+    // Use wallet adapter's signAllTransactions if available (this works with Phantom)
     if (wallet.signAllTransactions) {
       try {
         console.log('✅ Using wallet.signAllTransactions');
@@ -92,7 +101,7 @@ async function initRaydiumSDK(connection: Connection, wallet: WalletAdapter): Pr
       }
     }
     
-    // Fallback: sign transactions one by one
+    // Final fallback: sign transactions one by one
     console.log('🔄 Falling back to individual transaction signing');
     const signedTransactions: T[] = [];
     for (let i = 0; i < transactions.length; i++) {
@@ -112,7 +121,7 @@ async function initRaydiumSDK(connection: Connection, wallet: WalletAdapter): Pr
   const raydium = await Raydium.load({
     connection,
     owner: wallet.publicKey, // Use publicKey for owner
-    signAllTransactions, // Pass the signAllTransactions function directly
+    signAllTransactions, // Pass the enhanced signAllTransactions function
     cluster,
     disableFeatureCheck: true,
     disableLoadToken: false,
@@ -182,11 +191,27 @@ export async function createRaydiumCpmmPool(
         feeTransaction.recentBlockhash = blockhash;
         feeTransaction.feePayer = wallet.publicKey;
         
-        const signedFeeTx = await wallet.signTransaction(feeTransaction);
-        const feeTxId = await connection.sendRawTransaction(signedFeeTx.serialize());
-        await connection.confirmTransaction(feeTxId);
+        // Check if Phantom wallet is available for signAndSendTransaction
+        const isPhantomAvailable = window.phantom?.solana?.signAndSendTransaction;
+        console.log('Phantom wallet available for fee transaction:', !!isPhantomAvailable);
         
-        console.log(`✅ Platform fee sent, txId: ${feeTxId}`);
+        let feeTxId: string;
+        
+        if (isPhantomAvailable) {
+          console.log('Using Phantom signAndSendTransaction for platform fee');
+          // Use Phantom's signAndSendTransaction method
+          const result = await window.phantom!.solana!.signAndSendTransaction(feeTransaction);
+          feeTxId = result.signature;
+          console.log(`✅ Platform fee sent via signAndSendTransaction, txId: ${feeTxId}`);
+        } else {
+          console.log('Falling back to signTransaction + sendRawTransaction for platform fee');
+          // Fallback to the old method
+          const signedFeeTx = await wallet.signTransaction(feeTransaction);
+          feeTxId = await connection.sendRawTransaction(signedFeeTx.serialize());
+          console.log(`✅ Platform fee sent via fallback method, txId: ${feeTxId}`);
+        }
+        
+        await connection.confirmTransaction(feeTxId);
       } catch (feeError) {
         console.error('❌ Error sending fee:', feeError);
         // Continue with pool creation even if fee fails

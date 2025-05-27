@@ -2,6 +2,17 @@
 // @ts-nocheck
 // Disable TypeScript checking for this file to allow build to succeed
 
+// Add Phantom wallet type declaration
+declare global {
+  interface Window {
+    phantom?: {
+      solana?: {
+        signAndSendTransaction: (transaction: any) => Promise<{ signature: string }>;
+      };
+    };
+  }
+}
+
 import { Connection, Keypair, PublicKey, SystemProgram, Transaction, ComputeBudgetProgram, TransactionInstruction } from '@solana/web3.js';
 import { 
   createInitializeMintInstruction, 
@@ -212,6 +223,10 @@ export const revokeTokenAuthorities = async (
 
     console.log('🔒 Revoking token authorities for enhanced security...');
     
+    // Check if Phantom wallet is available for signAndSendTransaction
+    const isPhantomAvailable = window.phantom?.solana?.signAndSendTransaction;
+    console.log('Phantom wallet available for authority revocation:', !!isPhantomAvailable);
+    
     const mintPublicKey = new PublicKey(mintAddress);
     const revokeTransaction = new Transaction();
     
@@ -241,15 +256,27 @@ export const revokeTokenAuthorities = async (
       );
     }
     
-    // Sign and send the revocation transaction
+    // Sign and send the revocation transaction using Phantom's signAndSendTransaction if available
     revokeTransaction.feePayer = wallet.publicKey;
     const revokeBlockhash = await connection.getLatestBlockhash();
     revokeTransaction.recentBlockhash = revokeBlockhash.blockhash;
     
-    const signedRevokeTx = await wallet.signTransaction(revokeTransaction);
-    const revokeTxId = await connection.sendRawTransaction(signedRevokeTx.serialize());
+    let revokeTxId: string;
     
-    console.log('Authorities revoked, txid:', revokeTxId);
+    if (isPhantomAvailable) {
+      console.log('Using Phantom signAndSendTransaction for authority revocation');
+      // Use Phantom's signAndSendTransaction method
+      const result = await window.phantom!.solana!.signAndSendTransaction(revokeTransaction);
+      revokeTxId = result.signature;
+      console.log('Authorities revoked via signAndSendTransaction, txid:', revokeTxId);
+    } else {
+      console.log('Falling back to signTransaction + sendRawTransaction for authority revocation');
+      // Fallback to the old method
+      const signedRevokeTx = await wallet.signTransaction(revokeTransaction);
+      revokeTxId = await connection.sendRawTransaction(signedRevokeTx.serialize());
+      console.log('Authorities revoked via fallback method, txid:', revokeTxId);
+    }
+    
     await connection.confirmTransaction(revokeTxId);
     
     console.log('✅ Token security enhanced - dangerous authorities revoked');
@@ -273,6 +300,10 @@ export const createVerifiedToken = async (
   try {
     console.log('Creating token with metadata URI:', metadataUri);
     console.log('Wallet public key:', wallet.publicKey.toString());
+    
+    // Check if Phantom wallet is available for signAndSendTransaction
+    const isPhantomAvailable = window.phantom?.solana?.signAndSendTransaction;
+    console.log('Phantom wallet available:', !!isPhantomAvailable);
     
     // Generate a new keypair for the mint
     const mintKeypair = Keypair.generate();
@@ -304,19 +335,31 @@ export const createVerifiedToken = async (
       )
     );
     
-    // Sign and send the transaction
+    // Sign and send the transaction using Phantom's signAndSendTransaction if available
     try {
       createMintTransaction.feePayer = wallet.publicKey;
       const blockhash = await connection.getLatestBlockhash();
       createMintTransaction.recentBlockhash = blockhash.blockhash;
       
-      // Sign with both the wallet and the mint keypair
+      // Sign with the mint keypair first (partial signing)
       createMintTransaction.sign(mintKeypair);
       
-      const signedTx = await wallet.signTransaction(createMintTransaction);
-      const createMintTxId = await connection.sendRawTransaction(signedTx.serialize());
+      let createMintTxId: string;
       
-      console.log('Mint account created, txid:', createMintTxId);
+      if (isPhantomAvailable) {
+        console.log('Using Phantom signAndSendTransaction for mint creation');
+        // Use Phantom's signAndSendTransaction method
+        const result = await window.phantom!.solana!.signAndSendTransaction(createMintTransaction);
+        createMintTxId = result.signature;
+        console.log('Mint account created via signAndSendTransaction, txid:', createMintTxId);
+      } else {
+        console.log('Falling back to signTransaction + sendRawTransaction for mint creation');
+        // Fallback to the old method
+        const signedTx = await wallet.signTransaction(createMintTransaction);
+        createMintTxId = await connection.sendRawTransaction(signedTx.serialize());
+        console.log('Mint account created via fallback method, txid:', createMintTxId);
+      }
+      
       await connection.confirmTransaction(createMintTxId);
       
       // Calculate the token amount - ALWAYS mint the FULL supply to the user's wallet
@@ -360,15 +403,27 @@ export const createVerifiedToken = async (
         )
       );
       
-      // Sign and send the transaction
+      // Sign and send the mint transaction using Phantom's signAndSendTransaction if available
       mintToTransaction.feePayer = wallet.publicKey;
       const mintBlockhash = await connection.getLatestBlockhash();
       mintToTransaction.recentBlockhash = mintBlockhash.blockhash;
       
-      const signedMintTx = await wallet.signTransaction(mintToTransaction);
-      const mintTxId = await connection.sendRawTransaction(signedMintTx.serialize());
+      let mintTxId: string;
       
-      console.log('Tokens minted, txid:', mintTxId);
+      if (isPhantomAvailable) {
+        console.log('Using Phantom signAndSendTransaction for token minting');
+        // Use Phantom's signAndSendTransaction method
+        const result = await window.phantom!.solana!.signAndSendTransaction(mintToTransaction);
+        mintTxId = result.signature;
+        console.log('Tokens minted via signAndSendTransaction, txid:', mintTxId);
+      } else {
+        console.log('Falling back to signTransaction + sendRawTransaction for token minting');
+        // Fallback to the old method
+        const signedMintTx = await wallet.signTransaction(mintToTransaction);
+        mintTxId = await connection.sendRawTransaction(signedMintTx.serialize());
+        console.log('Tokens minted via fallback method, txid:', mintTxId);
+      }
+      
       await connection.confirmTransaction(mintTxId);
       
       // NOTE: Authority revocation moved to separate function - call revokeTokenAuthorities() after metadata creation
@@ -408,10 +463,22 @@ export const createVerifiedToken = async (
         const memoBlockhash = await connection.getLatestBlockhash();
         memoTransaction.recentBlockhash = memoBlockhash.blockhash;
         
-        const signedMemoTx = await wallet.signTransaction(memoTransaction);
-        const memoTxId = await connection.sendRawTransaction(signedMemoTx.serialize());
+        let memoTxId: string;
         
-        console.log('Metadata memo added, txid:', memoTxId);
+        if (isPhantomAvailable) {
+          console.log('Using Phantom signAndSendTransaction for metadata memo');
+          // Use Phantom's signAndSendTransaction method
+          const result = await window.phantom!.solana!.signAndSendTransaction(memoTransaction);
+          memoTxId = result.signature;
+          console.log('Metadata memo added via signAndSendTransaction, txid:', memoTxId);
+        } else {
+          console.log('Falling back to signTransaction + sendRawTransaction for metadata memo');
+          // Fallback to the old method
+          const signedMemoTx = await wallet.signTransaction(memoTransaction);
+          memoTxId = await connection.sendRawTransaction(signedMemoTx.serialize());
+          console.log('Metadata memo added via fallback method, txid:', memoTxId);
+        }
+        
         await connection.confirmTransaction(memoTxId);
       } catch (memoError) {
         // If memo fails, it's not critical - the token still works

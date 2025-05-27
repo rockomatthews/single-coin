@@ -5,6 +5,7 @@ interface PhantomProvider {
   isConnected: boolean;
   signTransaction: (transaction: any) => Promise<any>;
   signAllTransactions: (transactions: any[]) => Promise<any[]>;
+  signAndSendTransaction: (transaction: any) => Promise<{ signature: string }>;
   signMessage: (message: Uint8Array) => Promise<{ signature: Uint8Array }>;
   connect: () => Promise<{ publicKey: any }>;
   disconnect: () => Promise<void>;

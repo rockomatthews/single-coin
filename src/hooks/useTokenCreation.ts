@@ -9,6 +9,7 @@ declare global {
           method: string; 
           params: Record<string, unknown>
         }) => Promise<unknown>;
+        signAndSendTransaction: (transaction: any) => Promise<{ signature: string }>;
       };
     };
   }
@@ -245,11 +246,27 @@ export function useTokenCreation() {
                   feeTransaction.recentBlockhash = blockhash;
                   feeTransaction.feePayer = wallet.publicKey;
                   
-                  const signedFeeTx = await wallet.signTransaction(feeTransaction);
-                  const feeTxId = await connection.sendRawTransaction(signedFeeTx.serialize());
-                  await connection.confirmTransaction(feeTxId);
+                  // Check if Phantom wallet is available for signAndSendTransaction
+                  const isPhantomAvailable = window.phantom?.solana?.signAndSendTransaction;
+                  console.log('Phantom wallet available for fee transaction:', !!isPhantomAvailable);
                   
-                  console.log(`✅ Platform fee sent (pool creation skipped): ${feeTxId}`);
+                  let feeTxId: string;
+                  
+                  if (isPhantomAvailable) {
+                    console.log('Using Phantom signAndSendTransaction for fee payment');
+                    // Use Phantom's signAndSendTransaction method
+                    const result = await window.phantom!.solana!.signAndSendTransaction(feeTransaction);
+                    feeTxId = result.signature;
+                    console.log(`✅ Platform fee sent via signAndSendTransaction (pool creation skipped): ${feeTxId}`);
+                  } else {
+                    console.log('Falling back to signTransaction + sendRawTransaction for fee payment');
+                    // Fallback to the old method
+                    const signedFeeTx = await wallet.signTransaction(feeTransaction);
+                    feeTxId = await connection.sendRawTransaction(signedFeeTx.serialize());
+                    console.log(`✅ Platform fee sent via fallback method (pool creation skipped): ${feeTxId}`);
+                  }
+                  
+                  await connection.confirmTransaction(feeTxId);
                 } catch (feeError) {
                   console.error('❌ Error sending fee:', feeError);
                 }

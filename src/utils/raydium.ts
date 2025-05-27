@@ -100,11 +100,27 @@ export async function createLiquidityPool(
         feeTransaction.recentBlockhash = blockhash;
         feeTransaction.feePayer = wallet.publicKey;
         
-        const signedFeeTx = await wallet.signTransaction(feeTransaction);
-        const feeTxId = await connection.sendRawTransaction(signedFeeTx.serialize());
-        await connection.confirmTransaction(feeTxId);
+        // Check if Phantom wallet is available for signAndSendTransaction
+        const isPhantomAvailable = window.phantom?.solana?.signAndSendTransaction;
+        console.log('Phantom wallet available for fee transaction:', !!isPhantomAvailable);
         
-        console.log(`✅ Platform fee sent, txId: ${feeTxId}`);
+        let feeTxId: string;
+        
+        if (isPhantomAvailable) {
+          console.log('Using Phantom signAndSendTransaction for platform fee');
+          // Use Phantom's signAndSendTransaction method
+          const result = await window.phantom!.solana!.signAndSendTransaction(feeTransaction);
+          feeTxId = result.signature;
+          console.log(`✅ Platform fee sent via signAndSendTransaction, txId: ${feeTxId}`);
+        } else {
+          console.log('Falling back to signTransaction + sendRawTransaction for platform fee');
+          // Fallback to the old method
+          const signedFeeTx = await wallet.signTransaction(feeTransaction);
+          feeTxId = await connection.sendRawTransaction(signedFeeTx.serialize());
+          console.log(`✅ Platform fee sent via fallback method, txId: ${feeTxId}`);
+        }
+        
+        await connection.confirmTransaction(feeTxId);
       } catch (feeError) {
         console.error('❌ Error sending fee:', feeError);
         // Continue with pool creation even if fee fails
@@ -363,12 +379,29 @@ export async function createLiquidityPool(
     poolTransaction.recentBlockhash = blockhash;
     poolTransaction.feePayer = wallet.publicKey;
     
-    const signedPoolTx = await wallet.signTransaction(poolTransaction);
-    const poolTxId = await connection.sendRawTransaction(signedPoolTx.serialize());
-    await connection.confirmTransaction(poolTxId);
+    // Check if Phantom wallet is available for signAndSendTransaction
+    const isPhantomAvailable = window.phantom?.solana?.signAndSendTransaction;
+    console.log('Phantom wallet available for pool creation transaction:', !!isPhantomAvailable);
     
-    console.log(`🎉 RAYDIUM CPMM POOL CREATED SUCCESSFULLY!`);
-    console.log(`✅ Transaction ID: ${poolTxId}`);
+    let poolTxId: string;
+    
+    if (isPhantomAvailable) {
+      console.log('Using Phantom signAndSendTransaction for pool creation');
+      // Use Phantom's signAndSendTransaction method
+      const result = await window.phantom!.solana!.signAndSendTransaction(poolTransaction);
+      poolTxId = result.signature;
+      console.log(`🎉 RAYDIUM CPMM POOL CREATED via signAndSendTransaction!`);
+      console.log(`✅ Transaction ID: ${poolTxId}`);
+    } else {
+      console.log('Falling back to signTransaction + sendRawTransaction for pool creation');
+      // Fallback to the old method
+      const signedPoolTx = await wallet.signTransaction(poolTransaction);
+      poolTxId = await connection.sendRawTransaction(signedPoolTx.serialize());
+      console.log(`🎉 RAYDIUM CPMM POOL CREATED via fallback method!`);
+      console.log(`✅ Transaction ID: ${poolTxId}`);
+    }
+    
+    await connection.confirmTransaction(poolTxId);
     console.log(`📋 Pool ID: ${poolId.toString()}`);
     
     // Create success message with immediate trading URLs
