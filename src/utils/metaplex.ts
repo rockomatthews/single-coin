@@ -2,17 +2,6 @@
 // @ts-nocheck
 // Temporary disable TypeScript checking to allow build to succeed
 
-// Add Phantom wallet type declaration
-declare global {
-  interface Window {
-    phantom?: {
-      solana?: {
-        signAndSendTransaction: (transaction: any) => Promise<{ signature: string }>;
-      };
-    };
-  }
-}
-
 import {
   Connection,
   Keypair,

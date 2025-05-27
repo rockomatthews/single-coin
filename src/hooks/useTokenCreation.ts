@@ -1,20 +1,5 @@
 'use client';
 
-// Add Phantom wallet type declaration
-declare global {
-  interface Window {
-    phantom?: {
-      solana?: {
-        request: (args: { 
-          method: string; 
-          params: Record<string, unknown>
-        }) => Promise<unknown>;
-        signAndSendTransaction: (transaction: any) => Promise<{ signature: string }>;
-      };
-    };
-  }
-}
-
 import { useState, useCallback } from 'react';
 import { useConnection, useWallet } from '@solana/wallet-adapter-react';
 import { createVerifiedToken, uploadMetadata, TokenParams, revokeTokenAuthorities, calculateTotalCost } from '../utils/solana';
