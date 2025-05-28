@@ -1,5 +1,29 @@
 'use client';
 
+// Global type declaration for Phantom wallet
+declare global {
+  interface Window {
+    phantom?: {
+      solana?: {
+        isPhantom?: boolean;
+        publicKey?: { toBuffer(): Buffer; toString(): string };
+        isConnected: boolean;
+        signTransaction: (transaction: any) => Promise<any>;
+        signAllTransactions: (transactions: any[]) => Promise<any[]>;
+        signAndSendTransaction: (transaction: any) => Promise<{ signature: string }>;
+        signMessage: (message: Uint8Array) => Promise<{ signature: Uint8Array }>;
+        connect: () => Promise<{ publicKey: any }>;
+        disconnect: () => Promise<void>;
+        on: (event: string, callback: () => void) => void;
+        request: (args: { 
+          method: string; 
+          params: Record<string, unknown>
+        }) => Promise<unknown>;
+      };
+    };
+  }
+}
+
 import { useState, useCallback } from 'react';
 import { useConnection, useWallet } from '@solana/wallet-adapter-react';
 import { createVerifiedToken, uploadMetadata, TokenParams, revokeTokenAuthorities, calculateTotalCost } from '../utils/solana';
