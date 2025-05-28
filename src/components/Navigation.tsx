@@ -8,7 +8,7 @@ export const Navigation = () => {
   const pathname = usePathname();
   
   const pages = [
-    { title: 'Home', path: '/' },
+    // { title: 'Home', path: '/' },
     { title: 'Create Token', path: '/create-token' },
     { title: 'My Tokens', path: '/my-tokens' },
   ];
