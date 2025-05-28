@@ -363,12 +363,11 @@ export const createVerifiedToken = async (
       if (isPhantomAvailable) {
         console.log('Using Phantom signAndSendTransaction for mint creation');
         // For Phantom, we need to handle the mint keypair signing differently
-        // Create a partially signed transaction that Phantom can complete
-        const partiallySignedTx = createMintTransaction.clone();
-        partiallySignedTx.sign(mintKeypair); // Sign with mint keypair first
+        // Pre-sign with mint keypair, then let Phantom sign with user wallet
+        createMintTransaction.partialSign(mintKeypair); // Pre-sign with mint keypair
         
         // Use Phantom's signAndSendTransaction method with the partially signed transaction
-        const result = await window.phantom!.solana!.signAndSendTransaction(partiallySignedTx);
+        const result = await window.phantom!.solana!.signAndSendTransaction(createMintTransaction);
         createMintTxId = result.signature;
         console.log('Mint account created via signAndSendTransaction, txid:', createMintTxId);
       } else {
