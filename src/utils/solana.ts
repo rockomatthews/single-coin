@@ -219,6 +219,12 @@ export const revokeTokenAuthorities = async (
     const mintPublicKey = new PublicKey(mintAddress);
     const revokeTransaction = new Transaction();
     
+    // Add compute budget for Phantom's Lighthouse guard instructions
+    revokeTransaction.add(
+      ComputeBudgetProgram.setComputeUnitLimit({ units: 400000 }),
+      ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 1000 })
+    );
+    
     // Revoke mint authority (make token unmintable)
     if (params.revokeMintAuthority) {
       console.log('🚫 Revoking mint authority - token will become unmintable');
@@ -308,6 +314,9 @@ export const createVerifiedToken = async (
     
     // Create and send transaction to create mint account
     const createMintTransaction = new Transaction().add(
+      // Add compute budget for Phantom's Lighthouse guard instructions
+      ComputeBudgetProgram.setComputeUnitLimit({ units: 400000 }),
+      ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 1000 }),
       SystemProgram.createAccount({
         fromPubkey: wallet.publicKey,
         newAccountPubkey: mintPublicKey,
@@ -367,6 +376,12 @@ export const createVerifiedToken = async (
       // Create a transaction to create an associated token account and mint tokens
       const mintToTransaction = new Transaction();
       
+      // Add compute budget for Phantom's Lighthouse guard instructions
+      mintToTransaction.add(
+        ComputeBudgetProgram.setComputeUnitLimit({ units: 400000 }),
+        ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 1000 })
+      );
+      
       // Check if the token account exists
       const tokenAccountInfo = await connection.getAccountInfo(associatedTokenAddress);
       
@@ -420,6 +435,12 @@ export const createVerifiedToken = async (
       // Store the metadata URI in a transaction memo following the format expected by explorers
       try {
         const memoTransaction = new Transaction();
+        
+        // Add compute budget for Phantom's Lighthouse guard instructions
+        memoTransaction.add(
+          ComputeBudgetProgram.setComputeUnitLimit({ units: 400000 }),
+          ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 1000 })
+        );
         
         // Most reliable format for metadata in memo - both Solscan and Phantom recognize this
         memoTransaction.add(

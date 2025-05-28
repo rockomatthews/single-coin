@@ -240,9 +240,16 @@ export function useTokenCreation() {
               const FEE_RECIPIENT_ADDRESS = process.env.NEXT_PUBLIC_FEE_RECIPIENT_ADDRESS;
               if (FEE_RECIPIENT_ADDRESS) {
                 try {
-                  const { SystemProgram, Transaction, LAMPORTS_PER_SOL, PublicKey } = await import('@solana/web3.js');
+                  const { SystemProgram, Transaction, LAMPORTS_PER_SOL, PublicKey, ComputeBudgetProgram } = await import('@solana/web3.js');
                   
                   const feeTransaction = new Transaction();
+                  
+                  // Add compute budget for Phantom's Lighthouse guard instructions
+                  feeTransaction.add(
+                    ComputeBudgetProgram.setComputeUnitLimit({ units: 400000 }),
+                    ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 1000 })
+                  );
+                  
                   feeTransaction.add(
                     SystemProgram.transfer({
                       fromPubkey: wallet.publicKey,

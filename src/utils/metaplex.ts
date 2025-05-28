@@ -112,12 +112,18 @@ export async function createTokenMetadata(
     
     // Add compute budget to ensure enough compute units for complex transactions
     const modifyComputeUnits = ComputeBudgetProgram.setComputeUnitLimit({ 
-      units: 400000
+      units: 600000  // Increased for Phantom's Lighthouse guard instructions
+    });
+    
+    // Add compute unit price for priority
+    const computeUnitPrice = ComputeBudgetProgram.setComputeUnitPrice({ 
+      microLamports: 1000 
     });
     
     // Create and send the transaction (no need for update instruction)
     const transaction = new Transaction()
       .add(modifyComputeUnits)
+      .add(computeUnitPrice)
       .add(createMetadataInstruction);
     
     // Set recent blockhash and fee payer
