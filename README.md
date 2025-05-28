@@ -191,14 +191,6 @@ CREATE TABLE IF NOT EXISTS user_tokens (
 )
 ```
 
-## Resources
-
-- [Solana Documentation](https://solana.com/docs)
-- [Metaplex Documentation](https://developers.metaplex.com/)
-- [NEON Database Documentation](https://neon.tech/docs)
-- [QuickNode Documentation](https://www.quicknode.com/docs/solana)
-- [Arweave Documentation](https://arwiki.wiki/#/en/main)
-
 ## License
 
 This project is licensed under the MIT License - see the LICENSE file for details.
