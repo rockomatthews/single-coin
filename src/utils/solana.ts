@@ -119,9 +119,9 @@ export const uploadMetadata = async (connection: Connection, params: TokenParams
     // First, upload the image to Pinata if it's a URL
     let imageUrl = params.image;
     
-    // If the image is a URL or blob URL, upload it to Pinata first
-    if (imageUrl.startsWith('http') || imageUrl.startsWith('blob:')) {
-      console.log('Uploading image to Pinata:', imageUrl);
+    // If the image is a URL, blob URL, or base64 data URL, upload it to Pinata first
+    if (imageUrl.startsWith('http') || imageUrl.startsWith('blob:') || imageUrl.startsWith('data:')) {
+      console.log('Uploading image to Pinata:', imageUrl.substring(0, 50) + '...');
       const imageIpfsUri = await uploadToPinata(imageUrl, `${params.symbol.toLowerCase()}_image.png`);
       imageUrl = getIpfsGatewayUrl(imageIpfsUri);
       console.log('Image uploaded, got IPFS URL:', imageUrl);
