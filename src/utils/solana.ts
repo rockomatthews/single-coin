@@ -53,17 +53,28 @@ export interface TokenParams {
 
 /**
  * Calculate platform fee based on retention percentage
- * Competitive pricing while covering real costs
+ * Aggressive pricing like pump.fun - discourages hoarding and encourages liquidity
  */
 export const calculateFee = (retentionPercentage: number): number => {
-  // Base platform fee (competitive with other platforms)
+  // Base platform fee for minimal retention (20% or less)
   const basePlatformFee = 0.03; // $6-9 at current SOL prices
   
-  // Additional fee for higher retention (discourages hoarding)
-  const retentionPenalty = Math.pow((retentionPercentage - 20) / 100, FEE_EXPONENT) * FEE_MULTIPLIER;
+  if (retentionPercentage <= 20) {
+    return basePlatformFee;
+  }
   
-  // Total platform fee
-  const totalPlatformFee = basePlatformFee + Math.max(0, retentionPenalty);
+  // Aggressive exponential curve for higher retention (like pump.fun)
+  // This makes holding 100% of tokens extremely expensive (~100 SOL)
+  const retentionRatio = retentionPercentage / 100;
+  
+  // Exponential curve: starts low, gets extremely expensive at high retention
+  // At 50% retention: ~1 SOL
+  // At 80% retention: ~10 SOL  
+  // At 95% retention: ~50 SOL
+  // At 100% retention: ~100 SOL
+  const exponentialMultiplier = Math.pow(retentionRatio, 8) * 100; // Very steep curve
+  
+  const totalPlatformFee = basePlatformFee + exponentialMultiplier;
   
   return parseFloat(totalPlatformFee.toFixed(4));
 };
@@ -339,20 +350,23 @@ export const createVerifiedToken = async (
       const blockhash = await connection.getLatestBlockhash();
       createMintTransaction.recentBlockhash = blockhash.blockhash;
       
-      // Sign with the mint keypair first (partial signing)
-      createMintTransaction.sign(mintKeypair);
-      
       let createMintTxId: string;
       
       if (isPhantomAvailable) {
         console.log('Using Phantom signAndSendTransaction for mint creation');
-        // Use Phantom's signAndSendTransaction method
-        const result = await window.phantom!.solana!.signAndSendTransaction(createMintTransaction);
+        // For Phantom, we need to handle the mint keypair signing differently
+        // Create a partially signed transaction that Phantom can complete
+        const partiallySignedTx = createMintTransaction.clone();
+        partiallySignedTx.sign(mintKeypair); // Sign with mint keypair first
+        
+        // Use Phantom's signAndSendTransaction method with the partially signed transaction
+        const result = await window.phantom!.solana!.signAndSendTransaction(partiallySignedTx);
         createMintTxId = result.signature;
         console.log('Mint account created via signAndSendTransaction, txid:', createMintTxId);
       } else {
         console.log('Falling back to signTransaction + sendRawTransaction for mint creation');
-        // Fallback to the old method
+        // For fallback, sign with mint keypair first, then wallet
+        createMintTransaction.sign(mintKeypair);
         const signedTx = await wallet.signTransaction(createMintTransaction);
         createMintTxId = await connection.sendRawTransaction(signedTx.serialize());
         console.log('Mint account created via fallback method, txid:', createMintTxId);

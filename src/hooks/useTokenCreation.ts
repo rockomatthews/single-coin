@@ -330,7 +330,8 @@ export function useTokenCreation() {
               ...tokenData,
               retentionPercentage,
               retainedAmount,
-              liquidityAmount
+              liquidityAmount,
+              metadataUri
             },
             poolTxId, // Include pool transaction ID if available
           }),

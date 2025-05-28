@@ -37,7 +37,7 @@ const DEFAULT_TOKEN_PARAMS = {
   decimals: 9,
   supply: 1000000000,
   retentionPercentage: 20,
-  liquiditySolAmount: 0.1,
+  liquiditySolAmount: 0.5,
   createPool: true,
   // Security features - default to false for user choice
   revokeUpdateAuthority: false,

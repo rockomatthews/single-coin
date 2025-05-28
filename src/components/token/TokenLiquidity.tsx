@@ -93,14 +93,15 @@ export default function TokenLiquidity({
               <Slider
                 value={tokenParams.liquiditySolAmount}
                 onChange={handleSolAmountChange}
-                step={0.01}
-                min={0.01}
-                max={5}
+                step={0.1}
+                min={0.1}
+                max={100}
                 marks={[
-                  { value: 0.01, label: '0.01' },
+                  { value: 0.1, label: '0.1' },
                   { value: 1, label: '1' },
-                  { value: 2.5, label: '2.5' },
-                  { value: 5, label: '5' },
+                  { value: 10, label: '10' },
+                  { value: 50, label: '50' },
+                  { value: 100, label: '100' },
                 ]}
                 valueLabelDisplay="auto"
               />
