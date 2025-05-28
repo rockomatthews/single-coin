@@ -163,6 +163,26 @@ export function useTokenCreation() {
       console.log('Uploading metadata to Pinata with:', tokenData);
       const metadataUri = await uploadMetadata(connection, tokenData);
       
+      // IMPORTANT: Extract the image URL from the uploaded metadata
+      // The uploadMetadata function converts base64 images to IPFS URLs
+      // We need to get this IPFS URL for the database instead of the base64 data
+      let finalImageUrl = tokenData.image;
+      
+      // If the original image was base64 or blob, it was uploaded to IPFS
+      // We need to fetch the metadata to get the actual IPFS image URL
+      if (tokenData.image.startsWith('data:') || tokenData.image.startsWith('blob:')) {
+        try {
+          const metadataResponse = await fetch(metadataUri);
+          const metadata = await metadataResponse.json();
+          if (metadata.image) {
+            finalImageUrl = metadata.image;
+            console.log('Updated image URL from metadata:', finalImageUrl);
+          }
+        } catch (error) {
+          console.log('Could not extract image URL from metadata, using original');
+        }
+      }
+      
       console.log('Creating token with metadata URI:', metadataUri);
       
       try {
@@ -328,6 +348,7 @@ export function useTokenCreation() {
             tokenAddress,
             tokenData: {
               ...tokenData,
+              image: finalImageUrl,
               retentionPercentage,
               retainedAmount,
               liquidityAmount,
