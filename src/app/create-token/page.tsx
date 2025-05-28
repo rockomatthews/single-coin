@@ -22,6 +22,7 @@ import TokenLiquidity from '../../components/token/TokenLiquidity';
 import TokenReview from '../../components/token/TokenReview';
 import TokenSuccess from '../../components/token/TokenSuccess';
 import { useTokenCreation } from '../../hooks/useTokenCreation';
+import { calculateFee as calculatePlatformFee } from '../../utils/solana';
 
 const steps = ['Token Settings', 'Token Distribution', 'Add Liquidity', 'Review'];
 
@@ -125,29 +126,11 @@ export default function CreateTokenPage() {
     }
   }, [tokenParams, isCreating, createToken]);
   
-  // Calculate fee based on parameters (competitive pricing with Raydium costs)
+  // Calculate fee based on parameters using the centralized fee calculation
   const calculateFee = useCallback(() => {
-    // Base platform fee (competitive with other platforms)
-    const basePlatformFee = 0.03; // $6-9 at current SOL prices
-    
-    // Get retention percentage
     const retentionPercentage = tokenParams.retentionPercentage || 20;
-    
-    // Additional fee for higher retention (discourages hoarding)
-    const retentionPenalty = Math.pow(Math.max(0, retentionPercentage - 20) / 100, 2.5) * 0.45;
-    
-    // Small discount for security features (encourages trust-building)
-    const securityFeaturesCount = (tokenParams.revokeMintAuthority ? 1 : 0) + 
-                                  (tokenParams.revokeFreezeAuthority ? 1 : 0) + 
-                                  (tokenParams.revokeUpdateAuthority ? 1 : 0);
-    const securityDiscount = securityFeaturesCount * 0.002; // 0.002 SOL discount per feature
-    
-    // Total platform fee
-    const totalPlatformFee = Math.max(basePlatformFee + retentionPenalty - securityDiscount, 0.025);
-    
-    // Return fee in SOL with 4 decimal precision
-    return totalPlatformFee.toFixed(4);
-  }, [tokenParams.retentionPercentage, tokenParams.revokeMintAuthority, tokenParams.revokeFreezeAuthority, tokenParams.revokeUpdateAuthority]);
+    return calculatePlatformFee(retentionPercentage).toFixed(4);
+  }, [tokenParams.retentionPercentage]);
 
   // Calculate total cost (platform fee + liquidity + Raydium fees)
   const calculateTotalCost = useCallback(() => {

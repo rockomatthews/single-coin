@@ -53,30 +53,38 @@ export interface TokenParams {
 
 /**
  * Calculate platform fee based on retention percentage
- * Aggressive pricing like pump.fun - discourages hoarding and encourages liquidity
+ * Proper scaling: 0.01 SOL (0%) -> 0.03 SOL (20%) -> 50 SOL (100%)
  */
 export const calculateFee = (retentionPercentage: number): number => {
-  // Base platform fee for minimal retention (20% or less)
-  const basePlatformFee = 0.03; // $6-9 at current SOL prices
+  // Clamp retention percentage between 0 and 100
+  const retention = Math.max(0, Math.min(100, retentionPercentage));
   
-  if (retentionPercentage <= 20) {
-    return basePlatformFee;
+  // Define key points for the fee curve
+  // 0% retention = 0.01 SOL (minimum fee for creating token)
+  // 20% retention = 0.03 SOL (reference point)
+  // 100% retention = 50 SOL (maximum fee to discourage hoarding)
+  
+  if (retention <= 20) {
+    // Linear scaling from 0.01 SOL (0%) to 0.03 SOL (20%)
+    const minFee = 0.01;
+    const refFee = 0.03;
+    const fee = minFee + (refFee - minFee) * (retention / 20);
+    return parseFloat(fee.toFixed(4));
+  } else {
+    // Exponential scaling from 0.03 SOL (20%) to 50 SOL (100%)
+    const refFee = 0.03;
+    const maxFee = 50;
+    
+    // Normalize retention from 20-100% to 0-1 range
+    const normalizedRetention = (retention - 20) / 80;
+    
+    // Use exponential curve: fee = refFee + (maxFee - refFee) * (normalizedRetention^4)
+    // This creates a steep curve that gets very expensive at high retention
+    const exponentialMultiplier = Math.pow(normalizedRetention, 4);
+    const fee = refFee + (maxFee - refFee) * exponentialMultiplier;
+    
+    return parseFloat(fee.toFixed(4));
   }
-  
-  // Aggressive exponential curve for higher retention (like pump.fun)
-  // This makes holding 100% of tokens extremely expensive (~100 SOL)
-  const retentionRatio = retentionPercentage / 100;
-  
-  // Exponential curve: starts low, gets extremely expensive at high retention
-  // At 50% retention: ~1 SOL
-  // At 80% retention: ~10 SOL  
-  // At 95% retention: ~50 SOL
-  // At 100% retention: ~100 SOL
-  const exponentialMultiplier = Math.pow(retentionRatio, 8) * 100; // Very steep curve
-  
-  const totalPlatformFee = basePlatformFee + exponentialMultiplier;
-  
-  return parseFloat(totalPlatformFee.toFixed(4));
 };
 
 /**
