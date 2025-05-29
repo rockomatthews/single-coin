@@ -127,37 +127,41 @@ export const uploadMetadata = async (connection: Connection, params: TokenParams
       console.log('Image uploaded, got IPFS URL:', imageUrl);
     }
     
-    // Format metadata according to FungibleAsset Token Metadata standard for rich display in Phantom
-    // This follows the FungibleAsset schema which shows description, external_url, and attributes
+    // Format metadata according to OFFICIAL 2025 Metaplex Token Metadata standards
+    // Based on research: uses specific field names for maximum compatibility
     const metadata = {
-      // Basic token information (required fields)
+      // CORE REQUIRED FIELDS (for all token standards)
       name: params.name,
       symbol: params.symbol,
       description: params.description || `${params.name} is a Solana token created with Coinbull.`,
       
-      // CRITICAL: These image fields are essential for wallet display
-      image: imageUrl,         // Main image used by most wallets
+      // IMAGE FIELD - CRITICAL for wallet display
+      image: imageUrl,
       
-      // External URL (critical for FungibleAsset display and shortcuts feature)
+      // EXTERNAL URL - This is the PRIMARY field that shows up in most DEXes and wallets
+      // This replaces the old "website" field - external_url is the official standard
       external_url: params.website || 'https://coinbull.vercel.app',
       
-      // Animation URL for dynamic content (optional but good for rich display)
+      // SOCIAL LINKS AT ROOT LEVEL - This is where DEXes actually look for them!
+      // Based on research of successful tokens like HMTR
+      website: params.website || 'https://coinbull.vercel.app',
+      twitter: params.twitter || '',
+      telegram: params.telegram || '',
+      discord: params.discord || '',
+      
+      // OPTIONAL: Animation URL for dynamic content
       animation_url: "",
       
-      // Token details (important for display accuracy)
-      decimals: params.decimals,
-      supply: params.supply.toString(),
-      
-      // Attributes array (displayed in FungibleAsset tokens)
+      // ATTRIBUTES - Standard array format for FungibleAsset tokens
       attributes: [
         { trait_type: "Token Type", value: params.decimals === 0 ? "FungibleAsset" : "Fungible" },
-        { trait_type: "Decimals", value: params.decimals },
+        { trait_type: "Decimals", value: params.decimals.toString() },
         { trait_type: "Total Supply", value: params.supply.toLocaleString() },
         { trait_type: "Created With", value: "Coinbull" },
         { trait_type: "Network", value: "Solana" }
       ],
       
-      // Additional properties for rich display
+      // PROPERTIES - File references and category
       properties: {
         files: [
           {
@@ -167,33 +171,19 @@ export const uploadMetadata = async (connection: Connection, params: TokenParams
           }
         ],
         category: "image",
-        creators: [],
-        // Additional metadata for better indexing
-        external_url: params.website || 'https://coinbull.vercel.app',
-        social_links: {
-          website: params.website || '',
-          twitter: params.twitter || '',
-          telegram: params.telegram || '',
-          discord: params.discord || ''
-        }
+        creators: []
       },
       
-      // Collection info (helps with grouping and verification)
+      // COLLECTION INFO for grouping tokens
       collection: {
         name: "Coinbull Tokens",
         family: "Coinbull"
       },
       
-      // Social links in root level for maximum compatibility
-      website: params.website || '',
-      twitter: params.twitter || '',
-      telegram: params.telegram || '',
-      discord: params.discord || '',
-      
-      // Additional fields for explorers and indexers
+      // Additional indexing tags
       tags: ["solana", "token", "coinbull", params.decimals === 0 ? "fungible-asset" : "fungible"],
       
-      // Token metadata version
+      // Token standard version (matches Metaplex classification)
       token_standard: params.decimals === 0 ? "FungibleAsset" : "Fungible"
     };
     

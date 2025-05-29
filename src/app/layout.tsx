@@ -7,6 +7,7 @@ import "./globals.css";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'https://coinbull.app'),
   title: "Coinbull | Create Solana Meme Coins",
   description: "Create verified Solana meme coins with pictures, links, and descriptions. Launch your token with liquidity pools on Raydium in minutes.",
   

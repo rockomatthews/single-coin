@@ -167,9 +167,10 @@ export async function createTokenMetadata(
       description: params.description,
       image: params.image,
       uri: params.uri,
-      externalUrl: params.website,
+      // Only use external_url (the official standard), not website
+      external_url: params.website,
       links: {
-        website: params.website,
+        // Don't duplicate website here since external_url is the primary field
         twitter: params.twitter,
         telegram: params.telegram,
         discord: params.discord

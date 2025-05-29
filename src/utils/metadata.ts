@@ -6,6 +6,13 @@ export interface TokenMetadata {
   description?: string;
   image?: string;
   external_url?: string;
+  
+  // Root-level social links (NEW - where we now put them)
+  website?: string;
+  twitter?: string;
+  telegram?: string;
+  discord?: string;
+  
   attributes?: Array<{
     trait_type: string;
     value: string;
@@ -60,30 +67,36 @@ export function extractSocialLinks(metadata: TokenMetadata) {
     discord: ''
   };
   
-  // Check external_url for website
-  if (metadata.external_url) {
+  // NEW: Check root-level social links FIRST (this is where we now put them)
+  if (metadata.website) links.website = metadata.website;
+  if (metadata.twitter) links.twitter = metadata.twitter;
+  if (metadata.telegram) links.telegram = metadata.telegram;
+  if (metadata.discord) links.discord = metadata.discord;
+  
+  // Check external_url for website (if no root-level website)
+  if (!links.website && metadata.external_url) {
     links.website = metadata.external_url;
   }
   
-  // Check properties.links
+  // FALLBACK: Check nested properties.links (for older tokens)
   if (metadata.properties?.links) {
-    if (metadata.properties.links.website) links.website = metadata.properties.links.website;
-    if (metadata.properties.links.twitter) links.twitter = metadata.properties.links.twitter;
-    if (metadata.properties.links.telegram) links.telegram = metadata.properties.links.telegram;
-    if (metadata.properties.links.discord) links.discord = metadata.properties.links.discord;
+    if (!links.website && metadata.properties.links.website) links.website = metadata.properties.links.website;
+    if (!links.twitter && metadata.properties.links.twitter) links.twitter = metadata.properties.links.twitter;
+    if (!links.telegram && metadata.properties.links.telegram) links.telegram = metadata.properties.links.telegram;
+    if (!links.discord && metadata.properties.links.discord) links.discord = metadata.properties.links.discord;
   }
   
-  // Check attributes for social links
+  // FALLBACK: Check attributes for social links (for very old tokens)
   if (metadata.attributes) {
     metadata.attributes.forEach(attr => {
       const traitType = attr.trait_type.toLowerCase();
-      if (traitType.includes('website') || traitType.includes('site')) {
+      if (!links.website && (traitType.includes('website') || traitType.includes('site'))) {
         links.website = attr.value;
-      } else if (traitType.includes('twitter')) {
+      } else if (!links.twitter && traitType.includes('twitter')) {
         links.twitter = attr.value;
-      } else if (traitType.includes('telegram')) {
+      } else if (!links.telegram && traitType.includes('telegram')) {
         links.telegram = attr.value;
-      } else if (traitType.includes('discord')) {
+      } else if (!links.discord && traitType.includes('discord')) {
         links.discord = attr.value;
       }
     });
