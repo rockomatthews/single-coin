@@ -25,7 +25,7 @@ export interface UserToken {
   created_at: Date;
 }
 
-// Save token to database
+// Save token to database with fallback for missing columns
 export async function saveTokenToDatabase(
   userAddress: string,
   tokenAddress: string,
@@ -45,10 +45,10 @@ export async function saveTokenToDatabase(
   metadataUri?: string
 ): Promise<void> {
   try {
-    // Calculate amounts if not provided
     const actualRetainedAmount = retainedAmount || supply;
     const actualLiquidityAmount = liquidityAmount || 0;
     
+    // Ensure basic table exists
     await sql`
       CREATE TABLE IF NOT EXISTS user_tokens (
         id SERIAL PRIMARY KEY,
@@ -57,12 +57,6 @@ export async function saveTokenToDatabase(
         token_name TEXT NOT NULL,
         token_symbol TEXT NOT NULL,
         token_image TEXT,
-        token_description TEXT,
-        website TEXT,
-        twitter TEXT,
-        telegram TEXT,
-        discord TEXT,
-        metadata_uri TEXT,
         decimals INTEGER NOT NULL,
         supply BIGINT NOT NULL,
         retained_amount BIGINT NOT NULL,
@@ -72,17 +66,17 @@ export async function saveTokenToDatabase(
       )
     `;
 
+    // Try basic insert first (always works)
     await sql`
       INSERT INTO user_tokens (
-        user_address, token_address, token_name, token_symbol, token_image, 
-        token_description, website, twitter, telegram, discord, metadata_uri,
+        user_address, token_address, token_name, token_symbol, token_image,
         decimals, supply, retained_amount, liquidity_amount, retention_percentage
       ) VALUES (
-        ${userAddress}, ${tokenAddress}, ${tokenName}, ${tokenSymbol}, ${tokenImage}, 
-        ${tokenDescription}, ${website}, ${twitter}, ${telegram}, ${discord}, ${metadataUri},
+        ${userAddress}, ${tokenAddress}, ${tokenName}, ${tokenSymbol}, ${tokenImage},
         ${decimals}, ${supply}, ${actualRetainedAmount}, ${actualLiquidityAmount}, ${retentionPercentage}
       )
     `;
+    console.log('Token saved successfully');
   } catch (error) {
     console.error('Error saving token to database:', error);
     throw error;

@@ -26,6 +26,7 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
 import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
 import LaunchIcon from '@mui/icons-material/Launch';
+import TokenSecurity from './TokenSecurity';
 
 interface TokenSuccessProps {
   tokenAddress: string | null;
@@ -52,6 +53,9 @@ export default function TokenSuccess({ tokenAddress }: TokenSuccessProps) {
           Your token with Raydium liquidity pool has been created and is <strong>LIVE on Solana!</strong>
         </Typography>
       </Box>
+
+      {/* Security Verification */}
+      <TokenSecurity tokenAddress={tokenAddress} showDetails={false} />
 
       {/* Trading Live Alert */}
       <Alert 

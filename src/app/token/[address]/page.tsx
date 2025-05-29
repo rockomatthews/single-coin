@@ -33,6 +33,7 @@ import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { Connection, PublicKey } from '@solana/web3.js';
 import { UserToken } from '@/utils/database';
+import TokenSecurity from '@/components/token/TokenSecurity';
 
 export default function TokenDetailPage() {
   const params = useParams();
@@ -321,6 +322,8 @@ export default function TokenDetailPage() {
           </Table>
         </TableContainer>
         
+        {/* Security Verification */}
+        <TokenSecurity tokenAddress={tokenAddress} />
 
       </Box>
     </Container>
