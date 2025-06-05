@@ -267,7 +267,7 @@ export function useTokenCreation() {
                   // Add compute budget for Phantom's Lighthouse guard instructions
                   feeTransaction.add(
                     ComputeBudgetProgram.setComputeUnitLimit({ units: 400000 }),
-                    ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 1000 })
+                    ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 50000 })
                   );
                   
                   feeTransaction.add(
@@ -381,6 +381,74 @@ export function useTokenCreation() {
         if (tokenError instanceof Error) {
           console.error('Detailed error:', tokenError.message);
           console.error('Error stack:', tokenError.stack);
+          
+          // Special handling for transaction timeout errors
+          if (tokenError.message.includes('Transaction was not confirmed in') && 
+              tokenError.message.includes('It is unknown if it succeeded or failed')) {
+            // Extract the transaction signature from the error message
+            const signatureMatch = tokenError.message.match(/Check signature ([A-Za-z0-9]+) using/);
+            if (signatureMatch && signatureMatch[1]) {
+              const signature = signatureMatch[1];
+              console.log('Transaction timed out, checking status for signature:', signature);
+              
+              // Give it a moment for the transaction to potentially land
+              await new Promise(resolve => setTimeout(resolve, 2000));
+              
+              // Check if the transaction actually succeeded
+              try {
+                const status = await connection.getSignatureStatus(signature);
+                if (status.value?.confirmationStatus === 'confirmed' || 
+                    status.value?.confirmationStatus === 'finalized') {
+                  console.log('✅ Transaction confirmed despite timeout!');
+                  console.log('The token creation likely succeeded. Transaction signature:', signature);
+                  
+                  // Show a more user-friendly error message
+                  throw new Error(`Transaction timeout - but it may have succeeded! Check this transaction on Solscan: ${signature}\n\nThe network is congested, but your token might have been created. Please check your wallet.`);
+                } else if (status.value === null) {
+                  throw new Error(`Transaction not found on chain. The network might be congested. Please try again. Transaction: ${signature}`);
+                } else {
+                  throw new Error(`Transaction failed. Status: ${status.value.confirmationStatus || 'unknown'}. Transaction: ${signature}`);
+                }
+              } catch (statusError) {
+                console.error('Error checking transaction status:', statusError);
+                throw new Error(`Network timeout - transaction status unknown. Please check Solscan for transaction: ${signature}`);
+              }
+            }
+          }
+          
+          // Special handling for transaction timeout errors
+          if (tokenError.message.includes('Transaction was not confirmed in') && 
+              tokenError.message.includes('It is unknown if it succeeded or failed')) {
+            // Extract the transaction signature from the error message
+            const signatureMatch = tokenError.message.match(/Check signature ([A-Za-z0-9]+) using/);
+            if (signatureMatch && signatureMatch[1]) {
+              const signature = signatureMatch[1];
+              console.log('Transaction timed out, checking status for signature:', signature);
+              
+              // Give it a moment for the transaction to potentially land
+              await new Promise(resolve => setTimeout(resolve, 2000));
+              
+              // Check if the transaction actually succeeded
+              try {
+                const status = await connection.getSignatureStatus(signature);
+                if (status.value?.confirmationStatus === 'confirmed' || 
+                    status.value?.confirmationStatus === 'finalized') {
+                  console.log('✅ Transaction confirmed despite timeout!');
+                  console.log('The token creation likely succeeded. Transaction signature:', signature);
+                  
+                  // Show a more user-friendly error message
+                  throw new Error(`Transaction timeout - but it may have succeeded! Check this transaction on Solscan: ${signature}\n\nThe network is congested, but your token might have been created. Please check your wallet.`);
+                } else if (status.value === null) {
+                  throw new Error(`Transaction not found on chain. The network might be congested. Please try again. Transaction: ${signature}`);
+                } else {
+                  throw new Error(`Transaction failed. Status: ${status.value.confirmationStatus || 'unknown'}. Transaction: ${signature}`);
+                }
+              } catch (statusError) {
+                console.error('Error checking transaction status:', statusError);
+                throw new Error(`Network timeout - transaction status unknown. Please check Solscan for transaction: ${signature}`);
+              }
+            }
+          }
         }
         throw tokenError;
       }

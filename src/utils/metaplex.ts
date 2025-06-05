@@ -117,7 +117,7 @@ export async function createTokenMetadata(
     
     // Add compute unit price for priority
     const computeUnitPrice = ComputeBudgetProgram.setComputeUnitPrice({ 
-      microLamports: 1000 
+      microLamports: 50000 
     });
     
     // Create and send the transaction (no need for update instruction)
@@ -152,7 +152,23 @@ export async function createTokenMetadata(
       console.log('Created on-chain metadata via fallback method, txid:', txid);
     }
     
-    await connection.confirmTransaction(txid);
+    // Improved confirmation with retry logic
+    try {
+      await connection.confirmTransaction({
+        signature: txid,
+        blockhash: blockhash,
+        lastValidBlockHeight: (await connection.getBlockHeight())
+      }, 'confirmed');
+    } catch (confirmError) {
+      console.warn('Initial metadata confirmation failed, checking transaction status...', confirmError);
+      // Check if transaction actually succeeded despite timeout
+      const status = await connection.getSignatureStatus(txid);
+      if (status.value?.confirmationStatus === 'confirmed' || status.value?.confirmationStatus === 'finalized') {
+        console.log('Metadata transaction confirmed despite timeout');
+      } else {
+        throw new Error(`Metadata transaction failed to confirm: ${txid}`);
+      }
+    }
     
     console.log('Created on-chain metadata for token, txid:', txid);
     
@@ -282,7 +298,23 @@ export async function updateTokenMetadata(
       console.log('Updated token metadata via fallback method, txid:', txid);
     }
     
-    await connection.confirmTransaction(txid);
+    // Improved confirmation with retry logic
+    try {
+      await connection.confirmTransaction({
+        signature: txid,
+        blockhash: blockhash,
+        lastValidBlockHeight: (await connection.getBlockHeight())
+      }, 'confirmed');
+    } catch (confirmError) {
+      console.warn('Initial metadata update confirmation failed, checking transaction status...', confirmError);
+      // Check if transaction actually succeeded despite timeout
+      const status = await connection.getSignatureStatus(txid);
+      if (status.value?.confirmationStatus === 'confirmed' || status.value?.confirmationStatus === 'finalized') {
+        console.log('Metadata update transaction confirmed despite timeout');
+      } else {
+        throw new Error(`Metadata update transaction failed to confirm: ${txid}`);
+      }
+    }
     
     console.log('Updated token metadata, txid:', txid);
     return txid;

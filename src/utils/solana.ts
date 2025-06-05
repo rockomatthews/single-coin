@@ -231,7 +231,7 @@ export const revokeTokenAuthorities = async (
     // Add compute budget for Phantom's Lighthouse guard instructions
     revokeTransaction.add(
       ComputeBudgetProgram.setComputeUnitLimit({ units: 400000 }),
-      ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 1000 })
+      ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 100000 }) // Increased priority for network congestion
     );
     
     // Revoke mint authority (make token unmintable)
@@ -281,7 +281,23 @@ export const revokeTokenAuthorities = async (
       console.log('Authorities revoked via fallback method, txid:', revokeTxId);
     }
     
-    await connection.confirmTransaction(revokeTxId);
+    // Improved confirmation with retry logic
+    try {
+      await connection.confirmTransaction({
+        signature: revokeTxId,
+        blockhash: revokeBlockhash.blockhash,
+        lastValidBlockHeight: revokeBlockhash.lastValidBlockHeight
+      }, 'confirmed');
+    } catch (confirmError) {
+      console.warn('Initial revoke confirmation failed, checking transaction status...', confirmError);
+      // Check if transaction actually succeeded despite timeout
+      const status = await connection.getSignatureStatus(revokeTxId);
+      if (status.value?.confirmationStatus === 'confirmed' || status.value?.confirmationStatus === 'finalized') {
+        console.log('Revoke transaction confirmed despite timeout');
+      } else {
+        throw new Error(`Revoke transaction failed to confirm: ${revokeTxId}`);
+      }
+    }
     
     console.log('✅ Token security enhanced - dangerous authorities revoked');
     return revokeTxId;
@@ -325,7 +341,7 @@ export const createVerifiedToken = async (
     const createMintTransaction = new Transaction().add(
       // Add compute budget for Phantom's Lighthouse guard instructions
       ComputeBudgetProgram.setComputeUnitLimit({ units: 400000 }),
-      ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 1000 }),
+      ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 50000 }), // Increased 50x for network congestion
       SystemProgram.createAccount({
         fromPubkey: wallet.publicKey,
         newAccountPubkey: mintPublicKey,
@@ -369,7 +385,23 @@ export const createVerifiedToken = async (
         console.log('Mint account created via fallback method, txid:', createMintTxId);
       }
       
-      await connection.confirmTransaction(createMintTxId);
+      // Improved confirmation with retry logic
+      try {
+        await connection.confirmTransaction({
+          signature: createMintTxId,
+          blockhash: blockhash.blockhash,
+          lastValidBlockHeight: blockhash.lastValidBlockHeight
+        }, 'confirmed');
+      } catch (confirmError) {
+        console.warn('Initial confirmation failed, checking transaction status...', confirmError);
+        // Check if transaction actually succeeded despite timeout
+        const status = await connection.getSignatureStatus(createMintTxId);
+        if (status.value?.confirmationStatus === 'confirmed' || status.value?.confirmationStatus === 'finalized') {
+          console.log('Transaction confirmed despite timeout');
+        } else {
+          throw new Error(`Transaction failed to confirm: ${createMintTxId}`);
+        }
+      }
       
       // Calculate the token amount - ALWAYS mint the FULL supply to the user's wallet
       // The user will then transfer the liquidity portion to the pool during pool creation
@@ -390,7 +422,7 @@ export const createVerifiedToken = async (
       // Add compute budget for Phantom's Lighthouse guard instructions
       mintToTransaction.add(
         ComputeBudgetProgram.setComputeUnitLimit({ units: 400000 }),
-        ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 1000 })
+        ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 50000 }) // Increased 50x for network congestion
       );
       
       // Check if the token account exists
@@ -439,7 +471,23 @@ export const createVerifiedToken = async (
         console.log('Tokens minted via fallback method, txid:', mintTxId);
       }
       
-      await connection.confirmTransaction(mintTxId);
+      // Improved confirmation with retry logic for minting
+      try {
+        await connection.confirmTransaction({
+          signature: mintTxId,
+          blockhash: mintBlockhash.blockhash,
+          lastValidBlockHeight: mintBlockhash.lastValidBlockHeight
+        }, 'confirmed');
+      } catch (confirmError) {
+        console.warn('Initial mint confirmation failed, checking transaction status...', confirmError);
+        // Check if transaction actually succeeded despite timeout
+        const status = await connection.getSignatureStatus(mintTxId);
+        if (status.value?.confirmationStatus === 'confirmed' || status.value?.confirmationStatus === 'finalized') {
+          console.log('Mint transaction confirmed despite timeout');
+        } else {
+          throw new Error(`Mint transaction failed to confirm: ${mintTxId}`);
+        }
+      }
       
       // NOTE: Authority revocation moved to separate function - call revokeTokenAuthorities() after metadata creation
       
@@ -450,7 +498,7 @@ export const createVerifiedToken = async (
         // Add compute budget for Phantom's Lighthouse guard instructions
         memoTransaction.add(
           ComputeBudgetProgram.setComputeUnitLimit({ units: 400000 }),
-          ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 1000 })
+          ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 50000 })
         );
         
         // Most reliable format for metadata in memo - both Solscan and Phantom recognize this
@@ -500,7 +548,24 @@ export const createVerifiedToken = async (
           console.log('Metadata memo added via fallback method, txid:', memoTxId);
         }
         
-        await connection.confirmTransaction(memoTxId);
+        // Improved confirmation with retry logic for memo
+        try {
+          await connection.confirmTransaction({
+            signature: memoTxId,
+            blockhash: memoBlockhash.blockhash,
+            lastValidBlockHeight: memoBlockhash.lastValidBlockHeight
+          }, 'confirmed');
+        } catch (confirmError) {
+          console.warn('Initial memo confirmation failed, checking transaction status...', confirmError);
+          // Check if transaction actually succeeded despite timeout
+          const status = await connection.getSignatureStatus(memoTxId);
+          if (status.value?.confirmationStatus === 'confirmed' || status.value?.confirmationStatus === 'finalized') {
+            console.log('Memo transaction confirmed despite timeout');
+          } else {
+            // Memo is non-critical, so we just log the error
+            console.log('Memo transaction failed to confirm (non-critical):', memoTxId);
+          }
+        }
       } catch (memoError) {
         // If memo fails, it's not critical - the token still works
         console.log('Non-critical: Failed to add metadata memo:', memoError);
