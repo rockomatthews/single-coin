@@ -33,7 +33,7 @@ export async function recoverUnmintedToken(
     }
     
     // Check if supply is already minted
-    if (mintInfo.supply > 0n) {
+    if (mintInfo.supply > BigInt(0)) {
       console.log('Token already has supply:', mintInfo.supply.toString());
       return null;
     }
@@ -153,7 +153,7 @@ export async function checkMintStatus(
     
     return {
       exists: true,
-      hasSupply: mintInfo.supply > 0n,
+      hasSupply: mintInfo.supply > BigInt(0),
       supply: mintInfo.supply.toString(),
       decimals: mintInfo.decimals,
       mintAuthority: mintInfo.mintAuthority?.toString() || null,
