@@ -403,12 +403,15 @@ export const createVerifiedToken = async (
         }
       }
       
-      // Calculate the token amount - ALWAYS mint the FULL supply to the user's wallet
-      // The user will then transfer the liquidity portion to the pool during pool creation
-      const mintAmount = params.supply; // Always mint full supply to user's wallet
+      // SECURITY FIX: Only mint retention amount to user, NOT full supply
+      // Liquidity tokens will be minted directly to pool during pool creation
+      const retentionPercentage = params.retentionPercentage || 0;
+      const mintAmount = params.retainedAmount || Math.floor(params.supply * (retentionPercentage / 100));
+      const liquidityAmount = params.supply - mintAmount;
       
-      console.log(`Minting FULL SUPPLY of ${mintAmount.toLocaleString()} tokens to wallet`);
-      console.log(`User will retain ${params.retentionPercentage || 100}% and use ${100 - (params.retentionPercentage || 0)}% for liquidity`);
+      console.log(`🔒 SECURE MINTING: Only minting ${mintAmount.toLocaleString()} tokens to user (${retentionPercentage}%)`);
+      console.log(`💧 ${liquidityAmount.toLocaleString()} tokens will be minted directly to pool (${100 - retentionPercentage}%)`);
+      console.log(`⚠️ MINT AUTHORITY WILL BE RETAINED UNTIL POOL CREATION`);
       
       // Get the associated token address for the owner
       const associatedTokenAddress = await getAssociatedTokenAddress(

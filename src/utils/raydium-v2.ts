@@ -393,10 +393,10 @@ export async function createRaydiumCpmmPool(
 • Birdeye: https://birdeye.so/token/${tokenMint}?chain=solana
 
 📊 Pool Details:
-• Pool ID: ${poolKeys['id'] || 'N/A'}
-• LP Token: ${poolKeys['lpMint'] || 'N/A'}
-• Token Vault: ${poolKeys['vault'] || 'N/A'}
-• SOL Vault: ${poolKeys['vaultB'] || 'N/A'}
+• Pool ID: ${poolKeys['poolId'] || poolKeys['id'] || extInfo.address.poolId?.toString() || 'N/A'}
+• LP Token: ${poolKeys['lpMint'] || extInfo.address.lpMint?.toString() || 'N/A'}
+• Token Vault: ${poolKeys['vaultA'] || poolKeys['vault'] || extInfo.address.vaultA?.toString() || 'N/A'}
+• SOL Vault: ${poolKeys['vaultB'] || extInfo.address.vaultB?.toString() || 'N/A'}
 
 🚀 Your token is officially trading on Solana DEX ecosystem!
         `);
