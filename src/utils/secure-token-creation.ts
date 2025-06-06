@@ -172,20 +172,22 @@ export async function createTokenSecurely(
 }
 
 /**
- * Step 2: Mint liquidity tokens directly to pool vault
+ * Step 2: Mint tokens to any target address (pool vault, user wallet, etc.)
+ * This function can be used to mint tokens to pool vaults during pool creation
+ * or to user wallets when preparing for pool creation with Raydium SDK
  */
 export async function mintLiquidityToPool(
   connection: Connection,
   wallet: any,
   mintAddress: string,
-  poolVaultAddress: string,
+  targetAddress: string, // Can be pool vault or user token account
   amount: number,
   decimals: number
 ): Promise<string> {
-  console.log(`🏊 Minting ${amount.toLocaleString()} tokens DIRECTLY to pool vault`);
+  console.log(`🏊 Minting ${amount.toLocaleString()} tokens to target address: ${targetAddress}`);
   
   const mintPubkey = new PublicKey(mintAddress);
-  const vaultPubkey = new PublicKey(poolVaultAddress);
+  const targetPubkey = new PublicKey(targetAddress);
   const isPhantomAvailable = window.phantom?.solana?.signAndSendTransaction;
   
   const mintToPoolTx = new Transaction().add(
@@ -193,7 +195,7 @@ export async function mintLiquidityToPool(
     ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 50000 }),
     createMintToInstruction(
       mintPubkey,
-      vaultPubkey,
+      targetPubkey,
       wallet.publicKey, // Must still be mint authority
       amount * Math.pow(10, decimals)
     )
@@ -214,7 +216,7 @@ export async function mintLiquidityToPool(
   
   await confirmWithRetry(connection, txId, blockhash);
   
-  console.log(`✅ Successfully minted ${amount.toLocaleString()} tokens to pool`);
+  console.log(`✅ Successfully minted ${amount.toLocaleString()} tokens to target address`);
   return txId;
 }
 

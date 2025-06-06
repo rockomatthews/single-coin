@@ -26,9 +26,10 @@ declare global {
 
 import { useState, useCallback } from 'react';
 import { useConnection, useWallet } from '@solana/wallet-adapter-react';
-import { createVerifiedToken, uploadMetadata, TokenParams, revokeTokenAuthorities, calculateTotalCost } from '../utils/solana';
+import { uploadMetadata, TokenParams, calculateTotalCost } from '../utils/solana';
 import { createTokenMetadata } from '../utils/metaplex';
 import { createRaydiumCpmmPool } from '../utils/raydium-v2';
+import { createTokenSecurely, finalizeTokenSecurity } from '../utils/secure-token-creation';
 
 /**
  * Add token to Phantom wallet using a direct SPL approach
@@ -186,27 +187,30 @@ export function useTokenCreation() {
       console.log('Creating token with metadata URI:', metadataUri);
       
       try {
-        // 1. Create token WITHOUT revoking authorities yet
-        const tokenAddress = await createVerifiedToken(
-          connection, 
-          wallet, 
-          metadataUri, 
+        // 🔒 STEP 1: Create token securely - only mint retention amount to user
+        console.log('🔒 SECURE TOKEN CREATION: Using secure workflow');
+        const secureResult = await createTokenSecurely(
+          connection,
+          wallet,
           {
             ...tokenData,
             retentionPercentage,
             retainedAmount,
             liquidityAmount,
-            uri: metadataUri  // Pass the metadata URI to the token params
+            uri: metadataUri
           }
         );
         
-        if (!tokenAddress) {
+        if (!secureResult.mintAddress) {
           throw new Error('Failed to create token - no token address returned');
         }
         
-        console.log('Token created successfully with address:', tokenAddress);
+        const tokenAddress = secureResult.mintAddress;
+        console.log('✅ Token created securely with address:', tokenAddress);
+        console.log(`📊 User received: ${secureResult.userTokenAmount.toLocaleString()} tokens`);
+        console.log(`🏊 Reserved for liquidity: ${secureResult.liquidityTokenAmount.toLocaleString()} tokens`);
         
-        // 2. Create proper on-chain metadata using Metaplex (while still having mint authority)
+        // 🔒 STEP 2: Create proper on-chain metadata using Metaplex (while still having mint authority)
         try {
           const metadataTxId = await createTokenMetadata(
             connection,
@@ -217,32 +221,16 @@ export function useTokenCreation() {
               uri: metadataUri
             }
           );
-          console.log('Created on-chain Metaplex metadata, txId:', metadataTxId);
+          console.log('✅ Created on-chain Metaplex metadata, txId:', metadataTxId);
         } catch (metaplexError) {
-          console.error('Error creating Metaplex metadata:', metaplexError);
+          console.error('❌ Error creating Metaplex metadata:', metaplexError);
           // Continue with the process even if Metaplex fails
         }
         
-        // 3. NOW revoke authorities AFTER metadata is created (regardless of metadata success)
-        try {
-          const revokeTxId = await revokeTokenAuthorities(
-            connection,
-            wallet,
-            tokenAddress,
-            tokenData
-          );
-          if (revokeTxId) {
-            console.log('Token authorities revoked, txId:', revokeTxId);
-          }
-        } catch (revokeError) {
-          console.error('Error revoking authorities:', revokeError);
-          // Continue even if revocation fails - the token was still created
-        }
-        
-        // 4. Automatically add token to wallet
+        // 🔒 STEP 3: Automatically add token to wallet
         await addTokenToPhantomWallet(tokenAddress);
         
-        // 5. Create Raydium liquidity pool if requested
+        // 🔒 STEP 4: Create Raydium liquidity pool if requested (while still having mint authority)
         let poolTxId = null;
         if (tokenData.createPool && tokenData.liquiditySolAmount && tokenData.liquiditySolAmount > 0) {
           try {
@@ -307,8 +295,23 @@ export function useTokenCreation() {
                   console.error('❌ Error sending fee:', feeError);
                 }
               }
+              
+              // 🔒 STEP 5: Revoke authorities since we're not creating a pool
+              try {
+                const revokeTxId = await finalizeTokenSecurity(
+                  connection,
+                  wallet,
+                  tokenAddress,
+                  true, // Revoke mint authority
+                  true  // Revoke freeze authority
+                );
+                console.log('✅ Token authorities revoked (no pool creation), txId:', revokeTxId);
+              } catch (revokeError) {
+                console.error('❌ Error revoking authorities:', revokeError);
+                // Continue even if revocation fails
+              }
             } else {
-              console.log(`Creating Raydium liquidity pool with ${liquidityAmount} tokens and ${tokenData.liquiditySolAmount} SOL`);
+              console.log(`🔒 Creating Raydium liquidity pool with ${secureResult.liquidityTokenAmount.toLocaleString()} tokens and ${tokenData.liquiditySolAmount} SOL`);
               
               // Calculate the TOTAL cost that user pays through Phantom
               const totalCost = calculateTotalCost(retentionPercentage, tokenData.liquiditySolAmount);
@@ -319,25 +322,63 @@ export function useTokenCreation() {
               console.log(`Fee to recipient (3% of total): ${feeToRecipient.toFixed(4)} SOL`);
               console.log(`Remaining for liquidity + Raydium fees: ${(totalCost - feeToRecipient).toFixed(4)} SOL`);
               
+              // 🔒 CRITICAL: Create pool with secure token creation parameters
               poolTxId = await createRaydiumCpmmPool(
                 connection,
                 wallet,
                 tokenAddress,
-                liquidityAmount,
+                secureResult.liquidityTokenAmount, // Use the calculated liquidity amount
                 totalCost, // Pass total cost as solAmount (what user pays)
                 true, // Send fee to fee recipient
-                feeToRecipient // Pass 3% of total cost as the fee
+                feeToRecipient, // Pass 3% of total cost as the fee
+                // NEW: Pass secure token creation parameters
+                {
+                  mintKeypair: secureResult.mintKeypair,
+                  tokenDecimals: tokenData.decimals,
+                  shouldMintLiquidity: true, // Mint liquidity tokens to pool
+                  shouldRevokeAuthorities: true, // Revoke authorities after pool creation
+                }
               );
               
-              console.log('Liquidity pool created with txId:', poolTxId);
+              console.log('✅ Liquidity pool created with secure workflow, txId:', poolTxId);
             }
           } catch (poolError) {
-            console.error('Error creating liquidity pool:', poolError);
-            // Continue even if pool creation fails - the token was still created
+            console.error('❌ Error creating liquidity pool:', poolError);
+            
+            // If pool creation fails, still revoke authorities
+            try {
+              const revokeTxId = await finalizeTokenSecurity(
+                connection,
+                wallet,
+                tokenAddress,
+                true, // Revoke mint authority
+                true  // Revoke freeze authority
+              );
+              console.log('✅ Token authorities revoked after pool creation failure, txId:', revokeTxId);
+            } catch (revokeError) {
+              console.error('❌ Error revoking authorities after pool failure:', revokeError);
+            }
+            
+            // Continue even if pool creation fails - the token was still created securely
+          }
+        } else {
+          // No pool requested - revoke authorities now
+          try {
+            const revokeTxId = await finalizeTokenSecurity(
+              connection,
+              wallet,
+              tokenAddress,
+              true, // Revoke mint authority
+              true  // Revoke freeze authority
+            );
+            console.log('✅ Token authorities revoked (no pool requested), txId:', revokeTxId);
+          } catch (revokeError) {
+            console.error('❌ Error revoking authorities:', revokeError);
+            // Continue even if revocation fails
           }
         }
         
-        // 6. Save token to database
+        // 🔒 STEP 6: Save token to database
         const response = await fetch('/api/create-token', {
           method: 'POST',
           headers: {
@@ -350,8 +391,8 @@ export function useTokenCreation() {
               ...tokenData,
               image: finalImageUrl,
               retentionPercentage,
-              retainedAmount,
-              liquidityAmount,
+              retainedAmount: secureResult.userTokenAmount,
+              liquidityAmount: secureResult.liquidityTokenAmount,
               metadataUri
             },
             poolTxId, // Include pool transaction ID if available
@@ -377,44 +418,10 @@ export function useTokenCreation() {
           poolTxId,
         };
       } catch (tokenError) {
-        console.error('Error in token creation step:', tokenError);
+        console.error('Error in secure token creation:', tokenError);
         if (tokenError instanceof Error) {
           console.error('Detailed error:', tokenError.message);
           console.error('Error stack:', tokenError.stack);
-          
-          // Special handling for transaction timeout errors
-          if (tokenError.message.includes('Transaction was not confirmed in') && 
-              tokenError.message.includes('It is unknown if it succeeded or failed')) {
-            // Extract the transaction signature from the error message
-            const signatureMatch = tokenError.message.match(/Check signature ([A-Za-z0-9]+) using/);
-            if (signatureMatch && signatureMatch[1]) {
-              const signature = signatureMatch[1];
-              console.log('Transaction timed out, checking status for signature:', signature);
-              
-              // Give it a moment for the transaction to potentially land
-              await new Promise(resolve => setTimeout(resolve, 2000));
-              
-              // Check if the transaction actually succeeded
-              try {
-                const status = await connection.getSignatureStatus(signature);
-                if (status.value?.confirmationStatus === 'confirmed' || 
-                    status.value?.confirmationStatus === 'finalized') {
-                  console.log('✅ Transaction confirmed despite timeout!');
-                  console.log('The token creation likely succeeded. Transaction signature:', signature);
-                  
-                  // Show a more user-friendly error message
-                  throw new Error(`Transaction timeout - but it may have succeeded! Check this transaction on Solscan: ${signature}\n\nThe network is congested, but your token might have been created. Please check your wallet.`);
-                } else if (status.value === null) {
-                  throw new Error(`Transaction not found on chain. The network might be congested. Please try again. Transaction: ${signature}`);
-                } else {
-                  throw new Error(`Transaction failed. Status: ${status.value.confirmationStatus || 'unknown'}. Transaction: ${signature}`);
-                }
-              } catch (statusError) {
-                console.error('Error checking transaction status:', statusError);
-                throw new Error(`Network timeout - transaction status unknown. Please check Solscan for transaction: ${signature}`);
-              }
-            }
-          }
           
           // Special handling for transaction timeout errors
           if (tokenError.message.includes('Transaction was not confirmed in') && 

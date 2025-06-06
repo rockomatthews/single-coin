@@ -17,6 +17,7 @@ import {
   getCpmmPdaAmmConfigId
 } from '@raydium-io/raydium-sdk-v2';
 import BN from 'bn.js';
+import { mintLiquidityToPool, finalizeTokenSecurity } from './secure-token-creation';
 
 // Define proper types for wallet functions
 interface WalletAdapter {
@@ -132,7 +133,7 @@ async function initRaydiumSDK(connection: Connection, wallet: WalletAdapter): Pr
 }
 
 /**
- * Create CPMM Pool using official Raydium SDK v2
+ * Create CPMM Pool using official Raydium SDK v2 with secure token minting
  * This creates real, immediately tradeable pools on Raydium
  */
 export async function createRaydiumCpmmPool(
@@ -142,12 +143,49 @@ export async function createRaydiumCpmmPool(
   tokenAmount: number,
   solAmount: number,
   sendFeeToFeeRecipient: boolean = true,
-  platformFeeAmount?: number
+  platformFeeAmount?: number,
+  // NEW: Add parameters for secure token creation
+  secureTokenCreation?: {
+    mintKeypair?: Keypair;
+    tokenDecimals: number;
+    shouldMintLiquidity: boolean;
+    shouldRevokeAuthorities: boolean;
+  }
 ): Promise<string> {
   try {
     console.log('🚀 Creating REAL Raydium CPMM pool using official SDK v2');
     console.log(`💰 Token: ${tokenMint}`);
     console.log(`📊 Adding ${tokenAmount.toLocaleString()} tokens and ${solAmount} SOL`);
+    
+    // 🔒 CRITICAL SECURITY FIX: If using secure token creation, mint the liquidity tokens to user first
+    if (secureTokenCreation?.shouldMintLiquidity && secureTokenCreation.mintKeypair) {
+      console.log('🔒 SECURE WORKFLOW: Minting liquidity tokens to user wallet for pool creation');
+      
+      // Get user's token account for this mint
+      const userTokenAccount = await token.getAssociatedTokenAddress(
+        new PublicKey(tokenMint),
+        wallet.publicKey
+      );
+      
+      try {
+        const mintTxId = await mintLiquidityToPool(
+          connection,
+          wallet,
+          tokenMint,
+          userTokenAccount.toString(), // Mint to user's token account
+          tokenAmount,
+          secureTokenCreation.tokenDecimals
+        );
+        
+        console.log(`✅ Liquidity tokens minted to user wallet: ${mintTxId}`);
+        
+        // Wait for confirmation before proceeding
+        await new Promise(resolve => setTimeout(resolve, 2000));
+      } catch (mintError) {
+        console.error('❌ Error minting liquidity tokens:', mintError);
+        throw new Error(`Failed to mint liquidity tokens: ${mintError}`);
+      }
+    }
     
     // Initialize Raydium SDK
     const raydium = await initRaydiumSDK(connection, wallet);
@@ -233,7 +271,7 @@ export async function createRaydiumCpmmPool(
       const tokenInfo = await connection.getParsedAccountInfo(tokenMintPubkey);
       const decimals = (tokenInfo.value?.data && 'parsed' in tokenInfo.value.data) 
         ? tokenInfo.value.data.parsed?.info?.decimals || 9
-        : 9;
+        : secureTokenCreation?.tokenDecimals || 9;
       
       mintA = {
         address: tokenMint,
@@ -349,7 +387,7 @@ export async function createRaydiumCpmmPool(
       
       const { execute, extInfo } = await raydium.cpmm.createPool(poolParams);
       
-      // Execute the transaction
+      // Execute the pool creation transaction
       console.log('📤 Executing pool creation transaction...');
       
       try {
@@ -359,6 +397,27 @@ export async function createRaydiumCpmmPool(
         
         console.log(`🎉 RAYDIUM CPMM POOL CREATED SUCCESSFULLY!`);
         console.log(`✅ Transaction ID: ${txId}`);
+        
+        // 🔒 CRITICAL SECURITY FIX: Revoke authorities AFTER pool creation
+        if (secureTokenCreation?.shouldRevokeAuthorities) {
+          console.log('🔒 SECURE WORKFLOW: Revoking token authorities AFTER pool creation');
+          
+          try {
+            const revokeTxId = await finalizeTokenSecurity(
+              connection,
+              wallet,
+              tokenMint,
+              true, // Revoke mint authority
+              true  // Revoke freeze authority
+            );
+            
+            console.log(`✅ Token authorities revoked: ${revokeTxId}`);
+          } catch (revokeError) {
+            console.error('❌ Error revoking authorities:', revokeError);
+            // Don't throw - pool was created successfully
+            console.log('⚠️ Pool created successfully but authority revocation failed');
+          }
+        }
         
         // Extract pool information
         const poolKeys = Object.keys(extInfo.address).reduce(
@@ -380,6 +439,7 @@ export async function createRaydiumCpmmPool(
 • ${tokenAmount.toLocaleString()} tokens transferred to liquidity pool
 • ${actualLiquiditySol.toFixed(4)} SOL added to liquidity
 • Pool is IMMEDIATELY tradeable on all DEXes!
+• Token authorities ${secureTokenCreation?.shouldRevokeAuthorities ? 'have been revoked (immutable supply)' : 'retained'}
 
 💰 Your Token Distribution:
 • In your wallet: Remaining tokens (retention amount)
