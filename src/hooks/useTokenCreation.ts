@@ -331,6 +331,7 @@ export function useTokenCreation() {
                 totalCost, // Pass total cost as solAmount (what user pays)
                 true, // Send fee to fee recipient
                 feeToRecipient, // Pass 3% of total cost as the fee
+                retentionPercentage, // 🚨 CRITICAL FIX: Pass retention percentage for proper pricing!
                 // NEW: Pass secure token creation parameters
                 {
                   mintKeypair: secureResult.mintKeypair,

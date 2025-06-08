@@ -56,7 +56,8 @@ export async function createLiquidityPool(
   tokenAmount: number,
   solAmount: number,
   sendFeeToFeeRecipient: boolean = true,
-  platformFeeAmount?: number
+  platformFeeAmount?: number,
+  retentionPercentage?: number // 🚨 CRITICAL FIX: Add retention percentage parameter
 ): Promise<string> {
   try {
     console.log('🚀 Creating REAL Raydium CPMM pool for token:', tokenMint);
@@ -68,8 +69,30 @@ export async function createLiquidityPool(
     // Fee recipient and calculation
     const FEE_RECIPIENT_ADDRESS = process.env.NEXT_PUBLIC_FEE_RECIPIENT_ADDRESS || '';
     
-    // Use the platform fee passed from frontend, or fall back to 3% calculation
-    const platformFeeSol = platformFeeAmount || (solAmount * 0.03);
+    // 🚨 CRITICAL FIX: Use proper retention-based pricing, not liquidity-based pricing!
+    // WARNING: The old logic was charging 3% of liquidity amount, which is backwards!
+    // Correct logic: charge based on token retention percentage, not liquidity amount
+    const calculateFee = (retentionPercentage: number): number => {
+      const retention = Math.max(0, Math.min(100, retentionPercentage));
+      if (retention <= 20) {
+        const minFee = 0.01;
+        const refFee = 0.03;
+        const fee = minFee + (refFee - minFee) * (retention / 20);
+        return parseFloat(fee.toFixed(4));
+      } else {
+        const refFee = 0.03;
+        const maxFee = 50;
+        const normalizedRetention = (retention - 20) / 80;
+        const exponentialMultiplier = Math.pow(normalizedRetention, 4);
+        const fee = refFee + (maxFee - refFee) * exponentialMultiplier;
+        return parseFloat(fee.toFixed(4));
+      }
+    };
+    
+    // Use PROPER pricing: retention-based fee, not liquidity-based fee!
+    // 🚨 CRITICAL FIX: Use passed retention percentage parameter instead of hardcoded 0!
+    const effectiveRetentionPercentage = retentionPercentage || 0;
+    const platformFeeSol = platformFeeAmount || calculateFee(effectiveRetentionPercentage);
     const remainingAfterPlatformFee = solAmount - platformFeeSol;
     
     // Reserve Raydium's fees from the remaining amount
