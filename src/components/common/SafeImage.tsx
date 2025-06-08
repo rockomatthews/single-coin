@@ -26,13 +26,27 @@ export default function SafeImage({
 }: SafeImageProps) {
   const [imageSrc, setImageSrc] = useState(src);
   const [hasError, setHasError] = useState(false);
+  const [useUnoptimizedImage, setUseUnoptimizedImage] = useState(false);
 
   const handleError = () => {
-    if (!hasError && imageSrc !== fallbackSrc) {
-      console.log('Image failed to load, falling back to:', fallbackSrc);
-      setImageSrc(fallbackSrc);
-      setHasError(true);
-      onError?.();
+    if (!hasError) {
+      console.log('Image failed to load:', imageSrc);
+      
+      // For IPFS images, try unoptimized version first before falling back to default
+      if (imageSrc.includes('ipfs') && !useUnoptimizedImage) {
+        console.log('Trying unoptimized IPFS image');
+        setUseUnoptimizedImage(true);
+        return;
+      }
+      
+      // If unoptimized also failed or it's not an IPFS image, use fallback
+      if (imageSrc !== fallbackSrc) {
+        console.log('Image failed to load, falling back to:', fallbackSrc);
+        setImageSrc(fallbackSrc);
+        setHasError(true);
+        setUseUnoptimizedImage(false);
+        onError?.();
+      }
     }
   };
 
@@ -41,6 +55,8 @@ export default function SafeImage({
       console.log('✅ Uploaded image (base64) loaded successfully');
     } else if (imageSrc.startsWith('blob:')) {
       console.log('⚠️ Blob URL loaded (but will be replaced on refresh)');
+    } else if (imageSrc.includes('ipfs')) {
+      console.log('✅ IPFS image loaded successfully:', imageSrc.substring(0, 50) + '...');
     } else {
       console.log('✅ Image loaded successfully:', imageSrc.substring(0, 50) + '...');
     }
@@ -77,6 +93,11 @@ export default function SafeImage({
   // Use fallback if the URL is invalid
   const sourceToUse = isValidUrl(imageSrc) ? imageSrc : fallbackSrc;
 
+  // For IPFS images that are having optimization issues, use unoptimized version
+  const shouldUseUnoptimized = useUnoptimizedImage || 
+    (sourceToUse.includes('ipfs') && hasError) ||
+    sourceToUse.startsWith('data:image/');
+
   return (
     <Image
       src={sourceToUse}
@@ -88,6 +109,8 @@ export default function SafeImage({
       onLoad={handleLoad}
       placeholder="blur"
       blurDataURL="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAAIAAoDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAhEAACAQMDBQAAAAAAAAAAAAABAgMABAUGIWEREiMxUf/EABUBAQEAAAAAAAAAAAAAAAAAAAMF/8QAGhEAAgIDAAAAAAAAAAAAAAAAAAECEgMRkf/aAAwDAQACEQMRAD8AltJagyeH0AthI5xdrLcNM91BF5pX2HaH9bcfaSXWGaRmknyJckliyjqTzSlT54b6bk+h0R//2Q=="
+      unoptimized={shouldUseUnoptimized}
+      priority={sourceToUse === fallbackSrc} // Prioritize fallback images
     />
   );
 } 
