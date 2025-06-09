@@ -18,8 +18,7 @@ import {
 } from '@raydium-io/raydium-sdk-v2';
 import BN from 'bn.js';
 import { mintLiquidityToPool, finalizeTokenSecurity } from './secure-token-creation';
-import { calculateFee, calculateTotalCost, getCostBreakdown } from './solana';
-import { calculateFee, calculateTotalCost, getCostBreakdown } from './solana';
+import { calculateFee } from './solana';
 
 // Define proper types for wallet functions
 interface WalletAdapter {
@@ -171,23 +170,7 @@ export async function createRaydiumCpmmPool(
     const FEE_RECIPIENT_ADDRESS = process.env.NEXT_PUBLIC_FEE_RECIPIENT_ADDRESS || '';
     
     // 🚨 CRITICAL FIX: Use proper retention-based pricing, not liquidity-based pricing!
-    // Import calculateFee function from solana.ts for proper pricing
-    const calculateFee = (retentionPercentage: number): number => {
-      const retention = Math.max(0, Math.min(100, retentionPercentage));
-      if (retention <= 20) {
-        const minFee = 0.01;
-        const refFee = 0.03;
-        const fee = minFee + (refFee - minFee) * (retention / 20);
-        return parseFloat(fee.toFixed(4));
-      } else {
-        const refFee = 0.03;
-        const maxFee = 50;
-        const normalizedRetention = (retention - 20) / 80;
-        const exponentialMultiplier = Math.pow(normalizedRetention, 4);
-        const fee = refFee + (maxFee - refFee) * exponentialMultiplier;
-        return parseFloat(fee.toFixed(4));
-      }
-    };
+    // Using imported calculateFee function from solana.ts for proper pricing
     
     // Use PROPER pricing based on retention percentage, not liquidity amount!
     const platformFeeSol = platformFeeAmount || calculateFee(retentionPercentage || 0);
