@@ -29,7 +29,7 @@ import { useConnection, useWallet } from '@solana/wallet-adapter-react';
 import { uploadMetadata, TokenParams, calculateTotalCost } from '../utils/solana';
 import { createTokenMetadata } from '../utils/metaplex';
 import { createRaydiumCpmmPool } from '../utils/raydium-v2';
-import { createTokenSecurely, finalizeTokenSecurity } from '../utils/secure-token-creation';
+import { createTokenPhantomFriendly, mintTokensToAddress, revokeAuthorities, displayTransactionSummary } from '../utils/phantom-friendly';
 import { performSecurityAssessment, getSecurityBadge } from '../utils/goplus-security';
 
 /**
@@ -209,17 +209,15 @@ export function useTokenCreation() {
       console.log('Creating token with metadata URI:', metadataUri);
       
       try {
-        // 🔒 STEP 1: Create token securely - only mint retention amount to user
-        console.log('🔒 SECURE TOKEN CREATION: Using secure workflow');
-        const secureResult = await createTokenSecurely(
+        // 🔒 STEP 1: Create token securely using Phantom-friendly approach
+        console.log('🛡️ PHANTOM-FRIENDLY TOKEN CREATION: Using multiple simple transactions');
+        const secureResult = await createTokenPhantomFriendly(
           connection,
           wallet,
           {
-            ...tokenData,
-            retentionPercentage,
-            retainedAmount,
-            liquidityAmount,
-            uri: metadataUri
+            decimals: tokenData.decimals,
+            supply: tokenData.supply,
+            retentionPercentage: retentionPercentage
           }
         );
         
@@ -320,7 +318,7 @@ export function useTokenCreation() {
               
               // 🔒 STEP 5: Revoke authorities since we're not creating a pool
               try {
-                const revokeTxId = await finalizeTokenSecurity(
+                const revokeTxId = await revokeAuthorities(
                   connection,
                   wallet,
                   tokenAddress,
@@ -370,7 +368,7 @@ export function useTokenCreation() {
             
             // If pool creation fails, still revoke authorities
             try {
-              const revokeTxId = await finalizeTokenSecurity(
+              const revokeTxId = await revokeAuthorities(
                 connection,
                 wallet,
                 tokenAddress,
@@ -387,7 +385,7 @@ export function useTokenCreation() {
         } else {
           // No pool requested - revoke authorities now
           try {
-            const revokeTxId = await finalizeTokenSecurity(
+            const revokeTxId = await revokeAuthorities(
               connection,
               wallet,
               tokenAddress,
