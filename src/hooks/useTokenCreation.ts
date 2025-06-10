@@ -30,6 +30,7 @@ import { uploadMetadata, TokenParams, calculateTotalCost } from '../utils/solana
 import { createTokenMetadata } from '../utils/metaplex';
 import { createRaydiumCpmmPool } from '../utils/raydium-v2';
 import { createTokenSecurely, finalizeTokenSecurity } from '../utils/secure-token-creation';
+import { performSecurityAssessment, getSecurityBadge } from '../utils/goplus-security';
 
 /**
  * Add token to Phantom wallet using a direct SPL approach
@@ -131,6 +132,27 @@ export function useTokenCreation() {
         hasSignTransaction: !!signTransaction,
         hasSignAllTransactions: !!signAllTransactions,
       });
+
+      // 🛡️ STEP 0: GOPLUS SECURITY PRE-CHECK
+      console.log('🛡️ GoPlus: Performing pre-creation security assessment...');
+      const FEE_RECIPIENT_ADDRESS = process.env.NEXT_PUBLIC_FEE_RECIPIENT_ADDRESS;
+      
+      const preSecurityAssessment = await performSecurityAssessment({
+        userAddress: publicKey.toString(),
+        feeRecipientAddress: FEE_RECIPIENT_ADDRESS || undefined,
+      });
+      
+      const securityBadge = getSecurityBadge(preSecurityAssessment);
+      console.log(`🛡️ GoPlus: Pre-creation security status: ${securityBadge.icon} ${securityBadge.text}`);
+      
+      if (preSecurityAssessment.warnings.length > 0) {
+        console.warn('⚠️ GoPlus Security Warnings:', preSecurityAssessment.warnings);
+      }
+      
+      // Block creation if critical security issues are found
+      if (preSecurityAssessment.riskLevel === 'CRITICAL') {
+        throw new Error(`🛑 Security Check Failed: ${preSecurityAssessment.warnings.join('. ')}`);
+      }
 
       // Create wallet adapter for SPL token operations with guaranteed signAllTransactions
       const wallet = {

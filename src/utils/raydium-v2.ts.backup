@@ -318,9 +318,9 @@ export async function createRaydiumCpmmPool(
     const expectedUserBalance = Math.floor(totalSupply * (expectedRetentionPercentage / 100));
     const allowedVariance = expectedUserBalance * 0.1; // 10% variance
     
-    if (secureTokenCreation && Math.abs(userTokenBalance - expectedUserBalance) > allowedVariance) { // Allow reasonable variance
-      console.error(`❌ SECURITY ISSUE: User has ${userTokenBalance.toLocaleString()} tokens but expected ${expectedUserBalance.toLocaleString()} tokens (${expectedRetentionPercentage}% retention)!`);
-      throw new Error(`Security violation: User has ${userTokenBalance.toLocaleString()} tokens but expected ${expectedUserBalance.toLocaleString()} tokens (${expectedRetentionPercentage}% retention)`);
+    if (secureTokenCreation if (secureTokenCreation && userTokenBalance > (tokenAmount * 0.1)) { // Allow some margin for retentionif (secureTokenCreation && userTokenBalance > (tokenAmount * 0.1)) { // Allow some margin for retention Math.abs(userTokenBalance - expectedUserBalance) > allowedVariance) { // Allow reasonable variance
+      console.error(`❌ SECURITY ISSUE: User has ${userTokenBalance.toLocaleString()} tokens but should only have retention amount!`);
+      throw new Error(`Security violation: User token balance (${userTokenBalance.toLocaleString()}) exceeds expected retention amount`);
     }
     
     // For now, we'll create the pool with 0 initial liquidity and add it separately
