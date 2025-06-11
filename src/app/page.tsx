@@ -104,22 +104,13 @@ export default function Home() {
       {/* Hero section - compact for token wall focus */}
       <Container maxWidth="lg" sx={{ py: { xs: 1, md: 1.5 } }}>
         <Grid container spacing={{ xs: 1, md: 2 }} sx={{ my: { xs: 0, md: 0.5 } }}>
-          <Grid xs={12} md={6} sx={{ 
+          <Grid xs={12} sx={{ 
             display: 'flex', 
             flexDirection: 'column',
             justifyContent: 'center',
             alignItems: 'center',
-            textAlign: 'left'
+            textAlign: 'center'
           }}>
-            {/* <Typography variant="h4" component="h1" gutterBottom sx={{ 
-              color: 'primary.main', 
-              fontWeight: 'bold',
-              fontSize: { xs: '1.5rem', md: '1.8rem' },
-              mb: 1,
-              fontFamily: '"Nitro Chargers", Arial, sans-serif'
-            }}>
-              Coin Bull
-            </Typography> */}
             <Typography variant="body2" component="h2" color="text.secondary" paragraph sx={{ mb: 1.5 }}>
               Create DEX-tradable SOL coins with Raydium Liquidity Pools in just one step for less money than the competition.
             </Typography>
@@ -140,38 +131,6 @@ export default function Home() {
               >
                 Create Token
               </Button>
-              {/* <Button 
-                component={Link}
-                href="/my-tokens"
-                variant="outlined" 
-                size="small"
-                fullWidth={false}
-              >
-                My Tokens
-              </Button> */}
-            </Box>
-          </Grid>
-          <Grid xs={12} md={6} sx={{ 
-            display: 'flex', 
-            justifyContent: 'center', 
-            alignItems: 'center',
-            mt: { xs: 1, md: 0 }
-          }}>
-            <Box sx={{ 
-              position: 'relative', 
-              width: '100%', 
-              maxWidth: { xs: '80px', sm: '100px' }, 
-              height: { xs: '80px', sm: '100px' }
-            }}>
-        <Image
-                src="/images/logo.png" 
-                alt="Coinbull Logo" 
-                fill
-          priority
-                style={{ 
-                  objectFit: 'contain',
-                }} 
-              />
             </Box>
           </Grid>
         </Grid>

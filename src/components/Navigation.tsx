@@ -22,8 +22,8 @@ export const Navigation = () => {
               <Image 
                 src="/images/logo.png" 
                 alt="Coinbull Logo" 
-                width={50}
-                height={50}
+                width={100}
+                height={100}
                 style={{ marginRight: '10px' }}
               />
               <Typography
