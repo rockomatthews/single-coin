@@ -31,53 +31,48 @@ import { createTokenMetadata } from '../utils/metaplex';
 import { createRaydiumCpmmPool } from '../utils/raydium-v2';
 import { createTokenPhantomFriendly, mintTokensToAddress, revokeAuthorities, displayTransactionSummary } from '../utils/phantom-friendly';
 import { performSecurityAssessment, getSecurityBadge } from '../utils/goplus-security';
+import { PublicKey } from '@solana/web3.js';
 
 /**
- * Add token to Phantom wallet using a direct SPL approach
- * @param tokenAddress The mint address of the token to add
+ * Verify token appears in user's wallet by checking balance
+ * @param connection Solana connection
+ * @param tokenAddress The mint address of the token
+ * @param userPublicKey User's wallet public key
  */
-async function addTokenToPhantomWallet(tokenAddress: string): Promise<void> {
+async function verifyTokenInWallet(
+  connection: any, 
+  tokenAddress: string, 
+  userPublicKey: any
+): Promise<void> {
   try {
-    // Check if Phantom wallet is available 
-    if (!window.phantom?.solana) {
-      console.log('Phantom wallet extension not found');
-      return;
-    }
+    console.log('🔍 Verifying token appears in your Phantom wallet...');
     
-    console.log('Adding token to Phantom wallet:', tokenAddress);
+    // Get the user's Associated Token Account
+    const { getAssociatedTokenAddress } = await import('@solana/spl-token');
+    const { PublicKey } = await import('@solana/web3.js');
+    const userATA = await getAssociatedTokenAddress(
+      new PublicKey(tokenAddress),
+      userPublicKey
+    );
     
-    // Simplified approach - just try the most reliable method
-    try {
-      await window.phantom.solana.request({
-        method: 'wallet_importSPLToken',
-        params: {
-          mintAddress: tokenAddress
-        }
-      });
-      console.log('Token successfully added to wallet');
-      return;
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    } catch (error) {
-      // If that fails, try the fallback method
-      try {
-        await window.phantom.solana.request({
-          method: 'wallet_importAsset',
-          params: {
-            address: tokenAddress
-          }
-        });
-        console.log('Token successfully added to wallet via fallback method');
-        return;
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      } catch (fallbackError) {
-        console.log('Automatic token import failed - wallet will detect token automatically');
-        // This is fine - the token still exists and will show up in transactions
-      }
+    // Check the token balance
+    const tokenBalance = await connection.getTokenAccountBalance(userATA);
+    const amount = tokenBalance.value.uiAmount || 0;
+    
+    if (amount > 0) {
+      console.log(`✅ SUCCESS! Token automatically appeared in your wallet!`);
+      console.log(`💰 Your balance: ${amount.toLocaleString()} tokens`);
+      console.log(`🎯 Token Address: ${tokenAddress}`);
+      console.log(`🏠 Your Token Account: ${userATA.toString()}`);
+      console.log('');
+      console.log('🎉 The token should now be visible in your Phantom wallet!');
+      console.log('📱 Check your wallet\'s token list or refresh if needed.');
+    } else {
+      console.log('⚠️ Token account exists but balance is 0');
     }
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   } catch (error) {
-    console.log('Token created successfully, but could not be automatically added to wallet');
-    // Don't throw - allow token creation to succeed even if wallet add fails
+    console.log('ℹ️ Token verification skipped (token should still appear in wallet)');
+    // Don't throw - this is just verification, not critical
   }
 }
 
@@ -248,7 +243,7 @@ export function useTokenCreation() {
         }
         
         // 🔒 STEP 3: Automatically add token to wallet
-        await addTokenToPhantomWallet(tokenAddress);
+        await verifyTokenInWallet(connection, tokenAddress, publicKey);
         
         // 🔒 STEP 4: Create Raydium liquidity pool if requested (while still having mint authority)
         let poolTxId = null;
