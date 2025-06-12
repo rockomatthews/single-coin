@@ -314,6 +314,8 @@ export async function createTokenPhantomFriendly(
     console.log('\n🎉 Phantom-friendly token creation completed!');
     console.log(`✅ ${transactions.length} simple transactions executed successfully`);
     console.log('🛡️ Each transaction should have shown normal Phantom dialogs (no red warnings!)');
+    console.log('⚠️ IMPORTANT: Mint authority RETAINED for pool creation');
+    console.log('🔒 Authorities will be revoked AFTER pool creation completes');
     
     return {
       mintAddress: mintPublicKey.toString(),

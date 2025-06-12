@@ -311,7 +311,7 @@ export function useTokenCreation() {
                 }
               }
               
-              // 🔒 STEP 5: Revoke authorities since we're not creating a pool
+              // 🔒 ONLY revoke authorities AFTER fees are handled (no pool case)
               try {
                 const revokeTxId = await revokeAuthorities(
                   connection,
@@ -337,7 +337,8 @@ export function useTokenCreation() {
               console.log(`Fee to recipient (3% of total): ${feeToRecipient.toFixed(4)} SOL`);
               console.log(`Remaining for liquidity + Raydium fees: ${(totalCost - feeToRecipient).toFixed(4)} SOL`);
               
-              // 🔒 CRITICAL: Create pool with secure token creation parameters
+              // 🔒 CRITICAL FIX: Create pool WITHOUT revoking authorities first!
+              // Pool creation will handle authority revocation AFTER minting liquidity tokens
               poolTxId = await createRaydiumCpmmPool(
                 connection,
                 wallet,
@@ -346,13 +347,13 @@ export function useTokenCreation() {
                 totalCost, // Pass total cost as solAmount (what user pays)
                 true, // Send fee to fee recipient
                 feeToRecipient, // Pass 3% of total cost as the fee
-                retentionPercentage, // 🚨 CRITICAL FIX: Pass retention percentage for proper pricing!
-                // NEW: Pass secure token creation parameters
+                retentionPercentage, // Pass retention percentage for proper pricing!
+                // 🚨 CRITICAL FIX: Pass secure token creation parameters
                 {
                   mintKeypair: secureResult.mintKeypair,
                   tokenDecimals: tokenData.decimals,
                   shouldMintLiquidity: true, // Mint liquidity tokens to pool
-                  shouldRevokeAuthorities: true, // Revoke authorities after pool creation
+                  shouldRevokeAuthorities: true, // Revoke authorities AFTER pool creation
                 }
               );
               
