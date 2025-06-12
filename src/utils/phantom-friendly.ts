@@ -20,34 +20,7 @@ import {
   AuthorityType,
 } from '@solana/spl-token';
 
-/**
- * Generate a vanity mint address that starts with "bul"
- * Average attempts needed: ~195,000 (1-5 seconds)
- */
-function generateBulVanityKeypair(): { keypair: Keypair; attempts: number } {
-  console.log('🐂 Generating vanity "bul" mint address...');
-  const startTime = Date.now();
-  let attempts = 0;
-  
-  while (true) {
-    attempts++;
-    const keypair = Keypair.generate();
-    const address = keypair.publicKey.toString();
-    
-    if (address.startsWith('bul')) {
-      const duration = Date.now() - startTime;
-      console.log(`🎯 Found "bul" address after ${attempts.toLocaleString()} attempts in ${duration}ms`);
-      console.log(`🐂 Vanity address: ${address}`);
-      return { keypair, attempts };
-    }
-    
-    // Log progress every 50,000 attempts (approximately every second)
-    if (attempts % 50000 === 0) {
-      const elapsed = Date.now() - startTime;
-      console.log(`🔍 Still searching for "bul" address... ${attempts.toLocaleString()} attempts (${elapsed}ms)`);
-    }
-  }
-}
+
 
 /**
  * Phantom-Friendly Token Creation
@@ -263,31 +236,9 @@ export async function createTokenPhantomFriendly(
   
   const transactions: Array<{ name: string; signature: string; description: string }> = [];
   
-  // Generate vanity "bul" address
-  console.log('🐂 Generating vanity "bul" mint address...');
-  const startTime = Date.now();
-  let attempts = 0;
-  let mintKeypair: Keypair;
-  
-  while (true) {
-    attempts++;
-    const keypair = Keypair.generate();
-    const address = keypair.publicKey.toString();
-    
-    if (address.startsWith('bul')) {
-      const duration = Date.now() - startTime;
-      console.log(`🎯 Found "bul" address after ${attempts.toLocaleString()} attempts in ${duration}ms`);
-      console.log(`🐂 Vanity address: ${address}`);
-      mintKeypair = keypair;
-      break;
-    }
-    
-    // Log progress every 50,000 attempts (approximately every second)
-    if (attempts % 50000 === 0) {
-      const elapsed = Date.now() - startTime;
-      console.log(`🔍 Still searching for "bul" address... ${attempts.toLocaleString()} attempts (${elapsed}ms)`);
-    }
-  }
+  // Generate regular mint address (vanity removed for better UX)
+  const mintKeypair = Keypair.generate();
+  console.log('🎯 Generated mint address:', mintKeypair.publicKey.toString());
   
   const mintPublicKey = mintKeypair.publicKey;
   

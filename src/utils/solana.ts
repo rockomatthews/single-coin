@@ -276,8 +276,6 @@ export const uploadMetadata = async (connection: Connection, params: TokenParams
         { trait_type: "Created With", value: "Coinbull" },
         { trait_type: "Network", value: "Solana" },
         { trait_type: "Standard", value: "SPL Token" },
-        // Add vanity address indicator
-        { trait_type: "Vanity Address", value: "bul prefix" },
         // Enhanced platform compatibility
         { trait_type: "Verified", value: "Coinbull Platform" }
       ],
