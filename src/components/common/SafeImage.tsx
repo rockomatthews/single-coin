@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import Image from 'next/image';
 
 interface SafeImageProps {
@@ -27,14 +27,29 @@ export default function SafeImage({
   const [imageSrc, setImageSrc] = useState(src);
   const [hasError, setHasError] = useState(false);
   const [useUnoptimizedImage, setUseUnoptimizedImage] = useState(false);
+  const retryCountRef = useRef(0);
+  const maxRetries = 2; // Limit retries to prevent infinite loops
 
   const handleError = () => {
+    // Prevent infinite retry loops
+    if (retryCountRef.current >= maxRetries) {
+      console.log('Max retries reached, using fallback image');
+      if (imageSrc !== fallbackSrc) {
+        setImageSrc(fallbackSrc);
+        setHasError(true);
+        setUseUnoptimizedImage(false);
+        onError?.();
+      }
+      return;
+    }
+
     if (!hasError) {
       console.log('Image failed to load:', imageSrc);
+      retryCountRef.current += 1;
       
       // For IPFS images, try unoptimized version first before falling back to default
       if (imageSrc.includes('ipfs') && !useUnoptimizedImage) {
-        console.log('Trying unoptimized IPFS image');
+        console.log('Trying unoptimized IPFS image (attempt', retryCountRef.current, 'of', maxRetries, ')');
         setUseUnoptimizedImage(true);
         return;
       }
@@ -51,6 +66,9 @@ export default function SafeImage({
   };
 
   const handleLoad = () => {
+    // Reset retry count on successful load
+    retryCountRef.current = 0;
+    
     if (imageSrc.startsWith('data:image/')) {
       console.log('✅ Uploaded image (base64) loaded successfully');
     } else if (imageSrc.startsWith('blob:')) {
