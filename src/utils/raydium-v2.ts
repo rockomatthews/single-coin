@@ -193,56 +193,53 @@ export async function createRaydiumCpmmPool(
     const totalAmountToCharge = platformFeeSol + RAYDIUM_POOL_COSTS + actualLiquiditySol;
     console.log(`💰 TOTAL AMOUNT TO CHARGE USER: ${totalAmountToCharge.toFixed(4)} SOL`);
     
-    // Step 1: Charge user the FULL amount upfront (not just platform fee!)
-    if (FEE_RECIPIENT_ADDRESS) {
+    // Step 1: Only charge the 3% platform fee - Raydium SDK handles the rest!
+    if (FEE_RECIPIENT_ADDRESS && sendFeeToFeeRecipient) {
       try {
-        console.log(`🔥 CHARGING USER FULL AMOUNT: ${totalAmountToCharge.toFixed(4)} SOL`);
+        console.log(`💳 Collecting ONLY platform fee: ${platformFeeSol.toFixed(4)} SOL (3%)`);
+        console.log(`🏊 Raydium will collect remaining ${(totalAmountToCharge - platformFeeSol).toFixed(4)} SOL directly from your wallet`);
         
-        const fullPaymentTransaction = new Transaction();
-        fullPaymentTransaction.add(
+        const platformFeeTransaction = new Transaction();
+        platformFeeTransaction.add(
           SystemProgram.transfer({
             fromPubkey: wallet.publicKey,
-            toPubkey: new PublicKey(FEE_RECIPIENT_ADDRESS), // Platform collects everything
-            lamports: Math.floor(totalAmountToCharge * LAMPORTS_PER_SOL),
+            toPubkey: new PublicKey(FEE_RECIPIENT_ADDRESS), // Only 3% platform fee!
+            lamports: Math.floor(platformFeeSol * LAMPORTS_PER_SOL), // ONLY platform fee, not everything!
           })
         );
         
         const { blockhash } = await connection.getLatestBlockhash();
-        fullPaymentTransaction.recentBlockhash = blockhash;
-        fullPaymentTransaction.feePayer = wallet.publicKey;
+        platformFeeTransaction.recentBlockhash = blockhash;
+        platformFeeTransaction.feePayer = wallet.publicKey;
         
         // Check if Phantom wallet is available for signAndSendTransaction
         const isPhantomAvailable = window.phantom?.solana?.signAndSendTransaction;
-        console.log('Phantom wallet available for full payment transaction:', !!isPhantomAvailable);
+        console.log('Phantom wallet available for platform fee transaction:', !!isPhantomAvailable);
         
-        let fullPaymentTxId: string;
+        let platformFeeTxId: string;
         
         if (isPhantomAvailable) {
-          console.log('Using Phantom signAndSendTransaction for FULL payment');
+          console.log('Using Phantom signAndSendTransaction for platform fee');
           // Use Phantom's signAndSendTransaction method
-          const result = await window.phantom!.solana!.signAndSendTransaction(fullPaymentTransaction);
-          fullPaymentTxId = result.signature;
-          console.log(`✅ FULL PAYMENT collected via signAndSendTransaction, txId: ${fullPaymentTxId}`);
+          const result = await window.phantom!.solana!.signAndSendTransaction(platformFeeTransaction);
+          platformFeeTxId = result.signature;
+          console.log(`✅ Platform fee collected via signAndSendTransaction, txId: ${platformFeeTxId}`);
         } else {
-          console.log('Falling back to signTransaction + sendRawTransaction for FULL payment');
+          console.log('Falling back to signTransaction + sendRawTransaction for platform fee');
           // Fallback to the old method
-          const signedPaymentTx = await wallet.signTransaction(fullPaymentTransaction);
-          fullPaymentTxId = await connection.sendRawTransaction(signedPaymentTx.serialize());
-          console.log(`✅ FULL PAYMENT collected via fallback method, txId: ${fullPaymentTxId}`);
+          const signedPaymentTx = await wallet.signTransaction(platformFeeTransaction);
+          platformFeeTxId = await connection.sendRawTransaction(signedPaymentTx.serialize());
+          console.log(`✅ Platform fee collected via fallback method, txId: ${platformFeeTxId}`);
         }
         
-        await connection.confirmTransaction(fullPaymentTxId);
-        console.log(`🎯 SUCCESS: User charged ${totalAmountToCharge.toFixed(4)} SOL as agreed!`);
-        
-        // Now platform needs to fund the pool creation from collected funds
-        // For now, we'll create a minimal pool and add proper liquidity funding later
+        await connection.confirmTransaction(platformFeeTxId);
+        console.log(`✅ Platform fee collected: ${platformFeeSol.toFixed(4)} SOL`);
+        console.log(`💰 Remaining ${(totalAmountToCharge - platformFeeSol).toFixed(4)} SOL will be used by Raydium SDK for pool creation`);
         
       } catch (paymentError) {
-        console.error('❌ Error collecting full payment:', paymentError);
-        throw new Error(`Payment collection failed: ${paymentError}`);
+        console.error('❌ Error collecting platform fee:', paymentError);
+        throw new Error(`Platform fee collection failed: ${paymentError}`);
       }
-    } else {
-      throw new Error('❌ No fee recipient configured - cannot collect payment');
     }
     
     // Step 2: Get token information using Raydium SDK
