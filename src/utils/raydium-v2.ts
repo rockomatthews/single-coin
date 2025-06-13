@@ -290,9 +290,6 @@ export async function createRaydiumCpmmPool(
     
     console.log(`📋 Using fee config: ${feeConfigs[0].id}`);
     
-    // 🚨 CRITICAL FIX: We need to create pool with minimal amounts first, then add liquidity
-    // For now, let's create the pool with just user's existing tokens (they shouldn't have liquidity tokens yet)
-    
     // Check user's current token balance
     const userTokenAccount = await token.getAssociatedTokenAddress(
       new PublicKey(tokenMint),
@@ -311,7 +308,6 @@ export async function createRaydiumCpmmPool(
     
     console.log(`🔍 User's current token balance: ${userTokenBalance.toLocaleString()}`);
     
-    // 🔒 CRITICAL: If user has more tokens than their retention amount, something went wrong
     // 🔒 CRITICAL: Calculate expected retention amount properly
     const totalSupply = tokenAmount + userTokenBalance; // liquidity + retention = total
     const expectedRetentionPercentage = retentionPercentage || 20;
@@ -323,13 +319,45 @@ export async function createRaydiumCpmmPool(
       throw new Error(`Security violation: User has ${userTokenBalance.toLocaleString()} tokens but expected ${expectedUserBalance.toLocaleString()} tokens (${expectedRetentionPercentage}% retention)`);
     }
     
-    // For now, we'll create the pool with 0 initial liquidity and add it separately
-    // This is a temporary workaround - need to implement proper liquidity minting
-    console.log('⚠️ TEMPORARY: Creating pool with minimal liquidity, will enhance later');
+    // 🚨 CRITICAL FIX: Mint liquidity tokens to user BEFORE pool creation
+    // The Raydium SDK expects all tokens to be in user's wallet to transfer to pool
+    if (secureTokenCreation?.shouldMintLiquidity && userTokenBalance < tokenAmount) {
+      console.log('🔒 SECURE WORKFLOW: Minting liquidity tokens to user BEFORE pool creation');
+      console.log(`💰 User currently has: ${userTokenBalance.toLocaleString()} tokens`);
+      console.log(`🏊 Pool needs: ${tokenAmount.toLocaleString()} tokens`);
+      console.log(`➕ Need to mint: ${(tokenAmount - userTokenBalance).toLocaleString()} more tokens`);
+      
+      try {
+        const additionalTokensNeeded = tokenAmount - userTokenBalance;
+        const mintTxId = await mintLiquidityToPool(
+          connection,
+          wallet,
+          tokenMint,
+          userTokenAccount.toString(), // Mint to USER's wallet (not pool vault)
+          additionalTokensNeeded,
+          secureTokenCreation.tokenDecimals
+        );
+        
+        console.log(`✅ Minted ${additionalTokensNeeded.toLocaleString()} additional tokens to user: ${mintTxId}`);
+        
+        // Update user balance for verification
+        userTokenBalance += additionalTokensNeeded;
+        console.log(`✅ User now has: ${userTokenBalance.toLocaleString()} tokens total`);
+        
+      } catch (mintError) {
+        console.error('❌ Error minting liquidity tokens to user:', mintError);
+        throw new Error(`Failed to mint liquidity tokens: ${mintError}`);
+      }
+    }
     
-    // Use minimal amounts for pool creation
-    const minTokenAmount = new BN('1000000000'); // 1 token with 9 decimals
-    const minSolAmount = new BN('1000000'); // 0.001 SOL in lamports
+    // 🚨 CRITICAL FIX: Use ACTUAL amounts that user paid for, not minimal amounts!
+    const tokenAmountWithDecimals = new BN(tokenAmount * Math.pow(10, mintA.decimals)); 
+    const solAmountInLamports = new BN(Math.floor(actualLiquiditySol * LAMPORTS_PER_SOL));
+    
+    console.log(`💰 Creating pool with ACTUAL amounts user paid for:`)
+    console.log(`   Token amount: ${tokenAmount.toLocaleString()} tokens (${tokenAmountWithDecimals.toString()} with decimals)`);
+    console.log(`   SOL amount: ${actualLiquiditySol.toFixed(4)} SOL (${solAmountInLamports.toString()} lamports)`);
+    console.log(`✅ User has sufficient tokens: ${userTokenBalance.toLocaleString()} >= ${tokenAmount.toLocaleString()}`);
     
     // Step 4: Create the CPMM pool using Raydium SDK
     console.log('🏊 Creating Raydium CPMM pool using official SDK...');
@@ -342,8 +370,8 @@ export async function createRaydiumCpmmPool(
         poolFeeAccount: isDevnet ? DEVNET_PROGRAM_ID.CREATE_CPMM_POOL_FEE_ACC : CREATE_CPMM_POOL_FEE_ACC,
         mintA: mintA,
         mintB: mintB,
-        mintAAmount: minTokenAmount, // Use minimal amount for now
-        mintBAmount: minSolAmount,   // Use minimal amount for now
+        mintAAmount: tokenAmountWithDecimals, // 🔥 FIXED: Use actual token amount user paid for
+        mintBAmount: solAmountInLamports,     // 🔥 FIXED: Use actual SOL amount user paid for
         startTime: new BN(0), // Start immediately
         feeConfig: feeConfigs[0],
         associatedOnly: false,
@@ -381,37 +409,11 @@ export async function createRaydiumCpmmPool(
         console.log(`🎉 RAYDIUM CPMM POOL CREATED SUCCESSFULLY!`);
         console.log(`✅ Transaction ID: ${txId}`);
         
-        // 🔒 STEP 2: Now mint the liquidity tokens DIRECTLY to the pool vault
-        if (secureTokenCreation?.shouldMintLiquidity) {
-          console.log('🔒 SECURE WORKFLOW: Minting liquidity tokens DIRECTLY to pool vault');
-          
-          const poolVaultAddress = extInfo.address.vaultA?.toString();
-          
-          if (poolVaultAddress) {
-            console.log(`🏊 Minting ${tokenAmount.toLocaleString()} tokens DIRECTLY to pool vault: ${poolVaultAddress}`);
-            
-            try {
-              const mintTxId = await mintLiquidityToPool(
-                connection,
-                wallet,
-                tokenMint,
-                poolVaultAddress,
-                tokenAmount,
-                secureTokenCreation.tokenDecimals
-              );
-              
-              console.log(`✅ Liquidity tokens minted DIRECTLY to pool vault: ${mintTxId}`);
-            } catch (mintError) {
-              console.error('❌ Error minting liquidity tokens to pool:', mintError);
-              // Don't throw - pool was created successfully
-              console.log('⚠️ Pool created successfully but liquidity minting failed');
-            }
-          } else {
-            console.error('❌ Could not determine pool vault address for liquidity minting');
-          }
-        }
+        // 🔥 FIXED: No need for separate liquidity minting since we put actual amounts in pool creation
+        console.log('✅ Pool created with FULL liquidity amounts (no separate minting needed)');
+        console.log(`🏊 Pool now contains: ${tokenAmount.toLocaleString()} tokens + ${actualLiquiditySol.toFixed(4)} SOL`);
         
-        // 🔒 STEP 3: Revoke authorities AFTER everything is complete
+        // 🔒 STEP 2: Revoke authorities AFTER pool creation (only if requested)
         if (secureTokenCreation?.shouldRevokeAuthorities) {
           console.log('🔒 SECURE WORKFLOW: Revoking token authorities AFTER pool creation');
           
