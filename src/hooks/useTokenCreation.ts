@@ -328,27 +328,19 @@ export function useTokenCreation() {
             } else {
               console.log(`🔒 Creating Raydium liquidity pool with ${secureResult.liquidityTokenAmount.toLocaleString()} tokens and ${tokenData.liquiditySolAmount} SOL`);
               
-              // Calculate the TOTAL cost that user pays through Phantom
-              const totalCost = calculateTotalCost(retentionPercentage, tokenData.liquiditySolAmount);
-              console.log(`Total cost shown to user: ${totalCost.toFixed(4)} SOL`);
+              // 🔥 CLEAN AND SIMPLE: User pays what they specified in the slider!
+              console.log(`💰 User selected: ${tokenData.liquiditySolAmount} SOL for liquidity`);
               
-              // Fee to recipient should be 3% of TOTAL cost, not the entire platform fee
-              const feeToRecipient = totalCost * 0.03;
-              console.log(`Fee to recipient (3% of total): ${feeToRecipient.toFixed(4)} SOL`);
-              console.log(`Remaining for liquidity + Raydium fees: ${(totalCost - feeToRecipient).toFixed(4)} SOL`);
-              
-              // 🔒 CRITICAL FIX: Create pool WITHOUT revoking authorities first!
-              // Pool creation will handle authority revocation AFTER minting liquidity tokens
+              // 🔒 Create pool with clean, simple parameters
               poolTxId = await createRaydiumCpmmPool(
                 connection,
                 wallet,
                 tokenAddress,
-                secureResult.liquidityTokenAmount, // Use the calculated liquidity amount
-                totalCost, // Pass total cost as solAmount (what user pays)
-                true, // Send fee to fee recipient
-                feeToRecipient, // Pass 3% of total cost as the fee
-                retentionPercentage, // Pass retention percentage for proper pricing!
-                // 🚨 CRITICAL FIX: Pass secure token creation parameters
+                secureResult.liquidityTokenAmount, // Tokens for pool
+                tokenData.liquiditySolAmount, // SOL user specified in slider
+                true, // Send fee to recipient
+                retentionPercentage, // Retention percentage for fee calculation
+                // Secure token creation parameters
                 {
                   mintKeypair: secureResult.mintKeypair,
                   tokenDecimals: tokenData.decimals,
@@ -357,7 +349,7 @@ export function useTokenCreation() {
                 }
               );
               
-              console.log('✅ Liquidity pool created with secure workflow, txId:', poolTxId);
+              console.log('✅ Liquidity pool created successfully, txId:', poolTxId);
             }
           } catch (poolError) {
             console.error('❌ Error creating liquidity pool:', poolError);
