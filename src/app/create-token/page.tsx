@@ -120,7 +120,7 @@ export default function CreateTokenPage() {
     if (result) {
       setCreationResult({
         tokenAddress: result.tokenAddress,
-        poolTxId: result.poolTxId,
+        poolTxId: result.poolTxId ?? null,
       });
       setActiveStep(steps.length); // Move to success step
     }

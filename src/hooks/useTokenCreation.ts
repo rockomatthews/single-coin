@@ -105,7 +105,10 @@ export function useTokenCreation() {
   }, []);
 
   // Create token
-  const createToken = useCallback(async (tokenData: TokenParams) => {
+  const createToken = useCallback(async (tokenData: TokenParams): Promise<{
+    tokenAddress: string;
+    poolTxId: string | null;
+  } | null> => {
     if (!publicKey || !signTransaction) {
       setState({
         ...state,
@@ -433,7 +436,7 @@ export function useTokenCreation() {
         
         return {
           tokenAddress,
-          poolTxId,
+          poolTxId: poolTxId ?? null, // 🔥 FIX: Ensure poolTxId is never undefined
         };
       } catch (tokenError) {
         console.error('Error in secure token creation:', tokenError);
