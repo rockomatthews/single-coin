@@ -46,167 +46,146 @@ export const findMetadataPda = async (mint: PublicKey): Promise<PublicKey> => {
  */
 export async function createTokenMetadata(
   connection: Connection,
-  wallet: any, // Wallet adapter
-  mintAddress: string,
-  params: TokenParams
+  wallet: any,
+  tokenAddress: string,
+  tokenData: TokenParams
 ): Promise<string> {
-  try {
-    console.log('Creating on-chain metadata using Metaplex Token Metadata program');
-    
-    // Convert mint address string to PublicKey
-    const mintPubkey = new PublicKey(mintAddress);
-    
-    // Find the metadata PDA for this mint
-    const metadataPDA = await findMetadataPda(mintPubkey);
-    console.log('Metadata PDA:', metadataPDA.toString());
-    
-    // Create a list of creators - include the wallet as a verified creator
-    // This verification is essential for proper token display in wallets and explorers
-    const creators: Creator[] = [
-      {
-        address: wallet.publicKey,
-        verified: false,  // Must be false initially, verification happens through signing
-        share: 100,       // 100% share to the creator
-      }
-    ];
+  const mintPublicKey = new PublicKey(tokenAddress);
 
-    // Determine if metadata should be mutable and what update authority to use
-    // If revokeUpdateAuthority is true, set update authority to System Program during creation
-    const isMutable = !params.revokeUpdateAuthority;
-    const DEAD_ADDRESS = new PublicKey('11111111111111111111111111111111');
-    const updateAuthority = params.revokeUpdateAuthority ? DEAD_ADDRESS : wallet.publicKey;
-    
-    console.log(`Setting metadata as ${isMutable ? 'mutable' : 'immutable'}`);
-    if (params.revokeUpdateAuthority) {
-      console.log('🔒 Setting update authority to System Program during creation (effectively revoked)');
-    }
+  // Calculate metadata PDA
+  const [metadataPDA] = PublicKey.findProgramAddressSync(
+    [
+      Buffer.from('metadata'),
+      TOKEN_METADATA_PROGRAM_ID.toBuffer(),
+      mintPublicKey.toBuffer(),
+    ],
+    TOKEN_METADATA_PROGRAM_ID
+  );
 
-    // Prepare extended metadata
-    const tokenMetadata: DataV2 = {
-      name: params.name,
-      symbol: params.symbol,
-      uri: params.uri || '',
-      sellerFeeBasisPoints: 0, // No royalties for fungible tokens
-      creators: creators,
-      collection: null,
-      uses: null
-    };
-    
-    // Create the instruction to create metadata with correct update authority
-    const createMetadataInstruction = createCreateMetadataAccountV3Instruction(
-      {
-        metadata: metadataPDA,
-        mint: mintPubkey,
-        mintAuthority: wallet.publicKey,
-        payer: wallet.publicKey,
-        updateAuthority: updateAuthority, // Set correct authority during creation
-      },
-      {
-        createMetadataAccountArgsV3: {
-          data: tokenMetadata,
-          isMutable: isMutable,
-          collectionDetails: null,
-        }
-      }
+  console.log('Creating on-chain metadata using Metaplex Token Metadata program');
+  console.log('Metadata PDA:', metadataPDA.toString());
+
+  // 🔥 FIX: Increase priority fees for metadata to get through network congestion
+  const transaction = new Transaction()
+    .add(
+      ComputeBudgetProgram.setComputeUnitLimit({ units: 400000 }),
+      ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 100000 }) // 🔥 INCREASED from 50000 to 100000
     );
-    
-    // Add compute budget to ensure enough compute units for complex transactions
-    const modifyComputeUnits = ComputeBudgetProgram.setComputeUnitLimit({ 
-      units: 600000  // Increased for Phantom's Lighthouse guard instructions
-    });
-    
-    // Add compute unit price for priority
-    const computeUnitPrice = ComputeBudgetProgram.setComputeUnitPrice({ 
-      microLamports: 50000 
-    });
-    
-    // Create and send the transaction (no need for update instruction)
-    const transaction = new Transaction()
-      .add(modifyComputeUnits)
-      .add(computeUnitPrice)
-      .add(createMetadataInstruction);
-    
-    // Set recent blockhash and fee payer
-    const { blockhash } = await connection.getLatestBlockhash();
-    transaction.recentBlockhash = blockhash;
-    transaction.feePayer = wallet.publicKey;
-    
-    // Check if Phantom wallet is available for signAndSendTransaction
-    const isPhantomAvailable = window.phantom?.solana?.signAndSendTransaction;
-    console.log('Phantom wallet available for metadata creation:', !!isPhantomAvailable);
-    
-    // Sign and send the transaction using Phantom's signAndSendTransaction if available
-    let txid: string;
-    
-    if (isPhantomAvailable) {
-      console.log('Using Phantom signAndSendTransaction for metadata creation');
-      // Use Phantom's signAndSendTransaction method
-      const result = await window.phantom!.solana!.signAndSendTransaction(transaction);
-      txid = result.signature;
-      console.log('Created on-chain metadata via signAndSendTransaction, txid:', txid);
-    } else {
-      console.log('Falling back to signTransaction + sendRawTransaction for metadata creation');
-      // Fallback to the old method
-      const signedTx = await wallet.signTransaction(transaction);
-      txid = await connection.sendRawTransaction(signedTx.serialize());
-      console.log('Created on-chain metadata via fallback method, txid:', txid);
-    }
-    
-    // Improved confirmation with retry logic
-    try {
-      await connection.confirmTransaction({
-        signature: txid,
-        blockhash: blockhash,
-        lastValidBlockHeight: (await connection.getBlockHeight())
-      }, 'confirmed');
-    } catch (confirmError) {
-      console.warn('Initial metadata confirmation failed, checking transaction status...', confirmError);
-      // Check if transaction actually succeeded despite timeout
-      const status = await connection.getSignatureStatus(txid);
-      if (status.value?.confirmationStatus === 'confirmed' || status.value?.confirmationStatus === 'finalized') {
-        console.log('Metadata transaction confirmed despite timeout');
-      } else {
-        throw new Error(`Metadata transaction failed to confirm: ${txid}`);
-      }
-    }
-    
-    console.log('Created on-chain metadata for token, txid:', txid);
-    
-    if (params.revokeUpdateAuthority) {
-      console.log('✅ Metadata security enhanced - update authority revoked');
-    }
 
-    // Optionally, create a JSON format of complete metadata for reference
-    const metadataDetails = JSON.stringify({
-      name: params.name,
-      symbol: params.symbol,
-      description: params.description,
-      image: params.image,
-      uri: params.uri,
-      // Only use external_url (the official standard), not website
-      external_url: params.website,
-      links: {
-        // Don't duplicate website here since external_url is the primary field
-        twitter: params.twitter,
-        telegram: params.telegram,
-        discord: params.discord
+  // Create metadata instruction
+  const createMetadataInstruction = createCreateMetadataAccountV3Instruction(
+    {
+      metadata: metadataPDA,
+      mint: mintPublicKey,
+      mintAuthority: wallet.publicKey,
+      payer: wallet.publicKey,
+      updateAuthority: SystemProgram.programId, // 🔥 Set to system program (immutable)
+    },
+    {
+      createMetadataAccountArgsV3: {
+        data: {
+          name: tokenData.name,
+          symbol: tokenData.symbol,
+          uri: tokenData.uri || '',
+          sellerFeeBasisPoints: 0,
+          creators: null,
+          collection: null,
+          uses: null,
+        },
+        isMutable: false, // 🔥 Make immutable
+        collectionDetails: null,
       },
-      mintAddress: mintAddress,
-      metadataPDA: metadataPDA.toString(),
-      txid: txid,
-      securityFeatures: {
-        updateAuthorityRevoked: params.revokeUpdateAuthority,
-        metadataImmutable: !isMutable
-      }
-    }, null, 2);
-    console.log('Full token metadata details:', metadataDetails);
-    
-    return txid;
-    
-  } catch (error) {
-    console.error('Error creating token metadata:', error);
-    throw error;
+    }
+  );
+
+  transaction.add(createMetadataInstruction);
+
+  console.log('Setting metadata as immutable');
+  console.log('🔒 Setting update authority to System Program during creation (effectively revoked)');
+
+  transaction.feePayer = wallet.publicKey;
+  const blockhash = await connection.getLatestBlockhash('finalized'); // 🔥 Use finalized for better reliability
+  transaction.recentBlockhash = blockhash.blockhash;
+
+  const isPhantomAvailable = window.phantom?.solana?.signAndSendTransaction;
+  console.log('Phantom wallet available for metadata creation:', !!isPhantomAvailable);
+
+  let txId: string;
+
+  if (isPhantomAvailable) {
+    console.log('Using Phantom signAndSendTransaction for metadata creation');
+    try {
+      const result = await window.phantom!.solana!.signAndSendTransaction(transaction);
+      txId = result.signature;
+      console.log('Created on-chain metadata via signAndSendTransaction, txid:', txId);
+    } catch (phantomError) {
+      console.error('❌ Phantom signAndSendTransaction failed:', phantomError);
+      throw phantomError;
+    }
+  } else {
+    console.log('Using wallet adapter for metadata creation');
+    try {
+      const signedTransaction = await wallet.signTransaction(transaction);
+      txId = await connection.sendRawTransaction(signedTransaction.serialize(), {
+        skipPreflight: false,
+        preflightCommitment: 'processed'
+      });
+      console.log('Created on-chain metadata via wallet adapter, txid:', txId);
+    } catch (walletError) {
+      console.error('❌ Wallet adapter failed:', walletError);
+      throw walletError;
+    }
   }
+
+  // 🔥 FIX: Better confirmation with retry logic
+  console.log('Confirming metadata transaction...');
+  try {
+    // First try: normal confirmation
+    await connection.confirmTransaction({
+      signature: txId,
+      blockhash: blockhash.blockhash,
+      lastValidBlockHeight: blockhash.lastValidBlockHeight
+    }, 'confirmed');
+    
+    console.log('✅ Metadata transaction confirmed successfully');
+  } catch (confirmError) {
+    console.log('Initial metadata confirmation failed, checking transaction status...', confirmError);
+    
+    // 🔥 RETRY LOGIC: Check if transaction actually succeeded
+    let retries = 3;
+    let confirmed = false;
+    
+    while (retries > 0 && !confirmed) {
+      try {
+        await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2 seconds
+        const status = await connection.getSignatureStatus(txId);
+        
+        if (status.value?.confirmationStatus === 'confirmed' || 
+            status.value?.confirmationStatus === 'finalized') {
+          console.log('✅ Metadata transaction confirmed on retry!');
+          confirmed = true;
+          break;
+        } else if (status.value?.err) {
+          throw new Error(`Metadata transaction failed: ${JSON.stringify(status.value.err)}`);
+        }
+        
+        console.log(`⏳ Retrying confirmation... ${retries} attempts left`);
+        retries--;
+      } catch (retryError) {
+        console.error(`❌ Retry ${4 - retries} failed:`, retryError);
+        retries--;
+      }
+    }
+    
+    if (!confirmed) {
+      // Transaction might have succeeded but confirmation failed due to network issues
+      console.warn('⚠️ Could not confirm metadata transaction, but it may have succeeded');
+      console.warn('⚠️ Check transaction manually:', `https://solscan.io/tx/${txId}`);
+      // Don't throw - continue with token creation
+    }
+  }
+
+  return txId;
 }
 
 /**

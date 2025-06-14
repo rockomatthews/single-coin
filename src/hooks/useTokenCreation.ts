@@ -28,7 +28,7 @@ import { useState, useCallback } from 'react';
 import { useConnection, useWallet } from '@solana/wallet-adapter-react';
 import { uploadMetadata, TokenParams, calculateTotalCost } from '../utils/solana';
 import { createTokenMetadata } from '../utils/metaplex';
-import { createRaydiumCpmmPool } from '../utils/raydium-v2';
+import { createDirectTokenLiquidity } from '../utils/direct-pool-creation';
 import { createTokenPhantomFriendly, mintTokensToAddress, revokeAuthorities, displayTransactionSummary } from '../utils/phantom-friendly';
 import { performSecurityAssessment, getSecurityBadge } from '../utils/goplus-security';
 import { PublicKey } from '@solana/web3.js';
@@ -320,7 +320,7 @@ export function useTokenCreation() {
                   true, // Revoke mint authority
                   true  // Revoke freeze authority
                 );
-                console.log('✅ Token authorities revoked (no pool creation), txId:', revokeTxId);
+                console.log('✅ Token authorities revoked (no pool requested), txId:', revokeTxId);
               } catch (revokeError) {
                 console.error('❌ Error revoking authorities:', revokeError);
                 // Continue even if revocation fails
@@ -328,28 +328,37 @@ export function useTokenCreation() {
             } else {
               console.log(`🔒 Creating Raydium liquidity pool with ${secureResult.liquidityTokenAmount.toLocaleString()} tokens and ${tokenData.liquiditySolAmount} SOL`);
               
-              // 🔥 CLEAN AND SIMPLE: User pays what they specified in the slider!
-              console.log(`💰 User selected: ${tokenData.liquiditySolAmount} SOL for liquidity`);
-              
-              // 🔒 Create pool with clean, simple parameters
-              poolTxId = await createRaydiumCpmmPool(
+              // 🔥 NEW: Use working direct token liquidity setup
+              const liquidityResult = await createDirectTokenLiquidity(
                 connection,
                 wallet,
                 tokenAddress,
                 secureResult.liquidityTokenAmount, // Tokens for pool
                 tokenData.liquiditySolAmount, // SOL user specified in slider
-                true, // Send fee to recipient
-                retentionPercentage, // Retention percentage for fee calculation
-                // Secure token creation parameters
-                {
-                  mintKeypair: secureResult.mintKeypair,
-                  tokenDecimals: tokenData.decimals,
-                  shouldMintLiquidity: true, // Mint liquidity tokens to pool
-                  shouldRevokeAuthorities: true, // Revoke authorities AFTER pool creation
-                }
+                retentionPercentage // Retention percentage for fee calculation
               );
               
-              console.log('✅ Liquidity pool created successfully, txId:', poolTxId);
+              if (liquidityResult.success) {
+                poolTxId = liquidityResult.txId;
+                console.log('✅ Token setup completed:', liquidityResult.message);
+                console.log(`🔗 Trade on Jupiter: https://jup.ag/swap/SOL-${tokenAddress}`);
+              } else {
+                console.error('❌ Token liquidity setup failed:', liquidityResult.message);
+              }
+              
+              // 🔒 Revoke authorities after setup
+              try {
+                const revokeTxId = await revokeAuthorities(
+                  connection,
+                  wallet,
+                  tokenAddress,
+                  true, // Revoke mint authority
+                  true  // Revoke freeze authority
+                );
+                console.log('✅ Token authorities revoked after liquidity setup, txId:', revokeTxId);
+              } catch (revokeError) {
+                console.error('❌ Error revoking authorities:', revokeError);
+              }
             }
           } catch (poolError) {
             console.error('❌ Error creating liquidity pool:', poolError);
