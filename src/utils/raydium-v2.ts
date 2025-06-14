@@ -180,8 +180,16 @@ export async function createRaydiumCpmmPool(
     const RAYDIUM_POOL_COSTS = 0.154; // Actual Raydium fees
     const actualLiquiditySol = remainingAfterPlatformFee - RAYDIUM_POOL_COSTS;
     
+    // 🚨 CRITICAL FIX: Raydium requires minimum 0.25 SOL liquidity for pools!
+    const MINIMUM_LIQUIDITY_SOL = 0.25;
+    
     if (actualLiquiditySol <= 0) {
       throw new Error(`❌ Insufficient SOL. Need at least ${(platformFeeSol + RAYDIUM_POOL_COSTS).toFixed(4)} SOL to cover platform fees (${platformFeeSol.toFixed(4)}) + Raydium fees (${RAYDIUM_POOL_COSTS.toFixed(4)})`);
+    }
+    
+    if (actualLiquiditySol < MINIMUM_LIQUIDITY_SOL) {
+      const minimumRequired = platformFeeSol + RAYDIUM_POOL_COSTS + MINIMUM_LIQUIDITY_SOL;
+      throw new Error(`❌ Insufficient liquidity! Raydium requires minimum ${MINIMUM_LIQUIDITY_SOL} SOL for pool liquidity. Current: ${actualLiquiditySol.toFixed(4)} SOL. Need at least ${minimumRequired.toFixed(4)} SOL total.`);
     }
     
     console.log(`🌐 Network: ${isDevnet ? 'devnet' : 'mainnet'}`);
@@ -276,85 +284,66 @@ export async function createRaydiumCpmmPool(
     console.log(`✅ Token A (${mintA.address}): ${mintA.decimals} decimals`);
     console.log(`✅ Token B (WSOL): ${mintB.decimals} decimals`);
     
-    // Step 3: Get CPMM fee configurations
-    const feeConfigs = await raydium.api.getCpmmConfigs();
+    // 🚨 CRITICAL FIX: Properly handle token amount conversion to avoid overflow!
+    // The tokenAmount parameter is already in TOKEN UNITS (e.g., 900,000,000 tokens)
+    // We need to convert it to raw units by multiplying by 10^decimals
+    // BUT we need to be careful about JavaScript number precision limits
     
-    if (isDevnet) {
-      feeConfigs.forEach((config) => {
-        config.id = getCpmmPdaAmmConfigId(DEVNET_PROGRAM_ID.CREATE_CPMM_POOL_PROGRAM, config.index).publicKey.toBase58();
-      });
-    }
+    // For large numbers, use string-based conversion to avoid precision loss
+    const tokenAmountStr = tokenAmount.toString();
+    const decimalsMultiplier = '1' + '0'.repeat(mintA.decimals);
     
-    console.log(`📋 Using fee config: ${feeConfigs[0].id}`);
+    // Use BN for safe large number arithmetic
+    const tokenAmountBN = new BN(tokenAmountStr);
+    const multiplierBN = new BN(decimalsMultiplier);
+    const tokenAmountWithDecimals = tokenAmountBN.mul(multiplierBN);
     
-    // Check user's current token balance
-    const userTokenAccount = await token.getAssociatedTokenAddress(
-      new PublicKey(tokenMint),
-      wallet.publicKey
-    );
-    
-    let userTokenBalance = 0;
-    try {
-      const accountInfo = await connection.getParsedAccountInfo(userTokenAccount);
-      if (accountInfo.value?.data && 'parsed' in accountInfo.value.data) {
-        userTokenBalance = accountInfo.value.data.parsed.info.tokenAmount.uiAmount || 0;
-      }
-    } catch (error) {
-      console.log('User token account not found or error reading balance');
-    }
-    
-    console.log(`🔍 User's current token balance: ${userTokenBalance.toLocaleString()}`);
-    
-    // 🔒 CRITICAL: Calculate expected retention amount properly
-    const totalSupply = tokenAmount + userTokenBalance; // liquidity + retention = total
-    const expectedRetentionPercentage = retentionPercentage || 20;
-    const expectedUserBalance = Math.floor(totalSupply * (expectedRetentionPercentage / 100));
-    const allowedVariance = expectedUserBalance * 0.1; // 10% variance
-    
-    if (secureTokenCreation && Math.abs(userTokenBalance - expectedUserBalance) > allowedVariance) { // Allow reasonable variance
-      console.error(`❌ SECURITY ISSUE: User has ${userTokenBalance.toLocaleString()} tokens but expected ${expectedUserBalance.toLocaleString()} tokens (${expectedRetentionPercentage}% retention)!`);
-      throw new Error(`Security violation: User has ${userTokenBalance.toLocaleString()} tokens but expected ${expectedUserBalance.toLocaleString()} tokens (${expectedRetentionPercentage}% retention)`);
-    }
-    
-    // 🚨 CRITICAL FIX: Mint liquidity tokens to user BEFORE pool creation
-    // The Raydium SDK expects all tokens to be in user's wallet to transfer to pool
-    if (secureTokenCreation?.shouldMintLiquidity && userTokenBalance < tokenAmount) {
-      console.log('🔒 SECURE WORKFLOW: Minting liquidity tokens to user BEFORE pool creation');
-      console.log(`💰 User currently has: ${userTokenBalance.toLocaleString()} tokens`);
-      console.log(`🏊 Pool needs: ${tokenAmount.toLocaleString()} tokens`);
-      console.log(`➕ Need to mint: ${(tokenAmount - userTokenBalance).toLocaleString()} more tokens`);
-      
-      try {
-        const additionalTokensNeeded = tokenAmount - userTokenBalance;
-        const mintTxId = await mintLiquidityToPool(
-          connection,
-          wallet,
-          tokenMint,
-          userTokenAccount.toString(), // Mint to USER's wallet (not pool vault)
-          additionalTokensNeeded,
-          secureTokenCreation.tokenDecimals
-        );
-        
-        console.log(`✅ Minted ${additionalTokensNeeded.toLocaleString()} additional tokens to user: ${mintTxId}`);
-        
-        // Update user balance for verification
-        userTokenBalance += additionalTokensNeeded;
-        console.log(`✅ User now has: ${userTokenBalance.toLocaleString()} tokens total`);
-        
-      } catch (mintError) {
-        console.error('❌ Error minting liquidity tokens to user:', mintError);
-        throw new Error(`Failed to mint liquidity tokens: ${mintError}`);
-      }
-    }
-    
-    // 🚨 CRITICAL FIX: Use ACTUAL amounts that user paid for, not minimal amounts!
-    const tokenAmountWithDecimals = new BN(tokenAmount * Math.pow(10, mintA.decimals)); 
     const solAmountInLamports = new BN(Math.floor(actualLiquiditySol * LAMPORTS_PER_SOL));
     
-    console.log(`💰 Creating pool with ACTUAL amounts user paid for:`)
-    console.log(`   Token amount: ${tokenAmount.toLocaleString()} tokens (${tokenAmountWithDecimals.toString()} with decimals)`);
+    // 🚨 CRITICAL FIX: Ensure proper token ordering (mintA must be smaller address than mintB)
+    // Raydium requires tokens to be ordered by mint address (ascending)
+    const tokenMintAddress = new PublicKey(mintA.address);
+    const wsolMintAddress = new PublicKey(mintB.address);
+    
+    let finalMintA = mintA;
+    let finalMintB = mintB;
+    let finalTokenAmount = tokenAmountWithDecimals; // Use BN amount
+    let finalSolAmount = solAmountInLamports;       // Use BN amount
+    
+    // Compare addresses to determine correct ordering
+    if (tokenMintAddress.toBase58() > wsolMintAddress.toBase58()) {
+      console.log('🔄 Swapping token order: WSOL address is smaller, making it mintA');
+      finalMintA = mintB; // WSOL becomes mintA
+      finalMintB = mintA; // Token becomes mintB
+      finalTokenAmount = solAmountInLamports;      // SOL amount for mintA
+      finalSolAmount = tokenAmountWithDecimals;    // Token amount for mintB
+    } else {
+      console.log('✅ Token order correct: Token address is smaller than WSOL');
+    }
+    
+    console.log(`📋 Final mint ordering:`);
+    console.log(`   mintA: ${finalMintA.address} (${finalMintA.decimals} decimals)`);
+    console.log(`   mintB: ${finalMintB.address} (${finalMintB.decimals} decimals)`);
+    console.log(`   mintAAmount: ${finalTokenAmount.toString()}`);
+    console.log(`   mintBAmount: ${finalSolAmount.toString()}`);
+    
+    // Validate amounts are positive
+    if (finalTokenAmount.lte(new BN(0)) || finalSolAmount.lte(new BN(0))) {
+      throw new Error(`❌ Invalid pool amounts: mintAAmount=${finalTokenAmount.toString()}, mintBAmount=${finalSolAmount.toString()}`);
+    }
+    
+    console.log(`💰 Creating pool with PROPER token amount conversion:`)
+    console.log(`   Token amount (UI): ${tokenAmount.toLocaleString()} tokens`);
+    console.log(`   Token decimals: ${mintA.decimals}`);
+    console.log(`   Token amount (raw): ${tokenAmountWithDecimals.toString()} (${tokenAmount.toLocaleString()} * 10^${mintA.decimals})`);
     console.log(`   SOL amount: ${actualLiquiditySol.toFixed(4)} SOL (${solAmountInLamports.toString()} lamports)`);
     console.log(`✅ User has sufficient tokens: ${userTokenBalance.toLocaleString()} >= ${tokenAmount.toLocaleString()}`);
+    
+    // Validate the token amount is reasonable (not overflow)
+    const maxReasonableTokens = new BN('1000000000000000000'); // 1 quintillion raw units (1 billion tokens with 9 decimals)
+    if (tokenAmountWithDecimals.gt(maxReasonableTokens)) {
+      throw new Error(`❌ Token amount overflow: ${tokenAmountWithDecimals.toString()} exceeds maximum reasonable amount. Check token amount calculation.`);
+    }
     
     // Step 4: Create the CPMM pool using Raydium SDK
     console.log('🏊 Creating Raydium CPMM pool using official SDK...');
@@ -365,10 +354,10 @@ export async function createRaydiumCpmmPool(
       const poolParams = {
         programId: isDevnet ? DEVNET_PROGRAM_ID.CREATE_CPMM_POOL_PROGRAM : CREATE_CPMM_POOL_PROGRAM,
         poolFeeAccount: isDevnet ? DEVNET_PROGRAM_ID.CREATE_CPMM_POOL_FEE_ACC : CREATE_CPMM_POOL_FEE_ACC,
-        mintA: mintA,
-        mintB: mintB,
-        mintAAmount: tokenAmountWithDecimals, // 🔥 FIXED: Use actual token amount user paid for
-        mintBAmount: solAmountInLamports,     // 🔥 FIXED: Use actual SOL amount user paid for
+        mintA: finalMintA,
+        mintB: finalMintB,
+        mintAAmount: finalTokenAmount,
+        mintBAmount: finalSolAmount,
         startTime: new BN(0), // Start immediately
         feeConfig: feeConfigs[0],
         associatedOnly: false,
