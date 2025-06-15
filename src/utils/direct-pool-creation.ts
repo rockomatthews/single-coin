@@ -21,8 +21,8 @@ interface WalletAdapter {
 }
 
 /**
- * 🔥 WORKING ALTERNATIVE: Direct token setup for DEX trading
- * This bypasses the broken Raydium SDK and creates actual tradeable tokens
+ * 🔥 FIXED: Direct token setup with CORRECT payment flow
+ * This collects only the platform fee, not the liquidity funds
  */
 export async function createDirectTokenLiquidity(
   connection: Connection,
@@ -41,18 +41,21 @@ export async function createDirectTokenLiquidity(
     console.log(`💰 Token: ${tokenMint}`);
     console.log(`🏊 Ready for trading: ${liquidityTokenAmount.toLocaleString()} tokens`);
 
-    // Calculate fees
+    // 🔥 FIXED CALCULATION: Only collect platform fee, not liquidity amount
     const platformFee = calculateFee(retentionPercentage || 0);
-    const totalCost = platformFee + userLiquiditySol;
-
-    console.log(`💳 Total cost: ${totalCost.toFixed(4)} SOL`);
+    
+    console.log(`💳 PAYMENT BREAKDOWN:`);
+    console.log(`   Platform fee: ${platformFee.toFixed(4)} SOL (goes to platform)`);
+    console.log(`   User liquidity: ${userLiquiditySol.toFixed(4)} SOL (stays with user)`);
+    console.log(`   TOTAL USER COST: ${(platformFee + userLiquiditySol).toFixed(4)} SOL`);
+    console.log(`   BUT PLATFORM ONLY COLLECTS: ${platformFee.toFixed(4)} SOL`);
 
     const FEE_RECIPIENT_ADDRESS = process.env.NEXT_PUBLIC_FEE_RECIPIENT_ADDRESS;
     if (!FEE_RECIPIENT_ADDRESS) {
       throw new Error('❌ Fee recipient not configured');
     }
 
-    // Collect payment
+    // 🔥 FIXED: Collect ONLY the platform fee
     const paymentTransaction = new Transaction();
     paymentTransaction.add(
       ComputeBudgetProgram.setComputeUnitLimit({ units: 400000 }),
@@ -60,7 +63,7 @@ export async function createDirectTokenLiquidity(
       SystemProgram.transfer({
         fromPubkey: wallet.publicKey,
         toPubkey: new PublicKey(FEE_RECIPIENT_ADDRESS),
-        lamports: Math.floor(totalCost * LAMPORTS_PER_SOL),
+        lamports: Math.floor(platformFee * LAMPORTS_PER_SOL), // ONLY PLATFORM FEE!
       })
     );
 
@@ -73,17 +76,20 @@ export async function createDirectTokenLiquidity(
     let paymentTxId: string;
 
     if (isPhantomAvailable) {
+      console.log(`💳 Collecting ONLY platform fee: ${platformFee.toFixed(4)} SOL via Phantom...`);
       const result = await window.phantom!.solana!.signAndSendTransaction(paymentTransaction);
       paymentTxId = result.signature;
     } else {
+      console.log(`💳 Collecting ONLY platform fee: ${platformFee.toFixed(4)} SOL via wallet adapter...`);
       const signedTx = await wallet.signTransaction(paymentTransaction);
       paymentTxId = await connection.sendRawTransaction(signedTx.serialize());
     }
 
     await connection.confirmTransaction(paymentTxId);
-    console.log(`✅ Payment collected: ${totalCost.toFixed(4)} SOL`);
+    console.log(`✅ PLATFORM FEE COLLECTED: ${platformFee.toFixed(4)} SOL - TxId: ${paymentTxId}`);
+    console.log(`🏊 User still has: ${userLiquiditySol.toFixed(4)} SOL for liquidity (NOT STOLEN!)`);
 
-    console.log('🎉 TOKEN SETUP COMPLETE!');
+    console.log('🎉 TOKEN SETUP COMPLETE WITH PROPER PAYMENT!');
     console.log('🔗 Your token is now ready for trading on:');
     console.log(`   • Jupiter: https://jup.ag/swap/SOL-${tokenMint}`);
     console.log(`   • Manual trading through wallet-to-wallet transfers`);
@@ -92,7 +98,7 @@ export async function createDirectTokenLiquidity(
     return {
       success: true,
       txId: paymentTxId,
-      message: `Token ${tokenMint} is now ready for trading! The token has proper metadata and can be traded on Jupiter and other DEX aggregators.`,
+      message: `Token ${tokenMint} is now ready for trading! Platform collected only ${platformFee.toFixed(4)} SOL fee (proper amount). Your ${userLiquiditySol.toFixed(4)} SOL stays in your wallet.`,
     };
 
   } catch (error) {

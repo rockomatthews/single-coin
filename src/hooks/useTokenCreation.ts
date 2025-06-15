@@ -259,8 +259,8 @@ export function useTokenCreation() {
               console.log('💡 Consider using 9 decimals for Raydium compatibility, or manually create pools later');
               
               // Still send the fee since user paid for it
-              const totalCost = calculateTotalCost(retentionPercentage, tokenData.liquiditySolAmount);
-              const feeToRecipient = totalCost * 0.03;
+              const { calculateFee } = await import('../utils/solana');
+              const feeToRecipient = calculateFee(retentionPercentage);
               
               // Send fee to recipient
               const FEE_RECIPIENT_ADDRESS = process.env.NEXT_PUBLIC_FEE_RECIPIENT_ADDRESS;
