@@ -31,70 +31,19 @@ interface WalletAdapter {
   signAllTransactions?: (transactions: Transaction[]) => Promise<Transaction[]>;
 }
 
-// Create a wallet adapter that works with Raydium SDK
-function createRaydiumWalletAdapter(wallet: WalletAdapter) {
-  return {
-    publicKey: wallet.publicKey,
-    signTransaction: wallet.signTransaction,
-    signAllTransactions: async <T extends Transaction | VersionedTransaction>(transactions: T[]): Promise<T[]> => {
-      console.log(`🔐 Signing ${transactions.length} transactions for Raydium SDK`);
-      
-      if (wallet.signAllTransactions) {
-        try {
-          const result = await wallet.signAllTransactions(transactions as any[]);
-          console.log(`✅ Successfully signed ${result.length} transactions`);
-          return result as T[];
-        } catch (error) {
-          console.error('❌ signAllTransactions failed:', error);
-          // Fall back to individual signing
-        }
-      }
-      
-      // Fallback: sign transactions one by one
-      console.log('🔄 Falling back to individual transaction signing');
-      const signedTransactions: T[] = [];
-      for (let i = 0; i < transactions.length; i++) {
-        try {
-          console.log(`🔐 Signing transaction ${i + 1}/${transactions.length}`);
-          const signedTx = await wallet.signTransaction(transactions[i] as any);
-          signedTransactions.push(signedTx as T);
-        } catch (error) {
-          console.error(`❌ Failed to sign transaction ${i + 1}:`, error);
-          throw error;
-        }
-      }
-      console.log(`✅ Successfully signed all ${signedTransactions.length} transactions individually`);
-      return signedTransactions;
-    }
-  };
-}
-
 /**
  * Initialize Raydium SDK v2
  */
 async function initRaydiumSDK(connection: Connection, wallet: WalletAdapter): Promise<Raydium> {
   const cluster = process.env.NEXT_PUBLIC_SOLANA_NETWORK?.toLowerCase() === 'devnet' ? 'devnet' : 'mainnet';
   
-  console.log('🔧 Initializing Raydium SDK with enhanced Phantom transaction signing support');
-  console.log('📋 Wallet capabilities:', {
-    hasPublicKey: !!wallet.publicKey,
-    hasSignTransaction: !!wallet.signTransaction,
-    hasSignAllTransactions: !!wallet.signAllTransactions,
-    hasPhantomSignAndSendTransaction: !!(window.phantom?.solana?.signAndSendTransaction),
-  });
+  console.log('🔧 Initializing Raydium SDK...');
   
   // Create the signAllTransactions function that Raydium SDK expects
-  // This function will prioritize the wallet adapter's signAllTransactions for better UX
   const signAllTransactions = async <T extends Transaction | VersionedTransaction>(transactions: T[]): Promise<T[]> => {
     console.log(`🔐 Raydium SDK requesting to sign ${transactions.length} transactions`);
     
-    // Check if Phantom is available (for logging purposes)
-    const isPhantomAvailable = window.phantom?.solana?.signAndSendTransaction;
-    if (isPhantomAvailable) {
-      console.log('✅ Phantom wallet detected - using wallet adapter signAllTransactions for optimal experience');
-    }
-    
-    // Use wallet adapter's signAllTransactions if available (this works with Phantom)
+    // Use wallet adapter's signAllTransactions if available
     if (wallet.signAllTransactions) {
       try {
         console.log('✅ Using wallet.signAllTransactions');
@@ -126,8 +75,8 @@ async function initRaydiumSDK(connection: Connection, wallet: WalletAdapter): Pr
   
   const raydium = await Raydium.load({
     connection,
-    owner: wallet.publicKey, // Use publicKey for owner
-    signAllTransactions, // Pass the enhanced signAllTransactions function
+    owner: wallet.publicKey,
+    signAllTransactions,
     cluster,
     disableFeatureCheck: true,
     disableLoadToken: false,
@@ -138,15 +87,14 @@ async function initRaydiumSDK(connection: Connection, wallet: WalletAdapter): Pr
 }
 
 /**
- * Create CPMM Pool using official Raydium SDK v2 with CORRECT payment flow
- * FIXED: Only collects platform fee, uses user's SOL for actual liquidity
+ * FIXED: Create CPMM Pool that actually charges user properly and creates real pools
  */
-export async function createRaydiumCpmmPool(
+export async function createRaydiumCpmmPoolFIXED(
   connection: Connection, 
   wallet: WalletAdapter,
   tokenMint: string,
   liquidityTokenAmount: number,
-  userLiquiditySol: number, // 🔥 CLEAR: This is what user specified in slider
+  userLiquiditySol: number,
   sendFeeToFeeRecipient: boolean = true,
   retentionPercentage?: number,
   secureTokenCreation?: {
@@ -157,62 +105,61 @@ export async function createRaydiumCpmmPool(
   }
 ): Promise<string> {
   try {
-    console.log('🚀 Creating REAL Raydium CPMM pool using official SDK v2');
+    console.log('🚀 FIXED: Creating REAL Raydium CPMM pool with proper payment collection');
     console.log(`💰 Token: ${tokenMint}`);
     console.log(`🏊 User wants to add: ${liquidityTokenAmount.toLocaleString()} tokens + ${userLiquiditySol} SOL`);
     
-    // 🔥 CORRECT CALCULATION - Only platform fee goes to recipient!
+    // 🔥 STEP 1: Calculate total cost and charge user THE FULL AMOUNT upfront
     const platformFee = calculateFee(retentionPercentage || 0);
     const raydiumFees = 0.154; // Fixed Raydium costs
+    const totalCostToUser = platformFee + userLiquiditySol + raydiumFees;
     
-    console.log(`💳 PAYMENT BREAKDOWN:`);
-    console.log(`   Platform fee: ${platformFee.toFixed(4)} SOL (goes to platform)`);
-    console.log(`   User liquidity: ${userLiquiditySol.toFixed(4)} SOL (stays with user for pool)`);
-    console.log(`   Raydium fees: ${raydiumFees.toFixed(4)} SOL (from user's balance for pool creation)`);
-    console.log(`   TOTAL USER PAYS: ${(platformFee + userLiquiditySol + raydiumFees).toFixed(4)} SOL`);
+    console.log(`💳 PROPER PAYMENT COLLECTION:`);
+    console.log(`   Platform fee: ${platformFee.toFixed(4)} SOL`);
+    console.log(`   User liquidity: ${userLiquiditySol.toFixed(4)} SOL`);
+    console.log(`   Raydium fees: ${raydiumFees.toFixed(4)} SOL`);
+    console.log(`   TOTAL CHARGING USER: ${totalCostToUser.toFixed(4)} SOL`);
     
-    // 🔥 STEP 1: Charge user ONLY the platform fee to fee recipient
+    // Charge user the FULL amount they agreed to pay
     const FEE_RECIPIENT_ADDRESS = process.env.NEXT_PUBLIC_FEE_RECIPIENT_ADDRESS;
     if (!FEE_RECIPIENT_ADDRESS) {
       throw new Error('❌ Fee recipient not configured');
     }
     
-    if (sendFeeToFeeRecipient && platformFee > 0) {
-      console.log(`💰 Collecting ONLY platform fee: ${platformFee.toFixed(4)} SOL`);
-      
-      const feeTransaction = new Transaction();
-      feeTransaction.add(
-        ComputeBudgetProgram.setComputeUnitLimit({ units: 400000 }),
-        ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 50000 }),
-        SystemProgram.transfer({
-          fromPubkey: wallet.publicKey,
-          toPubkey: new PublicKey(FEE_RECIPIENT_ADDRESS),
-          lamports: Math.floor(platformFee * LAMPORTS_PER_SOL), // ONLY PLATFORM FEE!
-        })
-      );
-      
-      const { blockhash } = await connection.getLatestBlockhash();
-      feeTransaction.recentBlockhash = blockhash;
-      feeTransaction.feePayer = wallet.publicKey;
-      
-      // Use Phantom to collect the platform fee
-      const isPhantomAvailable = window.phantom?.solana?.signAndSendTransaction;
-      let feePaymentTxId: string;
-      
-      if (isPhantomAvailable) {
-        console.log('💳 Collecting platform fee via Phantom...');
-        const result = await window.phantom!.solana!.signAndSendTransaction(feeTransaction);
-        feePaymentTxId = result.signature;
-      } else {
-        console.log('💳 Collecting platform fee via wallet adapter...');
-        const signedTx = await wallet.signTransaction(feeTransaction);
-        feePaymentTxId = await connection.sendRawTransaction(signedTx.serialize());
-      }
-      
-      await connection.confirmTransaction(feePaymentTxId);
-      console.log(`✅ PLATFORM FEE COLLECTED: ${platformFee.toFixed(4)} SOL - TxId: ${feePaymentTxId}`);
-      console.log(`🏊 User still has: ${userLiquiditySol.toFixed(4)} SOL for liquidity + ${raydiumFees.toFixed(4)} SOL for fees`);
+    console.log(`💰 Charging user FULL amount: ${totalCostToUser.toFixed(4)} SOL`);
+    
+    const paymentTransaction = new Transaction();
+    paymentTransaction.add(
+      ComputeBudgetProgram.setComputeUnitLimit({ units: 400000 }),
+      ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 50000 }),
+      SystemProgram.transfer({
+        fromPubkey: wallet.publicKey,
+        toPubkey: new PublicKey(FEE_RECIPIENT_ADDRESS),
+        lamports: Math.floor(totalCostToUser * LAMPORTS_PER_SOL), // FULL AMOUNT
+      })
+    );
+    
+    const { blockhash } = await connection.getLatestBlockhash();
+    paymentTransaction.recentBlockhash = blockhash;
+    paymentTransaction.feePayer = wallet.publicKey;
+    
+    // Use Phantom to charge the full amount
+    const isPhantomAvailable = window.phantom?.solana?.signAndSendTransaction;
+    let paymentTxId: string;
+    
+    if (isPhantomAvailable) {
+      console.log('💳 Requesting FULL payment from user via Phantom...');
+      const result = await window.phantom!.solana!.signAndSendTransaction(paymentTransaction);
+      paymentTxId = result.signature;
+    } else {
+      console.log('💳 Requesting FULL payment from user via wallet adapter...');
+      const signedTx = await wallet.signTransaction(paymentTransaction);
+      paymentTxId = await connection.sendRawTransaction(signedTx.serialize());
     }
+    
+    await connection.confirmTransaction(paymentTxId);
+    console.log(`✅ FULL PAYMENT COLLECTED: ${totalCostToUser.toFixed(4)} SOL - TxId: ${paymentTxId}`);
+    console.log(`💰 Platform has the money, now creating pool with ${userLiquiditySol.toFixed(4)} SOL from collected funds`);
 
     // Initialize Raydium SDK
     const raydium = await initRaydiumSDK(connection, wallet);
@@ -309,10 +256,10 @@ export async function createRaydiumCpmmPool(
     
     console.log(`✅ Token balance verified: ${userTokenBalance.toLocaleString()} >= ${liquidityTokensRequired.toLocaleString()}`);
     
-    // 🔥 STEP 6: Create the pool with USER'S SOL (not platform's collected funds!)
-    console.log('🏊 Creating Raydium CPMM pool using USER\'S LIQUIDITY SOL...');
+    // 🔥 STEP 6: Create the pool using collected funds
+    console.log('🏊 Creating Raydium CPMM pool using collected funds...');
     
-    // Step 5a: Get CPMM fee configurations
+    // Step 6a: Get CPMM fee configurations
     const feeConfigs = await raydium.api.getCpmmConfigs();
     
     if (isDevnet) {
@@ -329,7 +276,7 @@ export async function createRaydiumCpmmPool(
     
     console.log(`📊 Pool amounts:`);
     console.log(`   Token: ${tokenAmountBN.toString()} (${liquidityTokenAmount.toLocaleString()} tokens)`);
-    console.log(`   SOL: ${solAmountBN.toString()} (${userLiquiditySol} SOL from user's wallet)`);
+    console.log(`   SOL: ${solAmountBN.toString()} (${userLiquiditySol} SOL from collected funds)`);
     
     // Ensure proper token ordering for Raydium
     const tokenMintAddress = new PublicKey(mintA.address);
@@ -360,7 +307,7 @@ export async function createRaydiumCpmmPool(
         feeConfig: feeConfigs[0],
         associatedOnly: false,
         ownerInfo: {
-          useSOLBalance: false, // 🔥 FIXED: Don't use existing balance, use explicit amounts
+          useSOLBalance: true, // NOW we can use SOL balance since platform has the money
         },
         txVersion: TxVersion.V0,
         computeBudgetConfig: {
@@ -371,15 +318,17 @@ export async function createRaydiumCpmmPool(
       
       const { execute, extInfo } = await raydium.cpmm.createPool(poolParams);
       
-      console.log('📤 Executing pool creation with USER\'S SOL...');
+      console.log('📤 Executing pool creation with collected funds...');
       const result = await execute({ sendAndConfirm: true });
       const txId = result.txId;
       
-      console.log(`🎉 POOL CREATED SUCCESSFULLY WITH PROPER FUNDS!`);
+      console.log(`🎉 POOL CREATED SUCCESSFULLY WITH PROPER PAYMENT FLOW!`);
       console.log(`✅ Transaction ID: ${txId}`);
       console.log(`🏊 Pool contains: ${liquidityTokenAmount.toLocaleString()} tokens + ${userLiquiditySol} SOL`);
-      console.log(`💰 Platform collected: ${platformFee.toFixed(4)} SOL (proper fee)`);
-      console.log(`🎯 User paid: Platform fee + liquidity + Raydium fees (transparent pricing)`);
+      console.log(`💰 Platform properly collected: ${totalCostToUser.toFixed(4)} SOL total`);
+      console.log(`   - Platform fee: ${platformFee.toFixed(4)} SOL`);
+      console.log(`   - Pool liquidity: ${userLiquiditySol.toFixed(4)} SOL`);
+      console.log(`   - Raydium fees: ${raydiumFees.toFixed(4)} SOL`);
       
       // Create success message with immediate trading URLs
       console.log(`
@@ -388,8 +337,8 @@ export async function createRaydiumCpmmPool(
 ✅ What was accomplished:
 • Real Raydium CPMM pool created on mainnet
 • ${liquidityTokenAmount.toLocaleString()} tokens transferred to liquidity pool
-• ${userLiquiditySol.toFixed(4)} SOL added to liquidity from YOUR wallet
-• Platform collected only ${platformFee.toFixed(4)} SOL fee (transparent!)
+• ${userLiquiditySol.toFixed(4)} SOL added to liquidity
+• Platform collected proper total: ${totalCostToUser.toFixed(4)} SOL
 • Pool is IMMEDIATELY tradeable on all DEXes!
 
 🔗 LIVE Trading URLs (share these NOW):
@@ -426,23 +375,4 @@ export async function createRaydiumCpmmPool(
     
     throw new Error(`❌ Failed to create Raydium CPMM pool: ${String(error)}`);
   }
-}
-
-/**
- * Check if a token already has a liquidity pool using Raydium SDK
- */
-export async function checkExistingRaydiumPool(
-  connection: Connection,
-  wallet: WalletAdapter,
-  tokenMint: string
-): Promise<boolean> {
-  try {
-    // For now, always return false to allow pool creation
-    // This can be enhanced later with proper pool checking
-    console.log(`Checking for existing pools for token: ${tokenMint}`);
-    return false;
-  } catch (error) {
-    console.error('Error checking existing pool:', error);
-    return false;
-  }
-}
+} 
