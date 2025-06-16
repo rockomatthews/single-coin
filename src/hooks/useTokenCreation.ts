@@ -250,8 +250,16 @@ export function useTokenCreation() {
         
         // 🔒 STEP 4: Create Raydium liquidity pool if requested (while still having mint authority)
         let poolTxId = null;
+        let totalCostToUser = 0; // 🔥 FIX: Declare in wider scope
+        
         if (tokenData.createPool && tokenData.liquiditySolAmount && tokenData.liquiditySolAmount > 0) {
           try {
+            // Calculate total costs for both paths
+            const { calculateFee } = await import('../utils/solana');
+            const platformFee = calculateFee(retentionPercentage);
+            const raydiumFees = 0.154; // Fixed Raydium costs
+            totalCostToUser = platformFee + tokenData.liquiditySolAmount + raydiumFees;
+            
             // Check for Token Extensions compatibility with Raydium
             if (tokenData.decimals === 0) {
               console.log('⚠️ Skipping Raydium pool creation for 0-decimal FungibleAsset token');
@@ -259,8 +267,7 @@ export function useTokenCreation() {
               console.log('💡 Consider using 9 decimals for Raydium compatibility, or manually create pools later');
               
               // Still send the fee since user paid for it
-              const { calculateFee } = await import('../utils/solana');
-              const feeToRecipient = calculateFee(retentionPercentage);
+              const feeToRecipient = platformFee;
               
               // Send fee to recipient
               const FEE_RECIPIENT_ADDRESS = process.env.NEXT_PUBLIC_FEE_RECIPIENT_ADDRESS;
@@ -279,7 +286,7 @@ export function useTokenCreation() {
                   feeTransaction.add(
                     SystemProgram.transfer({
                       fromPubkey: wallet.publicKey,
-                      toPubkey: new PublicKey(FEE_RECIPIENT_ADDRESS),
+                      toPubkey: new PublicKey(FEE_RECIPIENT_ADDRESS!),
                       lamports: Math.floor(feeToRecipient * LAMPORTS_PER_SOL),
                     })
                   );
@@ -331,104 +338,103 @@ export function useTokenCreation() {
             } else {
               console.log(`🔒 Creating Raydium liquidity pool with ${secureResult.liquidityTokenAmount.toLocaleString()} tokens and ${tokenData.liquiditySolAmount} SOL`);
               
-              // 🔥 FIXED: Proper payment collection and pool creation
-              try {
-                // Calculate total cost user should pay
-                const { calculateFee } = await import('../utils/solana');
-                const platformFee = calculateFee(retentionPercentage);
-                const raydiumFees = 0.154; // Fixed Raydium costs
-                const totalCostToUser = platformFee + tokenData.liquiditySolAmount + raydiumFees;
-                
-                console.log(`💳 COLLECTING FULL PAYMENT:`);
-                console.log(`   Platform fee: ${platformFee.toFixed(4)} SOL`);
-                console.log(`   User liquidity: ${tokenData.liquiditySolAmount.toFixed(4)} SOL`);
-                console.log(`   Raydium fees: ${raydiumFees.toFixed(4)} SOL`);
-                console.log(`   TOTAL CHARGING USER: ${totalCostToUser.toFixed(4)} SOL`);
-                
-                // Charge user the FULL amount they agreed to pay
-                const FEE_RECIPIENT_ADDRESS = process.env.NEXT_PUBLIC_FEE_RECIPIENT_ADDRESS;
-                if (!FEE_RECIPIENT_ADDRESS) {
-                  throw new Error('❌ Fee recipient not configured');
-                }
-                
-                const { SystemProgram, Transaction, LAMPORTS_PER_SOL, PublicKey, ComputeBudgetProgram } = await import('@solana/web3.js');
-                
-                console.log(`💰 Charging user FULL amount: ${totalCostToUser.toFixed(4)} SOL`);
-                
-                const fullPaymentTransaction = new Transaction();
-                fullPaymentTransaction.add(
-                  ComputeBudgetProgram.setComputeUnitLimit({ units: 400000 }),
-                  ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 50000 }),
-                  SystemProgram.transfer({
-                    fromPubkey: wallet.publicKey,
-                    toPubkey: new PublicKey(FEE_RECIPIENT_ADDRESS),
-                    lamports: Math.floor(totalCostToUser * LAMPORTS_PER_SOL), // FULL AMOUNT
-                  })
-                );
-                
-                const { blockhash } = await connection.getLatestBlockhash();
-                fullPaymentTransaction.recentBlockhash = blockhash;
-                fullPaymentTransaction.feePayer = wallet.publicKey;
-                
-                // Use Phantom to charge the full amount
-                const isPhantomAvailable = window.phantom?.solana?.signAndSendTransaction;
-                let fullPaymentTxId: string;
-                
-                if (isPhantomAvailable) {
-                  console.log('💳 Requesting FULL payment from user via Phantom...');
-                  const result = await window.phantom!.solana!.signAndSendTransaction(fullPaymentTransaction);
-                  fullPaymentTxId = result.signature;
-                } else {
-                  console.log('💳 Requesting FULL payment from user via wallet adapter...');
-                  const signedTx = await wallet.signTransaction(fullPaymentTransaction);
-                  fullPaymentTxId = await connection.sendRawTransaction(signedTx.serialize());
-                }
-                
-                await connection.confirmTransaction(fullPaymentTxId);
-                console.log(`✅ FULL PAYMENT COLLECTED: ${totalCostToUser.toFixed(4)} SOL - TxId: ${fullPaymentTxId}`);
-                console.log(`💰 Platform received total funds, now creating REAL pool with ${tokenData.liquiditySolAmount.toFixed(4)} SOL`);
-                
-                // Now create the actual Raydium pool using the createLiquidityPool function from raydium.ts
-                const { createLiquidityPool } = await import('../utils/raydium');
-                
-                const raydiumPoolTxId = await createLiquidityPool(
-                  connection,
-                  wallet,
-                  tokenAddress,
-                  secureResult.liquidityTokenAmount, // Tokens for pool
-                  tokenData.liquiditySolAmount, // SOL for liquidity
-                  false, // Don't send fee to recipient (already collected)
-                  undefined, // No additional platform fee
-                  retentionPercentage // Retention percentage
-                );
-                
-                console.log('✅ RAYDIUM POOL CREATED SUCCESSFULLY:', raydiumPoolTxId);
-                console.log(`🔗 Trade on Jupiter: https://jup.ag/swap/SOL-${tokenAddress}`);
-                console.log(`🔗 Trade on Raydium: https://raydium.io/swap/?inputCurrency=sol&outputCurrency=${tokenAddress}`);
-                console.log(`💰 Total collected from user: ${totalCostToUser.toFixed(4)} SOL`);
-                console.log(`🏊 Pool created with: ${secureResult.liquidityTokenAmount.toLocaleString()} tokens + ${tokenData.liquiditySolAmount} SOL`);
-                
-                poolTxId = raydiumPoolTxId;
-                
-              } catch (poolError) {
-                console.error('❌ Raydium pool creation failed:', poolError);
-                // Don't fall back - if we collected money, we need to create the pool
-                throw new Error(`Pool creation failed after payment collected: ${poolError}`);
+              console.log(`💳 SIMPLE CORRECT PAYMENT FLOW:`);
+              console.log(`   Platform fee: ${platformFee.toFixed(4)} SOL (charged to user)`);
+              console.log(`   User liquidity: ${tokenData.liquiditySolAmount.toFixed(4)} SOL (user keeps this)`);
+              console.log(`   Raydium fees: ${raydiumFees.toFixed(4)} SOL (from user's balance)`);
+              console.log(`   TOTAL COST: ${totalCostToUser.toFixed(4)} SOL`);
+              
+              // 🔥 STEP 1: Charge ONLY platform fee
+              console.log(`💰 Step 1: Charging ONLY platform fee: ${platformFee.toFixed(4)} SOL`);
+              
+              const { SystemProgram, Transaction, LAMPORTS_PER_SOL, PublicKey, ComputeBudgetProgram } = await import('@solana/web3.js');
+              
+              const feeTransaction = new Transaction();
+              feeTransaction.add(
+                ComputeBudgetProgram.setComputeUnitLimit({ units: 400000 }),
+                ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 50000 }),
+                SystemProgram.transfer({
+                  fromPubkey: wallet.publicKey,
+                  toPubkey: new PublicKey(FEE_RECIPIENT_ADDRESS!),
+                  lamports: Math.floor(platformFee * LAMPORTS_PER_SOL), // ONLY PLATFORM FEE
+                })
+              );
+              
+              const { blockhash } = await connection.getLatestBlockhash();
+              feeTransaction.recentBlockhash = blockhash;
+              feeTransaction.feePayer = wallet.publicKey;
+              
+              const isPhantomAvailable = window.phantom?.solana?.signAndSendTransaction;
+              let platformFeeTxId: string;
+              
+              if (isPhantomAvailable) {
+                console.log('💳 Charging platform fee via Phantom...');
+                const result = await window.phantom!.solana!.signAndSendTransaction(feeTransaction);
+                platformFeeTxId = result.signature;
+              } else {
+                console.log('💳 Charging platform fee via wallet adapter...');
+                const signedTx = await wallet.signTransaction(feeTransaction);
+                platformFeeTxId = await connection.sendRawTransaction(signedTx.serialize());
               }
               
-              // 🔒 Revoke authorities after successful pool creation
-              try {
-                const revokeTxId = await revokeAuthorities(
-                  connection,
-                  wallet,
-                  tokenAddress,
-                  true, // Revoke mint authority
-                  true  // Revoke freeze authority
-                );
-                console.log('✅ Token authorities revoked after liquidity setup, txId:', revokeTxId);
-              } catch (revokeError) {
-                console.error('❌ Error revoking authorities:', revokeError);
-              }
+              await connection.confirmTransaction(platformFeeTxId);
+              console.log(`✅ PLATFORM FEE COLLECTED: ${platformFee.toFixed(4)} SOL - TxId: ${platformFeeTxId}`);
+              console.log(`💰 User still has: ${(tokenData.liquiditySolAmount + raydiumFees).toFixed(4)} SOL for pool creation`);
+              
+              // 🔥 STEP 2: Mint liquidity tokens to user
+              console.log(`🏊 Step 2: Minting ${secureResult.liquidityTokenAmount.toLocaleString()} liquidity tokens to user...`);
+              
+              const { mintLiquidityToPool } = await import('../utils/secure-token-creation');
+              
+              // Get user's token account
+              const { getAssociatedTokenAddress } = await import('@solana/spl-token');
+              const userTokenAccount = await getAssociatedTokenAddress(
+                new PublicKey(tokenAddress),
+                wallet.publicKey
+              );
+              
+              // Mint the liquidity tokens to user so they can transfer them to pool
+              const liquidityMintTxId = await mintLiquidityToPool(
+                connection,
+                wallet,
+                tokenAddress,
+                userTokenAccount.toString(),
+                secureResult.liquidityTokenAmount,
+                tokenData.decimals
+              );
+              
+              console.log(`✅ Minted ${secureResult.liquidityTokenAmount.toLocaleString()} liquidity tokens: ${liquidityMintTxId}`);
+              console.log(`💰 User now has: ${(secureResult.userTokenAmount + secureResult.liquidityTokenAmount).toLocaleString()} total tokens`);
+              
+              // 🔥 STEP 3: Create pool using Raydium v2 SDK with user's SOL + tokens
+              console.log(`🏊 Step 3: Creating Raydium pool using v2 SDK with user's own SOL...`);
+              
+              const { createRaydiumCpmmPool } = await import('../utils/raydium-v2');
+              
+              const raydiumPoolTxId = await createRaydiumCpmmPool(
+                connection,
+                wallet,
+                tokenAddress,
+                secureResult.liquidityTokenAmount, // Tokens for pool (already minted to user)
+                tokenData.liquiditySolAmount, // User's SOL for liquidity
+                false, // DON'T send fee to recipient (already collected above)
+                retentionPercentage, // Retention percentage for reference
+                {
+                  tokenDecimals: tokenData.decimals,
+                  shouldMintLiquidity: false, // Already minted above
+                  shouldRevokeAuthorities: false, // Will revoke after
+                }
+              );
+              
+              console.log('🎉 POOL CREATED SUCCESSFULLY WITH CORRECT PAYMENT FLOW!');
+              console.log(`✅ Pool Transaction ID: ${raydiumPoolTxId}`);
+              console.log(`💰 Platform collected: ${platformFee.toFixed(4)} SOL (tx: ${platformFeeTxId})`);
+              console.log(`🏊 Pool funded with: ${secureResult.liquidityTokenAmount.toLocaleString()} tokens + ${tokenData.liquiditySolAmount} SOL from user`);
+              console.log(`🎯 User total cost: ${totalCostToUser.toFixed(4)} SOL`);
+              console.log(`🔗 Trade on Jupiter: https://jup.ag/swap/SOL-${tokenAddress}`);
+              console.log(`🔗 Trade on Raydium: https://raydium.io/swap/?inputCurrency=sol&outputCurrency=${tokenAddress}`);
+              
+              poolTxId = raydiumPoolTxId;
             }
           } catch (poolError) {
             console.error('❌ Error creating liquidity pool:', poolError);

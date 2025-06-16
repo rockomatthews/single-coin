@@ -236,9 +236,11 @@ export async function createRaydiumCpmmPoolFIXED(
         
         console.log(`✅ Minted ${liquidityTokenAmount.toLocaleString()} tokens to user: ${mintTxId}`);
         
-        // Update balance after minting
-        userTokenBalance += liquidityTokenAmount;
-        console.log(`✅ User now has: ${userTokenBalance.toLocaleString()} tokens total`);
+        // 🔥 FIX: Update balance using proper units conversion
+        const liquidityTokensInRawUnits = liquidityTokenAmount * Math.pow(10, mintA.decimals);
+        userTokenBalance += liquidityTokensInRawUnits;
+        console.log(`✅ User now has: ${userTokenBalance.toLocaleString()} tokens total (raw units)`);
+        console.log(`   That's ${(userTokenBalance / Math.pow(10, mintA.decimals)).toLocaleString()} tokens (human readable)`);
         
       } catch (mintError) {
         console.error('❌ Error minting liquidity tokens:', mintError);

@@ -273,8 +273,8 @@ export async function createRaydiumCpmmPool(
     // 🔥 STEP 4: Mint the FULL liquidity amount to user temporarily
     // (Raydium SDK requires user to have tokens before transferring to pool)
     console.log('🔒 SECURE WORKFLOW: Minting liquidity tokens to user for pool creation');
-    console.log(`💰 User has: ${userTokenBalance.toLocaleString()} tokens (retention)`);
-    console.log(`🏊 Minting: ${liquidityTokenAmount.toLocaleString()} tokens (for pool)`);
+    console.log(`💰 User has: ${userTokenBalance.toLocaleString()} tokens (retention) - raw units`);
+    console.log(`🏊 Minting: ${liquidityTokenAmount.toLocaleString()} tokens (for pool) - human units`);
     
     if (secureTokenCreation?.shouldMintLiquidity) {
       try {
@@ -289,9 +289,11 @@ export async function createRaydiumCpmmPool(
         
         console.log(`✅ Minted ${liquidityTokenAmount.toLocaleString()} tokens to user: ${mintTxId}`);
         
-        // Update balance after minting
-        userTokenBalance += liquidityTokenAmount;
-        console.log(`✅ User now has: ${userTokenBalance.toLocaleString()} tokens total`);
+        // 🔥 FIX: Update balance using proper units conversion
+        const liquidityTokensInRawUnits = liquidityTokenAmount * Math.pow(10, mintA.decimals);
+        userTokenBalance += liquidityTokensInRawUnits;
+        console.log(`✅ User now has: ${userTokenBalance.toLocaleString()} tokens total (raw units)`);
+        console.log(`   That's ${(userTokenBalance / Math.pow(10, mintA.decimals)).toLocaleString()} tokens (human readable)`);
         
       } catch (mintError) {
         console.error('❌ Error minting liquidity tokens:', mintError);
@@ -303,6 +305,11 @@ export async function createRaydiumCpmmPool(
     
     // 🔥 STEP 5: NOW check if user has enough tokens for liquidity (after minting)
     const liquidityTokensRequired = liquidityTokenAmount * Math.pow(10, mintA.decimals);
+    console.log(`🔍 Token balance check:`);
+    console.log(`   User has: ${userTokenBalance.toLocaleString()} (raw units)`);
+    console.log(`   Required: ${liquidityTokensRequired.toLocaleString()} (raw units)`);
+    console.log(`   Human readable - Has: ${(userTokenBalance / Math.pow(10, mintA.decimals)).toLocaleString()}, Need: ${liquidityTokenAmount.toLocaleString()}`);
+    
     if (userTokenBalance < liquidityTokensRequired) {
       throw new Error(`❌ Insufficient token balance after minting. Have: ${userTokenBalance}, Need: ${liquidityTokensRequired}`);
     }
