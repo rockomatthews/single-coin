@@ -171,53 +171,12 @@ export async function createRaydiumCpmmPool(
     console.log(`   Raydium fees: ${raydiumFees.toFixed(4)} SOL (from user's balance for pool creation)`);
     console.log(`   TOTAL USER PAYS: ${(platformFee + userLiquiditySol + raydiumFees).toFixed(4)} SOL`);
     
-    // 🔥 STEP 1: Charge user ONLY the platform fee to fee recipient
-    const FEE_RECIPIENT_ADDRESS = process.env.NEXT_PUBLIC_FEE_RECIPIENT_ADDRESS;
-    if (!FEE_RECIPIENT_ADDRESS) {
-      throw new Error('❌ Fee recipient not configured');
-    }
-    
-    if (sendFeeToFeeRecipient && platformFee > 0) {
-      console.log(`💰 Collecting liquidity + Raydium fees: ${(userLiquiditySol + raydiumFees).toFixed(4)} SOL`);
-      console.log(`🎯 Platform fee already collected separately by main application`);
-      
-      const liquidityFeeTransaction = new Transaction();
-      liquidityFeeTransaction.add(
-        ComputeBudgetProgram.setComputeUnitLimit({ units: 400000 }),
-        ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 50000 }),
-        SystemProgram.transfer({
-          fromPubkey: wallet.publicKey,
-          toPubkey: new PublicKey(FEE_RECIPIENT_ADDRESS),
-          lamports: Math.floor((userLiquiditySol + raydiumFees) * LAMPORTS_PER_SOL), // LIQUIDITY + RAYDIUM FEES ONLY!
-        })
-      );
-      
-      const { blockhash } = await connection.getLatestBlockhash();
-      liquidityFeeTransaction.recentBlockhash = blockhash;
-      liquidityFeeTransaction.feePayer = wallet.publicKey;
-      
-      // Use Phantom to collect the liquidity payment
-      const isPhantomAvailable = window.phantom?.solana?.signAndSendTransaction;
-      let liquidityPaymentTxId: string;
-      
-      if (isPhantomAvailable) {
-        console.log('💳 Collecting liquidity payment via Phantom...');
-        const result = await window.phantom!.solana!.signAndSendTransaction(liquidityFeeTransaction);
-        liquidityPaymentTxId = result.signature;
-      } else {
-        console.log('💳 Collecting liquidity payment via wallet adapter...');
-        const signedTx = await wallet.signTransaction(liquidityFeeTransaction);
-        liquidityPaymentTxId = await connection.sendRawTransaction(signedTx.serialize());
-      }
-      
-      await connection.confirmTransaction(liquidityPaymentTxId);
-      console.log(`✅ LIQUIDITY PAYMENT COLLECTED: ${(userLiquiditySol + raydiumFees).toFixed(4)} SOL - TxId: ${liquidityPaymentTxId}`);
-      console.log(`🏊 Now we have REAL funds to create the pool!`);
-    } else {
-      console.log(`💰 SKIPPING fee collection - payment already secured by main application`);
-      console.log(`🎯 Full payment of ${(platformFee + userLiquiditySol + raydiumFees).toFixed(4)} SOL was collected upfront`);
-      console.log(`🏊 Proceeding with pool creation using collected funds...`);
-    }
+    // 🔥 NO FEE COLLECTION HERE - Platform fee already collected separately!
+    // The user keeps their SOL for actual pool creation
+    console.log(`💰 PLATFORM FEE ALREADY COLLECTED SEPARATELY`);
+    console.log(`🎯 User keeps their ${userLiquiditySol.toFixed(4)} SOL + ${raydiumFees.toFixed(4)} SOL for actual pool creation`);
+    console.log(`🏊 Proceeding with pool creation using user's remaining SOL balance...`);
+    console.log(`🚀 NO MORE MONEY GOES TO FEE RECIPIENT - USER SOL GOES TO ACTUAL POOL!`);
 
     // Initialize Raydium SDK
     const raydium = await initRaydiumSDK(connection, wallet);
