@@ -390,8 +390,8 @@ export function useTokenCreation() {
                 wallet,
                 tokenAddress,
                 secureResult.liquidityTokenAmount, // Tokens for pool
-                tokenData.liquiditySolAmount, // User's SOL for liquidity (they already paid for this)
-                false, // DON'T collect fee again - we already collected full payment above
+                tokenData.liquiditySolAmount, // User's SOL for liquidity - THEY NEED TO PAY THIS!
+                true, // 🔥 FIX: Let Raydium charge user the liquidity + fees (we only collected platform fee)
                 retentionPercentage, // Retention percentage for reference
                 {
                   tokenDecimals: tokenData.decimals,
