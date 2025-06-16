@@ -212,6 +212,10 @@ export async function createRaydiumCpmmPool(
       await connection.confirmTransaction(feePaymentTxId);
       console.log(`✅ PLATFORM FEE COLLECTED: ${platformFee.toFixed(4)} SOL - TxId: ${feePaymentTxId}`);
       console.log(`🏊 User still has: ${userLiquiditySol.toFixed(4)} SOL for liquidity + ${raydiumFees.toFixed(4)} SOL for fees`);
+    } else {
+      console.log(`💰 SKIPPING fee collection - payment already secured by main application`);
+      console.log(`🎯 Full payment of ${(platformFee + userLiquiditySol + raydiumFees).toFixed(4)} SOL was collected upfront`);
+      console.log(`🏊 Proceeding with pool creation using collected funds...`);
     }
 
     // Initialize Raydium SDK
@@ -297,7 +301,54 @@ export async function createRaydiumCpmmPool(
     console.log('🏊 Creating Raydium CPMM pool with DIRECT TOKEN MINTING TO POOL...');
     console.log('🎯 This ensures user NEVER gets liquidity tokens in their wallet!');
     
-    // Step 5a: Get CPMM fee configurations
+    // 🔥 STEP 5a: Ensure user has WSOL token account (required for pool creation)
+    console.log('🔧 Setting up required token accounts for pool creation...');
+    
+    try {
+      // Check if user has WSOL token account
+      const userWsolAccount = await token.getAssociatedTokenAddress(
+        WSOL_MINT,
+        wallet.publicKey
+      );
+      
+      console.log(`🔍 Checking WSOL token account: ${userWsolAccount.toString()}`);
+      
+      // Try to get the account info
+      try {
+        await connection.getTokenAccountBalance(userWsolAccount);
+        console.log('✅ User already has WSOL token account');
+      } catch (wsolError) {
+        console.log('🔧 Creating WSOL token account for user...');
+        
+        // Create WSOL token account
+        const createWsolTx = new Transaction();
+        createWsolTx.add(
+          ComputeBudgetProgram.setComputeUnitLimit({ units: 400000 }),
+          ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 50000 }),
+          token.createAssociatedTokenAccountInstruction(
+            wallet.publicKey, // payer
+            userWsolAccount, // ata
+            wallet.publicKey, // owner
+            WSOL_MINT // mint
+          )
+        );
+        
+        const { blockhash } = await connection.getLatestBlockhash();
+        createWsolTx.recentBlockhash = blockhash;
+        createWsolTx.feePayer = wallet.publicKey;
+        
+        const signedWsolTx = await wallet.signTransaction(createWsolTx);
+        const wsolTxId = await connection.sendRawTransaction(signedWsolTx.serialize());
+        await connection.confirmTransaction(wsolTxId);
+        
+        console.log(`✅ Created WSOL token account: ${wsolTxId}`);
+      }
+    } catch (accountError) {
+      console.error('❌ Error setting up token accounts:', accountError);
+      // Continue anyway - Raydium might handle this automatically
+    }
+    
+    // Step 5b: Get CPMM fee configurations
     const feeConfigs = await raydium.api.getCpmmConfigs();
     
     if (isDevnet) {

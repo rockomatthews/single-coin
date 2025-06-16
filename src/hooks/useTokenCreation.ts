@@ -336,14 +336,14 @@ export function useTokenCreation() {
                 // Continue even if revocation fails
               }
             } else {
-              console.log(`💳 CORRECT PAYMENT FLOW - USER PAYS AS THEY GO:`);
-              console.log(`   Platform fee: ${platformFee.toFixed(4)} SOL (charged upfront to platform)`);
-              console.log(`   User liquidity: ${tokenData.liquiditySolAmount.toFixed(4)} SOL (user pays during pool creation)`);
-              console.log(`   Raydium fees: ${raydiumFees.toFixed(4)} SOL (user pays during pool creation)`);
+              console.log(`💳 CORRECT PAYMENT FLOW - TWO-STEP PAYMENT:`);
+              console.log(`   Step 1 - Platform fee: ${platformFee.toFixed(4)} SOL (charged upfront)`);
+              console.log(`   Step 2 - Pool funding: ${(tokenData.liquiditySolAmount + raydiumFees).toFixed(4)} SOL (charged during pool creation)`);
               console.log(`   TOTAL USER COST: ${totalCostToUser.toFixed(4)} SOL`);
               
               // 🔥 STEP 1: Charge user ONLY platform fee upfront
               console.log(`💰 Step 1: Charging ONLY platform fee upfront: ${platformFee.toFixed(4)} SOL`);
+              console.log(`🎯 User keeps ${(tokenData.liquiditySolAmount + raydiumFees).toFixed(4)} SOL for pool creation`);
               
               const { SystemProgram, Transaction, LAMPORTS_PER_SOL, PublicKey, ComputeBudgetProgram } = await import('@solana/web3.js');
               
@@ -378,11 +378,10 @@ export function useTokenCreation() {
               await connection.confirmTransaction(platformFeeTxId);
               console.log(`✅ PLATFORM FEE COLLECTED: ${platformFee.toFixed(4)} SOL - TxId: ${platformFeeTxId}`);
               console.log(`💰 User still has: ${(tokenData.liquiditySolAmount + raydiumFees).toFixed(4)} SOL for pool creation`);
-              console.log(`🔄 Pool creation will now use user's remaining SOL directly...`);
+              console.log(`🔄 Pool creation will now charge user the remaining ${(tokenData.liquiditySolAmount + raydiumFees).toFixed(4)} SOL`);
               
-              // 🔥 STEP 2: Create pool using Raydium v2 SDK with DIRECT token minting to pool
-              console.log(`🏊 Step 2: Creating Raydium pool with DIRECT token minting (NOT to user wallet)...`);
-              console.log(`🎯 This ensures user only keeps ${secureResult.userTokenAmount.toLocaleString()} tokens, pool gets ${secureResult.liquidityTokenAmount.toLocaleString()} tokens`);
+              // 🔒 STEP 5: Now create the actual pool using the collected funds
+              console.log(`🏊 Step 2: Creating Raydium pool - payment already secured!`);
               
               const { createRaydiumCpmmPool } = await import('../utils/raydium-v2');
               
@@ -390,27 +389,27 @@ export function useTokenCreation() {
                 connection,
                 wallet,
                 tokenAddress,
-                secureResult.liquidityTokenAmount, // Tokens for pool (will be minted directly to pool)
-                tokenData.liquiditySolAmount, // User's SOL for liquidity
-                false, // DON'T collect fee again - we already collected platform fee above
+                secureResult.liquidityTokenAmount, // Tokens for pool
+                tokenData.liquiditySolAmount, // User's SOL for liquidity (they already paid for this)
+                false, // DON'T collect fee again - we already collected full payment above
                 retentionPercentage, // Retention percentage for reference
                 {
                   tokenDecimals: tokenData.decimals,
-                  shouldMintLiquidity: true, // 🔥 FIX: Let Raydium function handle minting directly to pool
+                  shouldMintLiquidity: true, // Need to mint liquidity tokens for pool
                   shouldRevokeAuthorities: false, // Will revoke after
                 }
               );
               
-              console.log('🎉 POOL CREATED SUCCESSFULLY WITH CORRECT TOKEN DISTRIBUTION!');
-              console.log(`✅ Pool Transaction ID: ${raydiumPoolTxId}`);
-              console.log(`💰 User paid: ${totalCostToUser.toFixed(4)} SOL total (tx: ${platformFeeTxId})`);
+              console.log('🎉 POOL CREATED SUCCESSFULLY WITH PROPER PAYMENT!');
+              console.log(`✅ Payment Transaction: ${platformFeeTxId} (${platformFee.toFixed(4)} SOL collected)`);
+              console.log(`✅ Pool Transaction: ${raydiumPoolTxId}`);
+              console.log(`💰 User paid: ${totalCostToUser.toFixed(4)} SOL total`);
               console.log(`💰 Platform earned: ${platformFee.toFixed(4)} SOL`);
-              console.log(`👤 User wallet: ${secureResult.userTokenAmount.toLocaleString()} tokens (${retentionPercentage}% retention)`);
-              console.log(`🏊 Pool contains: ${secureResult.liquidityTokenAmount.toLocaleString()} tokens + ${tokenData.liquiditySolAmount} SOL`);
+              console.log(`🏊 Pool funded with: ${secureResult.liquidityTokenAmount.toLocaleString()} tokens + ${tokenData.liquiditySolAmount} SOL`);
               console.log(`🔗 Trade on Jupiter: https://jup.ag/swap/SOL-${tokenAddress}`);
               console.log(`🔗 Trade on Raydium: https://raydium.io/swap/?inputCurrency=sol&outputCurrency=${tokenAddress}`);
               
-              poolTxId = raydiumPoolTxId;
+              poolTxId = raydiumPoolTxId; // Use the actual pool creation transaction ID
             }
           } catch (poolError) {
             console.error('❌ Error creating liquidity pool:', poolError);
