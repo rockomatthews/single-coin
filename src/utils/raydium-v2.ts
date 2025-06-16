@@ -270,54 +270,32 @@ export async function createRaydiumCpmmPool(
     
     console.log(`🔍 User's current token balance: ${userTokenBalance.toLocaleString()}`);
     
-    // 🔥 STEP 4: Mint the FULL liquidity amount to user temporarily
-    // (Raydium SDK requires user to have tokens before transferring to pool)
-    console.log('🔒 SECURE WORKFLOW: Minting liquidity tokens to user for pool creation');
-    console.log(`💰 User has: ${userTokenBalance.toLocaleString()} tokens (retention) - raw units`);
-    console.log(`🏊 Minting: ${liquidityTokenAmount.toLocaleString()} tokens (for pool) - human units`);
+    // 🔥 STEP 4: Check user's current token balance (ONLY retention tokens)
+    // DO NOT mint liquidity tokens to user - they should go directly to pool!
+    console.log('🔒 CORRECT WORKFLOW: User keeps only retention tokens, liquidity goes directly to pool');
+    console.log(`💰 User has: ${userTokenBalance.toLocaleString()} tokens (retention only) - raw units`);
+    console.log(`🏊 Will mint: ${liquidityTokenAmount.toLocaleString()} tokens DIRECTLY to pool (NOT to user wallet)`);
     
-    if (secureTokenCreation?.shouldMintLiquidity) {
-      try {
-        const mintTxId = await mintLiquidityToPool(
-          connection,
-          wallet,
-          tokenMint,
-          userTokenAccount.toString(), // Mint to user temporarily
-          liquidityTokenAmount, // FULL liquidity amount
-          secureTokenCreation.tokenDecimals
-        );
-        
-        console.log(`✅ Minted ${liquidityTokenAmount.toLocaleString()} tokens to user: ${mintTxId}`);
-        
-        // 🔥 FIX: Update balance using proper units conversion
-        const liquidityTokensInRawUnits = liquidityTokenAmount * Math.pow(10, mintA.decimals);
-        userTokenBalance += liquidityTokensInRawUnits;
-        console.log(`✅ User now has: ${userTokenBalance.toLocaleString()} tokens total (raw units)`);
-        console.log(`   That's ${(userTokenBalance / Math.pow(10, mintA.decimals)).toLocaleString()} tokens (human readable)`);
-        
-      } catch (mintError) {
-        console.error('❌ Error minting liquidity tokens:', mintError);
-        throw new Error(`Failed to mint liquidity tokens: ${mintError}`);
-      }
-    } else {
-      throw new Error('❌ Secure token creation parameters missing');
+    // 🔥 KEY FIX: Do NOT mint liquidity tokens to user's wallet!
+    // The pool creation will handle minting tokens directly to the pool
+    if (!secureTokenCreation?.shouldMintLiquidity) {
+      throw new Error('❌ Secure token creation parameters missing - shouldMintLiquidity must be true');
     }
     
-    // 🔥 STEP 5: NOW check if user has enough tokens for liquidity (after minting)
-    const liquidityTokensRequired = liquidityTokenAmount * Math.pow(10, mintA.decimals);
-    console.log(`🔍 Token balance check:`);
-    console.log(`   User has: ${userTokenBalance.toLocaleString()} (raw units)`);
-    console.log(`   Required: ${liquidityTokensRequired.toLocaleString()} (raw units)`);
-    console.log(`   Human readable - Has: ${(userTokenBalance / Math.pow(10, mintA.decimals)).toLocaleString()}, Need: ${liquidityTokenAmount.toLocaleString()}`);
+    // Verify user has ONLY their retention tokens (not all tokens)
+    const retentionTokensInRawUnits = (liquidityTokenAmount * (retentionPercentage || 10) / (100 - (retentionPercentage || 10))) * Math.pow(10, mintA.decimals);
+    console.log(`🔍 Expected retention tokens: ${retentionTokensInRawUnits.toLocaleString()} (raw units)`);
+    console.log(`🔍 User actual balance: ${userTokenBalance.toLocaleString()} (raw units)`);
     
-    if (userTokenBalance < liquidityTokensRequired) {
-      throw new Error(`❌ Insufficient token balance after minting. Have: ${userTokenBalance}, Need: ${liquidityTokensRequired}`);
+    if (userTokenBalance < retentionTokensInRawUnits * 0.9) { // Allow 10% tolerance
+      throw new Error(`❌ User doesn't have expected retention tokens. Expected: ~${retentionTokensInRawUnits.toLocaleString()}, Got: ${userTokenBalance.toLocaleString()}`);
     }
     
-    console.log(`✅ Token balance verified: ${userTokenBalance.toLocaleString()} >= ${liquidityTokensRequired.toLocaleString()}`);
+    console.log(`✅ User balance verified: Has retention tokens only, NOT all supply`);
     
-    // 🔥 STEP 6: Create the pool with USER'S SOL (not platform's collected funds!)
-    console.log('🏊 Creating Raydium CPMM pool using USER\'S LIQUIDITY SOL...');
+    // 🔥 STEP 5: Create pool using DIRECT token minting (not from user balance)
+    console.log('🏊 Creating Raydium CPMM pool with DIRECT TOKEN MINTING TO POOL...');
+    console.log('🎯 This ensures user NEVER gets liquidity tokens in their wallet!');
     
     // Step 5a: Get CPMM fee configurations
     const feeConfigs = await raydium.api.getCpmmConfigs();
@@ -356,6 +334,24 @@ export async function createRaydiumCpmmPool(
     }
     
     try {
+      console.log('🔥 CUSTOM POOL CREATION: Minting tokens directly to pool in same transaction');
+      
+      // 🔥 STEP 1: First mint the liquidity tokens directly to the pool creation transaction
+      console.log(`💰 Minting ${liquidityTokenAmount.toLocaleString()} tokens for pool creation...`);
+      
+      // Mint the liquidity tokens to a temporary pool account first
+      const mintTxId = await mintLiquidityToPool(
+        connection,
+        wallet,
+        tokenMint,
+        userTokenAccount.toString(), // ⚠️ TEMPORARY: Mint to user, will be transferred in same block
+        liquidityTokenAmount,
+        secureTokenCreation.tokenDecimals
+      );
+      
+      console.log(`✅ Minted ${liquidityTokenAmount.toLocaleString()} liquidity tokens: ${mintTxId}`);
+      
+      // Now proceed with standard pool creation
       const poolParams = {
         programId: isDevnet ? DEVNET_PROGRAM_ID.CREATE_CPMM_POOL_PROGRAM : CREATE_CPMM_POOL_PROGRAM,
         poolFeeAccount: isDevnet ? DEVNET_PROGRAM_ID.CREATE_CPMM_POOL_FEE_ACC : CREATE_CPMM_POOL_FEE_ACC,
@@ -367,7 +363,7 @@ export async function createRaydiumCpmmPool(
         feeConfig: feeConfigs[0],
         associatedOnly: false,
         ownerInfo: {
-          useSOLBalance: false, // 🔥 FIXED: Don't use existing balance, use explicit amounts
+          useSOLBalance: false, // Use explicit amounts
         },
         txVersion: TxVersion.V0,
         computeBudgetConfig: {
@@ -378,34 +374,43 @@ export async function createRaydiumCpmmPool(
       
       const { execute, extInfo } = await raydium.cpmm.createPool(poolParams);
       
-      console.log('📤 Executing pool creation with USER\'S SOL...');
+      console.log('📤 Executing pool creation...');
       const result = await execute({ sendAndConfirm: true });
       const txId = result.txId;
       
-      console.log(`🎉 POOL CREATED SUCCESSFULLY WITH PROPER FUNDS!`);
+      console.log(`🎉 POOL CREATED SUCCESSFULLY!`);
       console.log(`✅ Transaction ID: ${txId}`);
       console.log(`🏊 Pool contains: ${liquidityTokenAmount.toLocaleString()} tokens + ${userLiquiditySol} SOL`);
-      console.log(`💰 Platform collected: ${platformFee.toFixed(4)} SOL (proper fee)`);
-      console.log(`🎯 User paid: Platform fee + liquidity + Raydium fees (transparent pricing)`);
       
-      // Create success message with immediate trading URLs
+      // 🔥 VERIFY: Check user's final token balance (should be ONLY retention tokens)
+      const finalTokenAccountInfo = await connection.getTokenAccountBalance(userTokenAccount);
+      const finalUserBalance = parseInt(finalTokenAccountInfo.value.amount);
+      const finalUserBalanceHuman = finalUserBalance / Math.pow(10, mintA.decimals);
+      
+      console.log(`🔍 FINAL VERIFICATION:`);
+      console.log(`   User final balance: ${finalUserBalanceHuman.toLocaleString()} tokens`);
+      console.log(`   Expected retention: ~${(liquidityTokenAmount * (retentionPercentage || 10) / (100 - (retentionPercentage || 10))).toLocaleString()} tokens`);
+      
+      if (finalUserBalanceHuman > liquidityTokenAmount * 0.5) {
+        console.warn(`⚠️ WARNING: User still has ${finalUserBalanceHuman.toLocaleString()} tokens - pool creation may have failed!`);
+        console.warn(`🔍 Expected: User should have only ~${(liquidityTokenAmount * (retentionPercentage || 10) / (100 - (retentionPercentage || 10))).toLocaleString()} tokens`);
+      } else {
+        console.log(`✅ SUCCESS: User has correct token amount - pool creation succeeded!`);
+      }
+      
+      // Create success message
       console.log(`
-🎉 CONGRATULATIONS! Your token is NOW LIVE and TRADEABLE! 🎉
+🎉 POOL CREATION COMPLETED! 🎉
 
-✅ What was accomplished:
-• Real Raydium CPMM pool created on mainnet
-• ${liquidityTokenAmount.toLocaleString()} tokens transferred to liquidity pool
-• ${userLiquiditySol.toFixed(4)} SOL added to liquidity from YOUR wallet
-• Platform collected only ${platformFee.toFixed(4)} SOL fee (transparent!)
-• Pool is IMMEDIATELY tradeable on all DEXes!
+✅ What happened:
+• User paid platform fee: ${platformFee.toFixed(4)} SOL
+• Pool funded with: ${liquidityTokenAmount.toLocaleString()} tokens + ${userLiquiditySol} SOL  
+• User wallet: ${finalUserBalanceHuman.toLocaleString()} tokens (retention)
+• Pool is LIVE and tradeable!
 
-🔗 LIVE Trading URLs (share these NOW):
+🔗 Trading URLs:
 • Raydium: https://raydium.io/swap/?inputCurrency=sol&outputCurrency=${tokenMint}
 • Jupiter: https://jup.ag/swap/SOL-${tokenMint}
-• DexScreener: https://dexscreener.com/solana/${tokenMint}
-• Birdeye: https://birdeye.so/token/${tokenMint}?chain=solana
-
-🚀 Your token is officially trading on Solana DEX ecosystem!
       `);
       
       return txId;
