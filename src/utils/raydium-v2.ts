@@ -174,7 +174,7 @@ export async function createRaydiumCpmmPool(
     // 🔥 NO FEE COLLECTION HERE - Platform fee already collected separately!
     // The user keeps their SOL for actual pool creation
     console.log(`💰 PLATFORM FEE ALREADY COLLECTED SEPARATELY`);
-    console.log(`🎯 User keeps their ${userLiquiditySol.toFixed(4)} SOL + ${raydiumFees.toFixed(4)} SOL for actual pool creation`);
+    console.log(`🎯 User keeps their ${userLiquiditySol.toLocaleString()} SOL + ${raydiumFees.toFixed(4)} SOL for actual pool creation`);
     console.log(`🏊 Proceeding with pool creation using user's remaining SOL balance...`);
     console.log(`🚀 NO MORE MONEY GOES TO FEE RECIPIENT - USER SOL GOES TO ACTUAL POOL!`);
 
@@ -345,24 +345,10 @@ export async function createRaydiumCpmmPool(
     }
     
     try {
-      console.log('🔥 CUSTOM POOL CREATION: Minting tokens directly to pool in same transaction');
+      // 🔥 COMPLETELY NEW APPROACH: Let Raydium SDK handle everything!
+      console.log('🚀 REAL POOL CREATION: Using Raydium SDK properly with actual user SOL');
       
-      // 🔥 STEP 1: First mint the liquidity tokens directly to the pool creation transaction
-      console.log(`💰 Minting ${liquidityTokenAmount.toLocaleString()} tokens for pool creation...`);
-      
-      // Mint the liquidity tokens to a temporary pool account first
-      const mintTxId = await mintLiquidityToPool(
-        connection,
-        wallet,
-        tokenMint,
-        userTokenAccount.toString(), // ⚠️ TEMPORARY: Mint to user, will be transferred in same block
-        liquidityTokenAmount,
-        secureTokenCreation.tokenDecimals
-      );
-      
-      console.log(`✅ Minted ${liquidityTokenAmount.toLocaleString()} liquidity tokens: ${mintTxId}`);
-      
-      // Now proceed with standard pool creation
+      // Create pool parameters with user's ACTUAL tokens and SOL
       const poolParams = {
         programId: isDevnet ? DEVNET_PROGRAM_ID.CREATE_CPMM_POOL_PROGRAM : CREATE_CPMM_POOL_PROGRAM,
         poolFeeAccount: isDevnet ? DEVNET_PROGRAM_ID.CREATE_CPMM_POOL_FEE_ACC : CREATE_CPMM_POOL_FEE_ACC,
@@ -374,7 +360,7 @@ export async function createRaydiumCpmmPool(
         feeConfig: feeConfigs[0],
         associatedOnly: false,
         ownerInfo: {
-          useSOLBalance: false, // Use explicit amounts
+          useSOLBalance: true, // Use user's actual SOL balance
         },
         txVersion: TxVersion.V0,
         computeBudgetConfig: {
@@ -383,17 +369,44 @@ export async function createRaydiumCpmmPool(
         },
       };
       
-      const { execute, extInfo } = await raydium.cpmm.createPool(poolParams);
+      console.log('🎯 Pool parameters:', {
+        tokenAmount: finalTokenAmount.toString(),
+        solAmount: finalSolAmount.toString(),
+        useSOLBalance: true,
+      });
       
-      console.log('📤 Executing pool creation...');
-      const result = await execute({ sendAndConfirm: true });
+      // 💰 FIRST: Mint liquidity tokens to user (Raydium will transfer them to pool)
+      console.log(`💰 Minting ${liquidityTokenAmount.toLocaleString()} tokens to user for pool transfer...`);
+      
+      const mintTxId = await mintLiquidityToPool(
+        connection,
+        wallet,
+        tokenMint,
+        userTokenAccount.toString(),
+        liquidityTokenAmount,
+        secureTokenCreation.tokenDecimals
+      );
+      
+      console.log(`✅ Minted tokens for pool transfer: ${mintTxId}`);
+      console.log(`📊 User now has ALL tokens temporarily - Raydium will move them to pool`);
+      
+      // 🏊 NOW: Create pool (this should transfer tokens + SOL to pool)
+      const { execute } = await raydium.cpmm.createPool(poolParams);
+      
+      console.log('📤 Executing pool creation - this MUST use user SOL and transfer tokens!');
+      
+      const result = await execute({ 
+        sendAndConfirm: true,
+        skipPreflight: false
+      });
+      
       const txId = result.txId;
       
       console.log(`🎉 POOL CREATED SUCCESSFULLY!`);
       console.log(`✅ Transaction ID: ${txId}`);
-      console.log(`🏊 Pool contains: ${liquidityTokenAmount.toLocaleString()} tokens + ${userLiquiditySol} SOL`);
+      console.log(`🏊 Pool should contain: ${liquidityTokenAmount.toLocaleString()} tokens + ${userLiquiditySol} SOL`);
       
-      // 🔥 VERIFY: Check user's final token balance (should be ONLY retention tokens)
+      // 🔥 CRITICAL VERIFICATION: Check if pool creation actually worked
       const finalTokenAccountInfo = await connection.getTokenAccountBalance(userTokenAccount);
       const finalUserBalance = parseInt(finalTokenAccountInfo.value.amount);
       const finalUserBalanceHuman = finalUserBalance / Math.pow(10, mintA.decimals);
@@ -405,29 +418,17 @@ export async function createRaydiumCpmmPool(
       if (finalUserBalanceHuman > liquidityTokenAmount * 0.5) {
         console.warn(`⚠️ WARNING: User still has ${finalUserBalanceHuman.toLocaleString()} tokens - pool creation may have failed!`);
         console.warn(`🔍 Expected: User should have only ~${(liquidityTokenAmount * (retentionPercentage || 10) / (100 - (retentionPercentage || 10))).toLocaleString()} tokens`);
+        
+        // If pool creation didn't work, this is a CRITICAL FAILURE
+        throw new Error(`POOL CREATION FAILED: User still has all tokens. Pool was not funded properly.`);
       } else {
-        console.log(`✅ SUCCESS: User has correct token amount - pool creation succeeded!`);
+        console.log(`✅ SUCCESS: User has correct token amount - pool creation worked!`);
       }
-      
-      // Create success message
-      console.log(`
-🎉 POOL CREATION COMPLETED! 🎉
-
-✅ What happened:
-• User paid platform fee: ${platformFee.toFixed(4)} SOL
-• Pool funded with: ${liquidityTokenAmount.toLocaleString()} tokens + ${userLiquiditySol} SOL  
-• User wallet: ${finalUserBalanceHuman.toLocaleString()} tokens (retention)
-• Pool is LIVE and tradeable!
-
-🔗 Trading URLs:
-• Raydium: https://raydium.io/swap/?inputCurrency=sol&outputCurrency=${tokenMint}
-• Jupiter: https://jup.ag/swap/SOL-${tokenMint}
-      `);
       
       return txId;
       
     } catch (poolCreationError) {
-      console.error('❌ Error during pool creation:', poolCreationError);
+      console.error('❌ Pool creation completely failed:', poolCreationError);
       throw new Error(`Pool creation failed: ${poolCreationError}`);
     }
     
