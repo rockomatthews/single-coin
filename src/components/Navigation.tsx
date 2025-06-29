@@ -21,7 +21,7 @@ export const Navigation = () => {
             <Link href="/" style={{ display: 'flex', alignItems: 'center' }}>
               <Image 
                 src="/images/logo.png" 
-                alt="Coinbull Logo" 
+                alt="Redbull Coins Logo" 
                 width={100}
                 height={100}
                 style={{ marginRight: '10px' }}
@@ -36,7 +36,7 @@ export const Navigation = () => {
                   fontFamily: '"Nitro Chargers", Arial, sans-serif'
                 }}
               >
-                COIN BULL
+                REDBULL COINS
               </Typography>
             </Link>
           </Box>

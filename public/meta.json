@@ -1,5 +1,5 @@
 {
-  "name": "Coinbull",
+  "name": "Redbull Coins",
   "description": "Create verified Solana meme coins with pictures, links, and descriptions",
   "version": "0.1.0",
   "author": "Coinbull Team",
@@ -19,7 +19,7 @@
     "logo": "/logo.svg",
     "website": "https://coinbull.vercel.app",
     "socials": {
-      "twitter": "https://twitter.com/coinbull",
+      "twitter": "https://twitter.com/redbull_coins",
       "telegram": "https://t.me/coinbull",
       "discord": "https://discord.gg/coinbull"
     }

@@ -396,7 +396,7 @@ export default function Home() {
                     🎯 No tokens created yet!
                   </Typography>
                   <Typography variant="body2" gutterBottom>
-                    Start creating the first meme coin on Coinbull
+                    Start creating the first meme coin on Redbull Coins
                   </Typography>
                   <Button 
                     component={Link}

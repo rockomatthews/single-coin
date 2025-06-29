@@ -64,7 +64,7 @@ export default function SocialPreview() {
                 lineHeight: 1.1,
               }}
             >
-              Coinbull
+              Redbull Coins
             </Typography>
             
             <Typography
@@ -125,7 +125,7 @@ export default function SocialPreview() {
           >
             <img
               src="/logo.svg"
-              alt="Coinbull Logo"
+              alt="Redbull Coins Logo"
               style={{
                 width: '100%',
                 height: '100%',

@@ -1,6 +1,6 @@
 {
-  "name": "Coinbull - Create Solana Meme Coins",
-  "short_name": "Coinbull",
+  "name": "Redbull Coins - Create Solana Meme Coins",
+  "short_name": "Redbull Coins",
   "description": "Create verified Solana meme coins with pictures, links, and descriptions. Launch your token with liquidity pools on Raydium in minutes.",
   "start_url": "/",
   "display": "standalone",
@@ -60,7 +60,7 @@
       "sizes": "1280x720",
       "type": "image/png",
       "platform": "wide",
-      "label": "Coinbull Token Creation Platform"
+      "label": "Redbull Coins Token Creation Platform"
     }
   ],
   "related_applications": [],

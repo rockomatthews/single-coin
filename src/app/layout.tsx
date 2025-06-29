@@ -7,31 +7,31 @@ import "./globals.css";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'https://coinbull.app'),
-  title: "Coinbull | Create Solana Meme Coins",
-  description: "Create verified Solana meme coins with pictures, links, and descriptions. Launch your token with liquidity pools on Raydium in minutes.",
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'https://redbullcoins.com'),
+  title: "Redbull Coins | Create Solana Meme Coins",
+  description: "Create verified Solana meme coins that display correctly in wallets with custom images, links, and descriptions.",
   
   // Open Graph tags for rich previews in iMessage, WhatsApp, Facebook, etc.
   openGraph: {
-    title: "Coinbull | Create Solana Meme Coins",
-    description: "Create verified Solana meme coins with pictures, links, and descriptions. Launch your token with liquidity pools on Raydium in minutes.",
-    url: "https://coinbull.app",
-    siteName: "Coinbull",
+    title: "Redbull Coins | Create Solana Meme Coins",
+    description: "Create verified Solana meme coins that display correctly in wallets with custom images, links, and descriptions.",
+    url: "https://redbullcoins.com",
+    siteName: "Redbull Coins",
     type: "website",
     locale: "en_US",
     images: [
       {
-        url: "https://coinbull.app/images/logo.png",
+        url: "https://redbullcoins.com/images/logo.png",
         width: 1200,
         height: 630,
-        alt: "Coinbull - Create Solana Meme Coins",
+        alt: "Redbull Coins - Create Solana Meme Coins",
         type: "image/png",
       },
       {
-        url: "https://coinbull.app/logo.svg", 
+        url: "https://redbullcoins.com/logo.svg", 
         width: 1000,
         height: 1000,
-        alt: "Coinbull Logo",
+        alt: "Redbull Coins Logo",
         type: "image/svg+xml",
       }
     ],
@@ -40,11 +40,11 @@ export const metadata: Metadata = {
   // Twitter Card tags
   twitter: {
     card: "summary_large_image",
-    title: "Coinbull | Create Solana Meme Coins",
+    title: "Redbull Coins | Create Solana Meme Coins",
     description: "Create verified Solana meme coins with pictures, links, and descriptions. Launch your token with liquidity pools on Raydium in minutes.",
-    site: "@coinbull",
-    creator: "@coinbull", 
-    images: ["https://coinbull.app/images/logo.png"],
+    site: "@redbull_coins",
+    creator: "@redbull_coins", 
+    images: ["https://redbullcoins.com/images/logo.png"],
   },
   
   // Additional metadata for better SEO and previews
@@ -61,9 +61,9 @@ export const metadata: Metadata = {
     "crypto tokens"
   ],
   
-  authors: [{ name: "Coinbull" }],
-  creator: "Coinbull",
-  publisher: "Coinbull",
+  authors: [{ name: "Redbull Coins" }],
+  creator: "Redbull Coins",
+  publisher: "Redbull Coins",
   
   // Robots and indexing
   robots: {
@@ -102,7 +102,7 @@ export const metadata: Metadata = {
   // App-specific metadata
   appleWebApp: {
     capable: true,
-    title: "Coinbull",
+    title: "Redbull Coins",
     statusBarStyle: "black-translucent",
   },
   

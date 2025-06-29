@@ -116,7 +116,7 @@ export default function TokenSettings({
             name="name"
             value={tokenParams.name}
             onChange={handleChange}
-            helperText="The full name of your token (e.g., 'Coinbull')"
+            helperText="The full name of your token (e.g., 'Redbull Coins')"
             required
           />
         </Grid>

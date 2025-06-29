@@ -44,7 +44,7 @@ export async function GET(request: NextRequest) {
       },
       {
         label: "Follow Twitter",
-        uri: "https://twitter.com/coinbull",
+        uri: "https://twitter.com/redbull_coins",
         type: "fungible",
         icon: "twitter",
         prefersExternalTarget: true,

@@ -18,7 +18,7 @@ export default function Footer() {
   const socialLinks = [
     {
       name: 'X (Twitter)',
-      url: 'https://x.com/coinbullmoney',
+      url: 'https://x.com/redbull_coins',
       icon: (
         <XIcon viewBox="0 0 24 24">
           <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
@@ -28,12 +28,12 @@ export default function Footer() {
     // Add more social links here in the future:
     // {
     //   name: 'Discord',
-    //   url: 'https://discord.gg/coinbull',
+    //   url: 'https://discord.gg/redbull_coins',
     //   icon: <DiscordIcon />,
     // },
     // {
     //   name: 'Telegram',
-    //   url: 'https://t.me/coinbull',
+    //   url: 'https://t.me/redbull_coins',
     //   icon: <TelegramIcon />,
     // },
   ];
@@ -84,7 +84,7 @@ export default function Footer() {
             color="text.secondary" 
             align="center"
           >
-            Coinbull | ©2069
+            Redbull Coins | ©2069
           </Typography>
         </Stack>
       </Container>

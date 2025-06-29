@@ -34,13 +34,13 @@ interface SecurityData {
   isVerified: boolean;
   issues: string[];
   recommendations: string[];
-  coinbullFeatures?: {
+  redbullcoinsFeatures?: {
     mintAuthorityRevoked: boolean;
     freezeAuthorityRevoked: boolean;
     updateAuthorityRevoked: boolean;
     realLiquidityPool: boolean;
     metadataStandards: string;
-    createdWithCoinbull: boolean;
+    createdWithRedbullCoins: boolean;
   };
   verificationBadges?: string[];
 }
@@ -178,12 +178,12 @@ export default function TokenSecurity({ tokenAddress, showDetails = true }: Toke
         )}
 
         {/* Coinbull Features */}
-        {securityData.coinbullFeatures && showDetails && (
+        {securityData.redbullcoinsFeatures && showDetails && (
           <>
             <Divider sx={{ my: 2 }} />
             <Typography variant="subtitle2" gutterBottom>
               <ShieldIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
-              Coinbull Security Features
+              Redbull Coins Security Features
             </Typography>
             <List dense>
               <ListItem>

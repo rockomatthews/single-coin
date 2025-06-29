@@ -83,7 +83,7 @@ export async function uploadToPinata(data: any, filename?: string): Promise<stri
 
       // Add metadata to the FormData
       formData.append('pinataMetadata', JSON.stringify({
-        name: filename || 'Coinbull Token Image'
+        name: filename || 'Redbull Coins Token Image'
       }));
 
       console.log('Uploading to Pinata with JWT:', pinataJWT.substring(0, 5) + '...');

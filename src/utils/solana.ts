@@ -241,17 +241,17 @@ export const uploadMetadata = async (connection: Connection, params: TokenParams
       // ===== CORE REQUIRED FIELDS (Phantom Priority) =====
       name: params.name.trim(),
       symbol: params.symbol.trim().toUpperCase(),
-      description: params.description?.trim() || `${params.name} is a Solana token created with Coinbull.`,
+      description: params.description?.trim() || `${params.name} is a Solana token created with Redbull Coins.`,
       
       // ===== IMAGE REQUIREMENTS (Phantom Optimized) =====
       image: imageUrl,
       
       // ===== STANDARD URLS (Maximum DEX Compatibility) =====
-      external_url: params.website || 'https://coinbull.app',  // Primary standard
+      external_url: params.website || 'https://redbullcoins.com',  // Primary standard
       animation_url: "",  // Required by FungibleAsset standard
       
       // ===== SOCIAL LINKS (Root Level - DEX Standard) =====
-      website: params.website || 'https://coinbull.app',
+      website: params.website || 'https://redbullcoins.com',
       twitter: params.twitter || '',
       telegram: params.telegram || '',
       discord: params.discord || '',
@@ -264,7 +264,7 @@ export const uploadMetadata = async (connection: Connection, params: TokenParams
           twitter: params.twitter,
           telegram: params.telegram || '',
           discord: params.discord || '',
-          website: params.website || 'https://coinbull.app'
+          website: params.website || 'https://redbullcoins.com'
         }
       }),
       
@@ -273,11 +273,11 @@ export const uploadMetadata = async (connection: Connection, params: TokenParams
         { trait_type: "Token Type", value: params.decimals === 0 ? "FungibleAsset" : "Fungible" },
         { trait_type: "Decimals", value: params.decimals.toString() },
         { trait_type: "Total Supply", value: params.supply.toLocaleString() },
-        { trait_type: "Created With", value: "Coinbull" },
+        { trait_type: "Created With", value: "Redbull Coins" },
         { trait_type: "Network", value: "Solana" },
         { trait_type: "Standard", value: "SPL Token" },
         // Enhanced platform compatibility
-        { trait_type: "Verified", value: "Coinbull Platform" }
+        { trait_type: "Verified", value: "Redbull Coins Platform" }
       ],
       
       // ===== PROPERTIES (File References - Phantom/Magic Eden Standard) =====
@@ -301,8 +301,8 @@ export const uploadMetadata = async (connection: Connection, params: TokenParams
       
       // ===== COLLECTION INFO (Grouping & Discovery) =====
       collection: {
-        name: "Coinbull Tokens",
-        family: "Coinbull"
+        name: "Redbull Coins Tokens",
+        family: "Redbull Coins"
       },
       
       // ===== INDEXING & DISCOVERY TAGS =====
@@ -324,7 +324,7 @@ export const uploadMetadata = async (connection: Connection, params: TokenParams
       license_url: "https://creativecommons.org/licenses/by/4.0/",
       
       // ===== PLATFORM COMPATIBILITY SIGNALS =====
-      compiler: "Coinbull",
+      compiler: "Redbull Coins",
       date: new Date().toISOString(),
       
       // ===== ENHANCED TRADING METADATA (DEX Optimization) =====
