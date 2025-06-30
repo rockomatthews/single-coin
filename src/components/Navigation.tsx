@@ -19,13 +19,19 @@ export const Navigation = () => {
         <Toolbar disableGutters>
           <Box sx={{ display: 'flex', mr: 2, alignItems: 'center' }}>
             <Link href="/" style={{ display: 'flex', alignItems: 'center' }}>
-              <Image 
-                src="/images/logo.png" 
-                alt="Redbull Coins Logo" 
-                width={100}
-                height={100}
-                style={{ marginRight: '10px' }}
-              />
+              <Box sx={{ 
+                width: { xs: 60, md: 80 }, 
+                height: { xs: 60, md: 80 },
+                mr: '10px',
+                position: 'relative'
+              }}>
+                <Image 
+                  src="/images/logo.png" 
+                  alt="Redbull Coins Logo" 
+                  fill
+                  style={{ objectFit: 'contain' }}
+                />
+              </Box>
               <Typography
                 variant="h6"
                 noWrap
@@ -33,7 +39,8 @@ export const Navigation = () => {
                   fontWeight: 700,
                   color: 'secondary.main',
                   textDecoration: 'none',
-                  fontFamily: '"Nitro Chargers", Arial, sans-serif'
+                  fontFamily: '"Nitro Chargers", Arial, sans-serif',
+                  fontSize: { xs: '1rem', md: '1.25rem' }
                 }}
               >
                 REDBULL COINS
@@ -52,6 +59,8 @@ export const Navigation = () => {
                   color: 'white', 
                   display: 'block',
                   borderBottom: pathname === page.path ? '2px solid #FFD700' : 'none',
+                  fontSize: { xs: '0.75rem', md: '0.875rem' },
+                  px: { xs: 1, md: 2 },
                   '&:hover': {
                     borderBottom: '2px solid #FFD700',
                   }
@@ -63,7 +72,15 @@ export const Navigation = () => {
           </Box>
 
           <Box sx={{ flexGrow: 0 }}>
-            <WalletMultiButton />
+            <Box sx={{ 
+              '& .wallet-adapter-button': {
+                fontSize: { xs: '0.75rem', md: '0.875rem' },
+                padding: { xs: '6px 12px', md: '8px 16px' },
+                minHeight: { xs: '36px', md: '40px' }
+              }
+            }}>
+              <WalletMultiButton />
+            </Box>
           </Box>
         </Toolbar>
       </Container>

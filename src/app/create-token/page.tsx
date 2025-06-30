@@ -232,13 +232,45 @@ export default function CreateTokenPage() {
         </Typography>
         
         {activeStep < steps.length && (
-          <Stepper activeStep={activeStep} sx={{ mt: 4, mb: 5 }}>
-            {steps.map((label) => (
-              <Step key={label}>
-                <StepLabel>{label}</StepLabel>
-              </Step>
-            ))}
-          </Stepper>
+          <Box sx={{ mt: 4, mb: 5 }}>
+            {/* Mobile Stepper */}
+            <Box sx={{ display: { xs: 'block', sm: 'none' } }}>
+              <Stepper 
+                activeStep={activeStep} 
+                orientation="vertical"
+                sx={{ 
+                  '& .MuiStepLabel-label': {
+                    fontSize: '0.75rem'
+                  }
+                }}
+              >
+                {steps.map((label) => (
+                  <Step key={label}>
+                    <StepLabel>{label}</StepLabel>
+                  </Step>
+                ))}
+              </Stepper>
+            </Box>
+            
+            {/* Desktop Stepper */}
+            <Box sx={{ display: { xs: 'none', sm: 'block' } }}>
+              <Stepper 
+                activeStep={activeStep} 
+                orientation="horizontal"
+                sx={{ 
+                  '& .MuiStepLabel-label': {
+                    fontSize: '0.875rem'
+                  }
+                }}
+              >
+                {steps.map((label) => (
+                  <Step key={label}>
+                    <StepLabel>{label}</StepLabel>
+                  </Step>
+                ))}
+              </Stepper>
+            </Box>
+          </Box>
         )}
         
         <Box>

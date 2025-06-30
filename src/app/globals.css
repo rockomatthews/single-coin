@@ -75,3 +75,31 @@ a {
 .wallet-adapter-dropdown-list-item:hover {
   background-color: #111111 !important;
 }
+
+/* Mobile optimizations */
+@media (max-width: 600px) {
+  .wallet-adapter-button {
+    font-size: 0.75rem !important;
+    padding: 6px 12px !important;
+    min-height: 36px !important;
+  }
+  
+  /* Prevent horizontal overflow on mobile */
+  body {
+    overflow-x: hidden;
+  }
+  
+  /* Ensure container doesn't exceed viewport */
+  .MuiContainer-root {
+    padding-left: 8px !important;
+    padding-right: 8px !important;
+  }
+}
+
+@media (max-width: 900px) {
+  .wallet-adapter-button {
+    font-size: 0.8rem !important;
+    padding: 8px 14px !important;
+    min-height: 38px !important;
+  }
+}

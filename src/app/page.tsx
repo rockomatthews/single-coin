@@ -165,7 +165,7 @@ export default function Home() {
               displayedHotTokens.slice(0, 20).map((token) => (
                 <Grid 
                   key={token.token_address} 
-                  xs={6} 
+                  xs={3} 
                   sm={4} 
                   md={2.4} 
                   lg={1.2} 
@@ -303,7 +303,7 @@ export default function Home() {
               displayedRecentTokens.slice(0, showMoreRecent ? 100 : 50).map((token) => (
                 <Grid 
                   key={token.token_address} 
-                  xs={6} 
+                  xs={2} 
                   sm={3} 
                   md={1.5} 
                   lg={0.8} 
