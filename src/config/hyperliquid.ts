@@ -7,12 +7,12 @@ export const HYPERLIQUID_CONFIG = {
   // Network Configuration
   MAINNET: {
     name: 'mainnet',
-    chainId: 42161, // HYPER LIQUID mainnet chain ID
+    chainId: 421037, // HYPER LIQUID mainnet chain ID
     explorer: 'https://app.hyperliquid.xyz',
     nativeCurrency: {
-      name: 'HYPE',
-      symbol: 'HYPE',
-      decimals: 18,
+      name: 'USDC',
+      symbol: 'USDC',
+      decimals: 6,
     },
   },
   
@@ -64,14 +64,23 @@ export const HYPERLIQUID_CONFIG = {
 
 // Environment-based configuration
 export function getHyperLiquidConfig() {
-  const network = process.env.NEXT_PUBLIC_HYPERLIQUID_NETWORK || 'testnet';
+  const network = process.env.NEXT_PUBLIC_HYPERLIQUID_NETWORK || 'mainnet';
   const isMainnet = network === 'mainnet';
+  
+  // Use environment variables if available, otherwise fall back to defaults
+  const apiUrl = process.env.NEXT_PUBLIC_HYPERLIQUID_API_URL || 
+    (isMainnet ? HYPERLIQUID_CONFIG.MAINNET_API : HYPERLIQUID_CONFIG.TESTNET_API);
+  
+  const explorerUrl = process.env.NEXT_PUBLIC_HYPERLIQUID_EXPLORER ||
+    (isMainnet ? HYPERLIQUID_CONFIG.MAINNET.explorer : HYPERLIQUID_CONFIG.TESTNET.explorer);
   
   return {
     ...HYPERLIQUID_CONFIG,
     currentNetwork: isMainnet ? HYPERLIQUID_CONFIG.MAINNET : HYPERLIQUID_CONFIG.TESTNET,
-    apiUrl: isMainnet ? HYPERLIQUID_CONFIG.MAINNET_API : HYPERLIQUID_CONFIG.TESTNET_API,
+    apiUrl,
+    explorerUrl,
     isMainnet,
+    network,
   };
 }
 

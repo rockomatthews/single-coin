@@ -131,16 +131,52 @@ export function createNonce(): number {
 }
 
 /**
- * Sign API request (simplified - would need actual cryptographic implementation)
+ * Sign API request using HYPER LIQUID's EIP-712 signature scheme
  */
-export async function signRequest(payload: any, privateKey: string): Promise<string> {
-  // TODO: Implement actual signing logic using HYPER LIQUID's signature scheme
-  // This would involve proper cryptographic signing
-  console.log('Signing request payload:', payload);
-  console.log('Using private key (hash):', privateKey.slice(0, 10) + '...');
-  
-  // Placeholder implementation
-  return 'signature_placeholder';
+export async function signRequest(payload: any, signer?: any): Promise<string> {
+  if (!signer) {
+    throw new Error('No signer provided. Please connect your wallet.');
+  }
+
+  try {
+    // HYPER LIQUID uses EIP-712 structured data signing
+    const domain = {
+      name: 'HyperLiquid',
+      version: '1',
+      chainId: 421037, // HYPER LIQUID mainnet chain ID
+      verifyingContract: '0x0000000000000000000000000000000000000000', // Zero address for domain
+    };
+
+    // Define the message types based on HYPER LIQUID specification
+    const types = {
+      Agent: [
+        { name: 'source', type: 'string' },
+        { name: 'connectionId', type: 'bytes32' },
+      ],
+      SpotDeployAction: [
+        { name: 'action', type: 'string' },
+        { name: 'nonce', type: 'uint64' },
+        { name: 'data', type: 'bytes' },
+      ],
+    };
+
+    // Create the message to sign
+    const message = {
+      action: JSON.stringify(payload),
+      nonce: payload.nonce || Date.now(),
+      data: '0x' + Buffer.from(JSON.stringify(payload)).toString('hex'),
+    };
+
+    // Sign using EIP-712
+    const signature = await signer.signTypedData(domain, types, message);
+    
+    console.log('✅ Successfully signed HYPER LIQUID request');
+    return signature;
+    
+  } catch (error) {
+    console.error('❌ Failed to sign HYPER LIQUID request:', error);
+    throw new Error('Failed to sign request: ' + (error as Error).message);
+  }
 }
 
 /**
@@ -149,13 +185,13 @@ export async function signRequest(payload: any, privateKey: string): Promise<str
 export async function makeHyperLiquidRequest(
   endpoint: string,
   payload: any,
+  signer: any,
   method: 'GET' | 'POST' = 'POST'
 ): Promise<HyperLiquidApiResponse> {
   const config = getHyperLiquidConfig();
-  const privateKey = process.env.HYPERLIQUID_PRIVATE_KEY;
   
-  if (!privateKey) {
-    throw new Error('HYPERLIQUID_PRIVATE_KEY environment variable not set');
+  if (!signer) {
+    throw new Error('Wallet signer required for HYPER LIQUID API requests');
   }
   
   try {
@@ -165,13 +201,15 @@ export async function makeHyperLiquidRequest(
       nonce,
     };
     
-    const signature = await signRequest(requestPayload, privateKey);
+    const signature = await signRequest(requestPayload, signer);
+    const userAddress = await signer.getAddress();
     
     const response = await fetch(`${config.apiUrl}${endpoint}`, {
       method,
       headers: {
         'Content-Type': 'application/json',
         'X-Signature': signature,
+        'X-User-Address': userAddress,
       },
       body: method === 'POST' ? JSON.stringify(requestPayload) : undefined,
     });
@@ -184,6 +222,7 @@ export async function makeHyperLiquidRequest(
     return {
       success: true,
       data,
+      txHash: data.txHash,
     };
   } catch (error) {
     console.error('HYPER LIQUID API request failed:', error);
@@ -323,4 +362,167 @@ export function getHyperLiquidCostBreakdown(params: HyperLiquidTokenParams) {
       'Coinbull Platform Fee': `${platformFee} HYPE`,
     }
   };
+}
+
+/**
+ * Create HYPER LIQUID token using the 5-step deployment process
+ */
+export async function createHyperLiquidToken(
+  params: HyperLiquidTokenParams,
+  signer: any,
+  onProgress?: (step: number, status: string) => void
+): Promise<{
+  success: boolean;
+  tokenId?: number;
+  spotIndex?: number;
+  txHashes?: string[];
+  error?: string;
+}> {
+  if (!signer) {
+    throw new Error('Wallet signer required for token creation');
+  }
+
+  const validation = validateHyperLiquidParams(params);
+  if (!validation.isValid) {
+    return {
+      success: false,
+      error: `Invalid parameters: ${validation.errors.join(', ')}`,
+    };
+  }
+
+  const txHashes: string[] = [];
+  let tokenId: number | undefined;
+  let spotIndex: number | undefined;
+
+  try {
+    onProgress?.(1, 'Registering token...');
+
+    // Step 1: Register Token
+    const registerTokenPayload: RegisterToken2 = {
+      spec: {
+        name: params.symbol,
+        szDecimals: params.szDecimals,
+        weiDecimals: params.weiDecimals,
+      },
+      maxGas: params.maxGas || 100000,
+      fullName: params.name,
+    };
+
+    const registerResponse = await makeHyperLiquidRequest(
+      '/exchange',
+      { type: 'spotDeploy', registerToken2: registerTokenPayload },
+      signer
+    );
+
+    if (!registerResponse.success) {
+      throw new Error(`Token registration failed: ${registerResponse.error}`);
+    }
+
+    tokenId = registerResponse.data?.tokenId;
+    if (registerResponse.txHash) txHashes.push(registerResponse.txHash);
+
+    onProgress?.(2, 'Setting up user genesis...');
+
+    // Step 2: User Genesis (initial distribution)
+    const userAddress = await signer.getAddress();
+    const userGenesisPayload: UserGenesis = {
+      token: tokenId!,
+      user: userAddress,
+      amount: (params.retainedAmount || 0).toString(),
+    };
+
+    const userGenesisResponse = await makeHyperLiquidRequest(
+      '/exchange',
+      { type: 'spotDeploy', userGenesis: userGenesisPayload },
+      signer
+    );
+
+    if (!userGenesisResponse.success) {
+      throw new Error(`User genesis failed: ${userGenesisResponse.error}`);
+    }
+
+    if (userGenesisResponse.txHash) txHashes.push(userGenesisResponse.txHash);
+
+    onProgress?.(3, 'Configuring genesis...');
+
+    // Step 3: Genesis (max supply configuration)
+    const genesisPayload: Genesis = {
+      token: tokenId!,
+      maxSupply: params.maxSupply.toString(),
+      setHyperliquidityBalance: params.enableHyperliquidity || false,
+    };
+
+    const genesisResponse = await makeHyperLiquidRequest(
+      '/exchange',
+      { type: 'spotDeploy', genesis: genesisPayload },
+      signer
+    );
+
+    if (!genesisResponse.success) {
+      throw new Error(`Genesis failed: ${genesisResponse.error}`);
+    }
+
+    if (genesisResponse.txHash) txHashes.push(genesisResponse.txHash);
+
+    onProgress?.(4, 'Registering spot trading...');
+
+    // Step 4: Register Spot (trading pair with USDC)
+    const registerSpotPayload: RegisterSpot = {
+      baseToken: tokenId!,
+      quoteToken: 0, // USDC token ID
+    };
+
+    const spotResponse = await makeHyperLiquidRequest(
+      '/exchange',
+      { type: 'spotDeploy', registerSpot: registerSpotPayload },
+      signer
+    );
+
+    if (!spotResponse.success) {
+      throw new Error(`Spot registration failed: ${spotResponse.error}`);
+    }
+
+    spotIndex = spotResponse.data?.spotIndex;
+    if (spotResponse.txHash) txHashes.push(spotResponse.txHash);
+
+    // Step 5: Register Hyperliquidity (if enabled)
+    if (params.enableHyperliquidity && params.initialPrice && params.orderSize && params.numberOfOrders) {
+      onProgress?.(5, 'Enabling hyperliquidity...');
+
+      const hyperliquidityPayload: RegisterHyperliquidity = {
+        spotIndex: spotIndex!,
+        startingPrice: params.initialPrice.toString(),
+        orderSize: params.orderSize.toString(),
+        nOrders: params.numberOfOrders,
+      };
+
+      const hyperliquidityResponse = await makeHyperLiquidRequest(
+        '/exchange',
+        { type: 'spotDeploy', registerHyperliquidity: hyperliquidityPayload },
+        signer
+      );
+
+      if (!hyperliquidityResponse.success) {
+        throw new Error(`Hyperliquidity registration failed: ${hyperliquidityResponse.error}`);
+      }
+
+      if (hyperliquidityResponse.txHash) txHashes.push(hyperliquidityResponse.txHash);
+    }
+
+    onProgress?.(5, 'Token creation completed!');
+
+    return {
+      success: true,
+      tokenId,
+      spotIndex,
+      txHashes,
+    };
+
+  } catch (error) {
+    console.error('HYPER LIQUID token creation failed:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error occurred',
+    };
+  }
 }

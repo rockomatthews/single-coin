@@ -1,7 +1,8 @@
 {
   "permissions": {
     "allow": [
-      "WebFetch(domain:hyperliquid.gitbook.io)"
+      "WebFetch(domain:hyperliquid.gitbook.io)",
+      "Bash(git add:*)"
     ],
     "deny": []
   }

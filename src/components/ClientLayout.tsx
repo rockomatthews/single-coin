@@ -5,7 +5,7 @@ import { ReactNode } from 'react';
 import { Box } from '@mui/material';
 
 // Client-side only imports
-const SolanaProvider = dynamic(() => import('@/components/SolanaProvider'), {
+const MultiChainWalletProvider = dynamic(() => import('@/components/MultiChainWalletProvider'), {
   ssr: false,
 });
 
@@ -23,7 +23,7 @@ interface ClientLayoutProps {
 
 export default function ClientLayout({ children }: ClientLayoutProps) {
   return (
-    <SolanaProvider>
+    <MultiChainWalletProvider>
       <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
         <Navigation />
         <Box component="main" sx={{ flexGrow: 1 }}>
@@ -31,6 +31,6 @@ export default function ClientLayout({ children }: ClientLayoutProps) {
         </Box>
         <Footer />
       </Box>
-    </SolanaProvider>
+    </MultiChainWalletProvider>
   );
 } 

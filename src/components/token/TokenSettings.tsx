@@ -32,6 +32,7 @@ interface TokenSettingsProps {
     symbol: string;
     description: string;
     image: string;
+    blockchain?: 'solana' | 'hyperliquid';
     decimals: number;
     supply: number;
     website?: string;
@@ -109,6 +110,24 @@ export default function TokenSettings({
         Basic Token Information
       </Typography>
       <Grid container spacing={3}>
+        <Grid item xs={12}>
+          <FormControl fullWidth>
+            <InputLabel>Blockchain</InputLabel>
+            <Select
+              value={tokenParams.blockchain || 'solana'}
+              label="Blockchain"
+              onChange={(e: SelectChangeEvent) => 
+                updateTokenParams({ blockchain: e.target.value as 'solana' | 'hyperliquid' })
+              }
+            >
+              <MenuItem value="solana">Solana</MenuItem>
+              <MenuItem value="hyperliquid">HYPER LIQUID</MenuItem>
+            </Select>
+            <FormHelperText>
+              Choose the blockchain to deploy your token on
+            </FormHelperText>
+          </FormControl>
+        </Grid>
         <Grid item xs={12} sm={6}>
           <TextField
             fullWidth
