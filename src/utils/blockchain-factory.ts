@@ -56,7 +56,7 @@ export interface BlockchainProvider {
   blockchain: 'solana' | 'hyperliquid';
   
   // Core operations
-  createToken(params: UnifiedTokenParams): Promise<TokenCreationResult>;
+  createToken(params: UnifiedTokenParams, signer?: any): Promise<TokenCreationResult>;
   uploadMetadata(params: UnifiedTokenParams): Promise<string>;
   calculateCosts(params: UnifiedTokenParams): CostBreakdown;
   validateParams(params: UnifiedTokenParams): { isValid: boolean; errors: string[] };
@@ -72,7 +72,7 @@ class SolanaProvider implements BlockchainProvider {
   name = 'Solana';
   blockchain = 'solana' as const;
   
-  async createToken(params: UnifiedTokenParams): Promise<TokenCreationResult> {
+  async createToken(params: UnifiedTokenParams, signer?: any): Promise<TokenCreationResult> {
     try {
       // Import Solana-specific logic only when needed
       const { useTokenCreation } = await import('../hooks/useTokenCreation');
@@ -180,7 +180,7 @@ class HyperLiquidProvider implements BlockchainProvider {
   name = 'HYPER LIQUID';
   blockchain = 'hyperliquid' as const;
   
-  async createToken(params: UnifiedTokenParams): Promise<TokenCreationResult> {
+  async createToken(params: UnifiedTokenParams, signer?: any): Promise<TokenCreationResult> {
     try {
       const { 
         makeHyperLiquidRequest, 
@@ -217,7 +217,7 @@ class HyperLiquidProvider implements BlockchainProvider {
       const metadataUri = await uploadHyperLiquidMetadata(hyperLiquidParams);
       
       // Execute the 5-step HYPER LIQUID deployment process
-      const result = await this.executeHyperLiquidDeployment(hyperLiquidParams, metadataUri);
+      const result = await this.executeHyperLiquidDeployment(hyperLiquidParams, metadataUri, signer);
       
       return {
         success: result.success,
@@ -238,7 +238,8 @@ class HyperLiquidProvider implements BlockchainProvider {
   
   private async executeHyperLiquidDeployment(
     params: HyperLiquidTokenParams, 
-    metadataUri: string
+    metadataUri: string,
+    signer: any
   ) {
     const { makeHyperLiquidRequest } = await import('./hyperliquid');
     
@@ -257,7 +258,7 @@ class HyperLiquidProvider implements BlockchainProvider {
             fullName: params.name,
           },
         },
-      });
+      }, signer);
       
       if (!registerTokenResult.success) {
         throw new Error(`Token registration failed: ${registerTokenResult.error}`);
@@ -276,7 +277,7 @@ class HyperLiquidProvider implements BlockchainProvider {
               amount: params.retainedAmount.toString(),
             },
           },
-        });
+        }, signer);
       }
       
       // Step 3: Genesis (set max supply)
@@ -289,7 +290,7 @@ class HyperLiquidProvider implements BlockchainProvider {
             setHyperliquidityBalance: params.enableHyperliquidity,
           },
         },
-      });
+      }, signer);
       
       // Step 4: Register Spot (create trading pair with USDC)
       const registerSpotResult = await makeHyperLiquidRequest('/exchange', {
@@ -300,7 +301,7 @@ class HyperLiquidProvider implements BlockchainProvider {
             quoteToken: 0, // USDC index
           },
         },
-      });
+      }, signer);
       
       const spotIndex = registerSpotResult.data?.spotIndex || 0;
       
@@ -316,7 +317,7 @@ class HyperLiquidProvider implements BlockchainProvider {
               nOrders: params.numberOfOrders || 10,
             },
           },
-        });
+        }, signer);
       }
       
       // Optional: Set deployer fee share
@@ -329,7 +330,7 @@ class HyperLiquidProvider implements BlockchainProvider {
               feeShare: `${params.deployerFeeShare}%`,
             },
           },
-        });
+        }, signer);
       }
       
       return {
