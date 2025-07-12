@@ -118,7 +118,7 @@ export function useMultiChainTokenCreation() {
         tokenStandard: params.blockchain === 'solana' 
           ? 'SPL' 
           : (params.hyperliquid?.tokenStandard || 'HIP-1'),
-        poolTxId: result.poolTxId,
+        poolTxId: result.poolTxId || undefined,
         explorerUrl: result.explorer_url,
       });
       
