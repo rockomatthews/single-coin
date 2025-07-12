@@ -104,6 +104,18 @@ export async function saveMultiChainToken(tokenData: MultiChainTokenData): Promi
       )
     `;
 
+    // Safe migration: Add missing columns if they don't exist
+    try {
+      await sql`ALTER TABLE user_tokens ADD COLUMN IF NOT EXISTS blockchain VARCHAR(20) DEFAULT 'solana'`;
+      await sql`ALTER TABLE user_tokens ADD COLUMN IF NOT EXISTS network VARCHAR(20)`;
+      await sql`ALTER TABLE user_tokens ADD COLUMN IF NOT EXISTS chain_specific_data JSONB`;
+      await sql`ALTER TABLE user_tokens ADD COLUMN IF NOT EXISTS token_standard VARCHAR(20)`;
+      await sql`ALTER TABLE user_tokens ADD COLUMN IF NOT EXISTS pool_tx_id TEXT`;
+      await sql`ALTER TABLE user_tokens ADD COLUMN IF NOT EXISTS explorer_url TEXT`;
+    } catch (migrationError) {
+      console.log('Migration already applied or columns exist:', migrationError);
+    }
+
     // Insert with full multi-chain support
     await sql`
       INSERT INTO user_tokens (
