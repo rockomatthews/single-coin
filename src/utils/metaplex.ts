@@ -69,7 +69,7 @@ export async function createTokenMetadata(
   const transaction = new Transaction()
     .add(
       ComputeBudgetProgram.setComputeUnitLimit({ units: 400000 }),
-      ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 100000 }) // 🔥 INCREASED from 50000 to 100000
+      ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 5000 }) // Normal priority fee - prevents Phantom warnings
     );
 
   // Create metadata instruction
@@ -79,7 +79,7 @@ export async function createTokenMetadata(
       mint: mintPublicKey,
       mintAuthority: wallet.publicKey,
       payer: wallet.publicKey,
-      updateAuthority: SystemProgram.programId, // 🔥 Set to system program (immutable)
+      updateAuthority: wallet.publicKey, // Keep wallet as authority initially for proper indexing
     },
     {
       createMetadataAccountArgsV3: {
@@ -92,7 +92,7 @@ export async function createTokenMetadata(
           collection: null,
           uses: null,
         },
-        isMutable: false, // 🔥 Make immutable
+        isMutable: true, // Allow updates initially for proper wallet indexing
         collectionDetails: null,
       },
     }
@@ -100,8 +100,8 @@ export async function createTokenMetadata(
 
   transaction.add(createMetadataInstruction);
 
-  console.log('Setting metadata as immutable');
-  console.log('🔒 Setting update authority to System Program during creation (effectively revoked)');
+  console.log('Creating metadata with wallet authority for proper indexing');
+  console.log('⏳ Metadata will be available for wallet display and DEX indexing');
 
   transaction.feePayer = wallet.publicKey;
   const blockhash = await connection.getLatestBlockhash('finalized'); // 🔥 Use finalized for better reliability

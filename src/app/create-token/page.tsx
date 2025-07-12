@@ -126,11 +126,15 @@ export default function CreateTokenPage() {
     const retainedAmount = Math.floor(totalSupply * (retentionPercentage / 100));
     const liquidityAmount = totalSupply - retainedAmount;
     
-    // Execute token creation with updated parameters
+    // Execute token creation with updated parameters - FORCE security settings
     const result = await createToken({
       ...tokenParams,
       retainedAmount,
       liquidityAmount,
+      // FORCE these security settings to be enabled for ALL tokens
+      revokeUpdateAuthority: true,  // Always revoke update authority
+      revokeFreezeAuthority: true,  // Always revoke freeze authority  
+      revokeMintAuthority: true,    // Always revoke mint authority (make unmintable)
     });
     
     if (result) {
