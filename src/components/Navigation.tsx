@@ -1,8 +1,8 @@
 import { AppBar, Box, Button, Container, Toolbar, Typography } from '@mui/material';
-import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import Image from 'next/image';
+import MultiChainWalletButton from './MultiChainWalletButton';
 
 export const Navigation = () => {
   const pathname = usePathname();
@@ -72,15 +72,7 @@ export const Navigation = () => {
           </Box>
 
           <Box sx={{ flexGrow: 0 }}>
-            <Box sx={{ 
-              '& .wallet-adapter-button': {
-                fontSize: { xs: '0.75rem', md: '0.875rem' },
-                padding: { xs: '6px 12px', md: '8px 16px' },
-                minHeight: { xs: '36px', md: '40px' }
-              }
-            }}>
-              <WalletMultiButton />
-            </Box>
+            <MultiChainWalletButton />
           </Box>
         </Toolbar>
       </Container>

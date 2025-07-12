@@ -14,6 +14,7 @@ import {
 } from '@mui/material';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useWallet } from '@solana/wallet-adapter-react';
+import { useHyperLiquid } from '../../components/HyperLiquidProvider';
 import { LAMPORTS_PER_SOL } from '@solana/web3.js';
 
 import TokenSettings from '../../components/token/TokenSettings';
@@ -50,8 +51,12 @@ const DEFAULT_TOKEN_PARAMS = {
 export default function CreateTokenPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { connected } = useWallet();
+  const { connected: solanaConnected } = useWallet();
+  const { connected: hyperLiquidConnected } = useHyperLiquid();
   const { createToken, isCreating, error, success, tokenAddress } = useTokenCreation();
+
+  const isConnected = solanaConnected || hyperLiquidConnected;
+  const connectedBlockchain = solanaConnected ? 'solana' : hyperLiquidConnected ? 'hyperliquid' : null;
   
   const [activeStep, setActiveStep] = useState(0);
   const [tokenParams, setTokenParams] = useState(DEFAULT_TOKEN_PARAMS);
@@ -69,14 +74,24 @@ export default function CreateTokenPage() {
     // Add a small delay to allow wallet to connect on page load
     const timer = setTimeout(() => {
       setIsCheckingWallet(false);
-      if (!skipCheck && !connected) {
+      if (!skipCheck && !isConnected) {
         console.log('Redirecting to home - wallet not connected');
         router.push('/');
       }
     }, 2000); // 2 second delay to allow wallet connection
     
     return () => clearTimeout(timer);
-  }, [connected, router, searchParams]);
+  }, [isConnected, router, searchParams]);
+
+  // Auto-set blockchain based on connected wallet
+  useEffect(() => {
+    if (connectedBlockchain && tokenParams.blockchain !== connectedBlockchain) {
+      setTokenParams(prev => ({
+        ...prev,
+        blockchain: connectedBlockchain
+      }));
+    }
+  }, [connectedBlockchain, tokenParams.blockchain]);
 
   // Handle advancing to next step
   const handleNext = useCallback(() => {
@@ -202,7 +217,7 @@ export default function CreateTokenPage() {
   }
 
   // Show wallet connection prompt if not connected
-  if (!connected) {
+  if (!isConnected) {
     return (
       <Container maxWidth="md" sx={{ py: 4 }}>
         <Paper elevation={3} sx={{ p: 4, borderRadius: 2, textAlign: 'center' }}>
@@ -210,7 +225,7 @@ export default function CreateTokenPage() {
             Connect Your Wallet
           </Typography>
           <Typography variant="body1" sx={{ mb: 3 }}>
-            Please connect your Solana wallet to create a token.
+            Please connect your wallet to create a token. Choose between Solana (Phantom) or HYPER LIQUID (MetaMask) networks.
           </Typography>
           <Button
             variant="contained"

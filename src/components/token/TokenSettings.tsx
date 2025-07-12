@@ -112,19 +112,22 @@ export default function TokenSettings({
       <Grid container spacing={3}>
         <Grid item xs={12}>
           <FormControl fullWidth>
-            <InputLabel>Blockchain</InputLabel>
+            <InputLabel>Connected Network</InputLabel>
             <Select
               value={tokenParams.blockchain || 'solana'}
-              label="Blockchain"
-              onChange={(e: SelectChangeEvent) => 
-                updateTokenParams({ blockchain: e.target.value as 'solana' | 'hyperliquid' })
-              }
+              label="Connected Network"
+              disabled
+              sx={{ 
+                '& .MuiOutlinedInput-notchedOutline': {
+                  borderColor: tokenParams.blockchain === 'hyperliquid' ? '#00D4AA' : '#14F195'
+                }
+              }}
             >
               <MenuItem value="solana">Solana</MenuItem>
               <MenuItem value="hyperliquid">HYPER LIQUID</MenuItem>
             </Select>
             <FormHelperText>
-              Choose the blockchain to deploy your token on
+              Network determined by your connected wallet. Switch wallets to change networks.
             </FormHelperText>
           </FormControl>
         </Grid>

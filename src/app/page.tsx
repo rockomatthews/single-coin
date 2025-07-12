@@ -112,7 +112,7 @@ export default function Home() {
             textAlign: 'center'
           }}>
             <Typography variant="body2" component="h2" color="text.secondary" paragraph sx={{ mb: 1.5 }}>
-              Create DEX-tradable SOL coins with Raydium Liquidity Pools in just one step for less money than the competition.
+              Create DEX-tradable tokens with liquidity pools in just one step. Now supporting <strong>Solana</strong> and <strong>HYPER LIQUID</strong> networks.
             </Typography>
             <Box sx={{ 
               display: 'flex', 
