@@ -410,6 +410,24 @@ export function useTokenCreation() {
               console.log(`🔗 Trade on Raydium: https://raydium.io/swap/?inputCurrency=sol&outputCurrency=${tokenAddress}`);
               
               poolTxId = raydiumPoolTxId; // Use the actual pool creation transaction ID
+              
+              // 🔒 STEP 6: NOW revoke authorities AFTER successful pool creation
+              try {
+                console.log('🔒 Pool created successfully - now revoking mint and freeze authorities...');
+                const revokeTxId = await revokeAuthorities(
+                  connection,
+                  wallet,
+                  tokenAddress,
+                  true, // Revoke mint authority
+                  true  // Revoke freeze authority
+                );
+                console.log('✅ Token authorities revoked after successful pool creation, txId:', revokeTxId);
+                console.log('🔒 Token is now fully secured - no one can mint or freeze tokens');
+              } catch (revokeError) {
+                console.error('❌ Error revoking authorities after pool success:', revokeError);
+                console.warn('⚠️ Pool was created but authorities were not revoked - token is still controllable');
+                // Don't fail the entire process - pool was created successfully
+              }
             }
           } catch (poolError) {
             console.error('❌ Error creating liquidity pool:', poolError);
