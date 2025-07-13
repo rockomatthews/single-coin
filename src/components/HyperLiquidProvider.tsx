@@ -3,7 +3,7 @@ import { createContext, useContext, useState, useEffect, ReactNode, FC } from 'r
 import detectEthereumProvider from '@metamask/detect-provider';
 import { ethers } from 'ethers';
 
-// HYPER LIQUID Mainnet Configuration
+// HYPER LIQUID Mainnet Configuration - Updated 2025-01-12
 export const HYPERLIQUID_NETWORK = {
   chainId: '0x66eed', // 421037 in hex (mainnet)
   chainName: 'HyperLiquid',
