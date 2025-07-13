@@ -42,7 +42,274 @@ export const findMetadataPda = async (mint: PublicKey): Promise<PublicKey> => {
 };
 
 /**
- * Create on-chain metadata for a token using Metaplex Token Metadata Program
+ * Create ATOMIC transaction for professional-grade token creation
+ * Combines token creation, metadata, fee payment, and authority revocation in ONE transaction
+ * This mirrors pump.fun and coinfactory.app patterns to minimize Phantom warnings
+ */
+export async function createAtomicTokenTransaction(
+  connection: Connection,
+  wallet: any,
+  mintKeypair: any,
+  tokenData: TokenParams,
+  metadataUri: string,
+  retainedAmount: number,
+  platformFee: number,
+  feeRecipientAddress?: string
+): Promise<string> {
+  const mintPublicKey = mintKeypair.publicKey;
+
+  // Calculate metadata PDA
+  const [metadataPDA] = PublicKey.findProgramAddressSync(
+    [
+      Buffer.from('metadata'),
+      TOKEN_METADATA_PROGRAM_ID.toBuffer(),
+      mintPublicKey.toBuffer(),
+    ],
+    TOKEN_METADATA_PROGRAM_ID
+  );
+
+  console.log('🚀 Creating ATOMIC transaction (pump.fun style) for professional token creation');
+  console.log('Mint address:', mintPublicKey.toString());
+  console.log('Metadata PDA:', metadataPDA.toString());
+
+  // Get associated token address for user
+  const { getAssociatedTokenAddress, createAssociatedTokenAccountInstruction } = await import('@solana/spl-token');
+  const associatedTokenAddress = await getAssociatedTokenAddress(
+    mintPublicKey,
+    wallet.publicKey
+  );
+
+  // Create SINGLE atomic transaction
+  const atomicTransaction = new Transaction();
+
+  // Step 1: Compute budget (optimized for success)
+  atomicTransaction.add(
+    ComputeBudgetProgram.setComputeUnitLimit({ units: 800000 }), // Increased for complex transaction with fee
+    ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 1000 }) // Minimal priority - prevents warnings
+  );
+
+  // Step 1.5: Platform fee payment (if specified)
+  if (feeRecipientAddress && platformFee > 0) {
+    const { LAMPORTS_PER_SOL } = await import('@solana/web3.js');
+    atomicTransaction.add(
+      SystemProgram.transfer({
+        fromPubkey: wallet.publicKey,
+        toPubkey: new PublicKey(feeRecipientAddress),
+        lamports: Math.floor(platformFee * LAMPORTS_PER_SOL),
+      })
+    );
+    console.log(`💰 Platform fee included in atomic transaction: ${platformFee.toFixed(4)} SOL`);
+  }
+
+  // Step 2: Create mint account
+  const { MintLayout, TOKEN_PROGRAM_ID, createInitializeMintInstruction } = await import('@solana/spl-token');
+  const mintSpace = MintLayout.span;
+  const mintRent = await connection.getMinimumBalanceForRentExemption(mintSpace);
+  
+  atomicTransaction.add(
+    SystemProgram.createAccount({
+      fromPubkey: wallet.publicKey,
+      newAccountPubkey: mintPublicKey,
+      lamports: mintRent,
+      space: mintSpace,
+      programId: TOKEN_PROGRAM_ID,
+    })
+  );
+
+  // Step 3: Initialize mint
+  atomicTransaction.add(
+    createInitializeMintInstruction(
+      mintPublicKey,
+      tokenData.decimals,
+      wallet.publicKey,
+      wallet.publicKey,
+      TOKEN_PROGRAM_ID
+    )
+  );
+
+  // Step 4: Create metadata account
+  const createMetadataInstruction = createCreateMetadataAccountV3Instruction(
+    {
+      metadata: metadataPDA,
+      mint: mintPublicKey,
+      mintAuthority: wallet.publicKey,
+      payer: wallet.publicKey,
+      updateAuthority: wallet.publicKey,
+    },
+    {
+      createMetadataAccountArgsV3: {
+        data: {
+          name: tokenData.name,
+          symbol: tokenData.symbol,
+          uri: metadataUri,
+          sellerFeeBasisPoints: 0,
+          creators: null,
+          collection: null,
+          uses: null,
+        },
+        isMutable: false, // Make immutable immediately for security
+        collectionDetails: null,
+      },
+    }
+  );
+  atomicTransaction.add(createMetadataInstruction);
+
+  // Step 5: Create user token account if needed
+  const tokenAccountInfo = await connection.getAccountInfo(associatedTokenAddress);
+  if (!tokenAccountInfo) {
+    atomicTransaction.add(
+      createAssociatedTokenAccountInstruction(
+        wallet.publicKey,
+        associatedTokenAddress,
+        wallet.publicKey,
+        mintPublicKey
+      )
+    );
+  }
+
+  // Step 6: Mint tokens to user (only retention amount)
+  if (retainedAmount > 0) {
+    const { createMintToInstruction } = await import('@solana/spl-token');
+    atomicTransaction.add(
+      createMintToInstruction(
+        mintPublicKey,
+        associatedTokenAddress,
+        wallet.publicKey,
+        retainedAmount * Math.pow(10, tokenData.decimals)
+      )
+    );
+  }
+
+  // Step 7: Immediately revoke ALL authorities for maximum security
+  const { createSetAuthorityInstruction, AuthorityType } = await import('@solana/spl-token');
+  
+  // Revoke mint authority (make unmintable)
+  atomicTransaction.add(
+    createSetAuthorityInstruction(
+      mintPublicKey,
+      wallet.publicKey,
+      AuthorityType.MintTokens,
+      null // null = revoke permanently
+    )
+  );
+
+  // Revoke freeze authority
+  atomicTransaction.add(
+    createSetAuthorityInstruction(
+      mintPublicKey,
+      wallet.publicKey,
+      AuthorityType.FreezeAccount,
+      null // null = revoke permanently
+    )
+  );
+
+  // Step 8: Add metadata memo for indexing
+  atomicTransaction.add(
+    new TransactionInstruction({
+      keys: [],
+      programId: new PublicKey('MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr'),
+      data: Buffer.from(`{"name":"${tokenData.name}","symbol":"${tokenData.symbol}","uri":"${metadataUri}"}`)
+    })
+  );
+
+  // Prepare transaction for signing
+  atomicTransaction.feePayer = wallet.publicKey;
+  const blockhash = await connection.getLatestBlockhash('finalized');
+  atomicTransaction.recentBlockhash = blockhash.blockhash;
+
+  // Pre-sign with mint keypair
+  atomicTransaction.partialSign(mintKeypair);
+
+  console.log('🔥 ATOMIC TRANSACTION: All operations in ONE transaction for maximum security');
+  console.log('   ✅ Platform fee payment');
+  console.log('   ✅ Mint creation');
+  console.log('   ✅ Metadata creation (immutable)');
+  console.log('   ✅ Token minting (retention only)');
+  console.log('   ✅ Authority revocation (immediate)');
+  console.log('   ✅ Indexing memo');
+
+  // Execute atomic transaction
+  const isPhantomAvailable = window.phantom?.solana?.signAndSendTransaction;
+  let txId: string;
+
+  if (isPhantomAvailable) {
+    console.log('🎯 Using Phantom signAndSendTransaction for ATOMIC execution');
+    try {
+      const result = await window.phantom!.solana!.signAndSendTransaction(atomicTransaction);
+      txId = result.signature;
+      console.log('✅ ATOMIC token creation completed via Phantom, txid:', txId);
+    } catch (phantomError) {
+      console.error('❌ Phantom atomic transaction failed:', phantomError);
+      throw phantomError;
+    }
+  } else {
+    console.log('🔄 Using wallet adapter for atomic execution');
+    try {
+      const signedTransaction = await wallet.signTransaction(atomicTransaction);
+      txId = await connection.sendRawTransaction(signedTransaction.serialize(), {
+        skipPreflight: false,
+        preflightCommitment: 'processed'
+      });
+      console.log('✅ ATOMIC token creation completed via wallet adapter, txid:', txId);
+    } catch (walletError) {
+      console.error('❌ Wallet adapter atomic transaction failed:', walletError);
+      throw walletError;
+    }
+  }
+
+  // Enhanced confirmation with retries
+  console.log('⏳ Confirming atomic transaction...');
+  try {
+    await connection.confirmTransaction({
+      signature: txId,
+      blockhash: blockhash.blockhash,
+      lastValidBlockHeight: blockhash.lastValidBlockHeight
+    }, 'confirmed');
+    
+    console.log('🎉 ATOMIC TRANSACTION CONFIRMED - Professional token creation complete!');
+    console.log('🛡️ Token is now: UNMINTABLE, UNFREEZABLE, with IMMUTABLE metadata');
+  } catch (confirmError) {
+    console.log('Initial atomic confirmation failed, checking status...', confirmError);
+    
+    // Retry logic for atomic transaction
+    let retries = 3;
+    let confirmed = false;
+    
+    while (retries > 0 && !confirmed) {
+      try {
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        const status = await connection.getSignatureStatus(txId);
+        
+        if (status.value?.confirmationStatus === 'confirmed' || 
+            status.value?.confirmationStatus === 'finalized') {
+          console.log('✅ Atomic transaction confirmed on retry!');
+          confirmed = true;
+          break;
+        } else if (status.value?.err) {
+          throw new Error(`Atomic transaction failed: ${JSON.stringify(status.value.err)}`);
+        }
+        
+        console.log(`⏳ Retrying atomic confirmation... ${retries} attempts left`);
+        retries--;
+      } catch (retryError) {
+        console.error(`❌ Atomic retry ${4 - retries} failed:`, retryError);
+        retries--;
+      }
+    }
+    
+    if (!confirmed) {
+      console.warn('⚠️ Could not confirm atomic transaction');
+      console.warn('⚠️ Check manually:', `https://solscan.io/tx/${txId}`);
+      throw new Error('Atomic transaction confirmation failed');
+    }
+  }
+
+  return txId;
+}
+
+/**
+ * Legacy: Create on-chain metadata for a token using Metaplex Token Metadata Program
+ * DEPRECATED: Use createAtomicTokenTransaction for new implementations
  */
 export async function createTokenMetadata(
   connection: Connection,
@@ -50,6 +317,8 @@ export async function createTokenMetadata(
   tokenAddress: string,
   tokenData: TokenParams
 ): Promise<string> {
+  console.log('⚠️ DEPRECATED: createTokenMetadata - Use createAtomicTokenTransaction instead');
+  
   const mintPublicKey = new PublicKey(tokenAddress);
 
   // Calculate metadata PDA
@@ -69,7 +338,7 @@ export async function createTokenMetadata(
   const transaction = new Transaction()
     .add(
       ComputeBudgetProgram.setComputeUnitLimit({ units: 400000 }),
-      ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 5000 }) // Normal priority fee - prevents Phantom warnings
+      ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 1000 }) // Reduced priority fee - prevents Phantom warnings
     );
 
   // Create metadata instruction

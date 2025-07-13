@@ -501,8 +501,70 @@ export const revokeTokenAuthorities = async (
 };
 
 /**
- * Create a token using the SPL Token Program directly
- * NOTE: This version does NOT revoke authorities - call revokeTokenAuthorities() separately after metadata creation
+ * NEW: Create a token using ATOMIC transaction pattern (pump.fun style)
+ * Combines all operations including fee payment in a single transaction to minimize Phantom warnings
+ */
+export const createAtomicToken = async (
+  connection: Connection,
+  wallet: any,
+  metadataUri: string,
+  params: TokenParams,
+  platformFee?: number,
+  feeRecipientAddress?: string
+): Promise<string> => {
+  try {
+    console.log('🚀 Creating token with ATOMIC transaction pattern (pump.fun style)');
+    console.log('Metadata URI:', metadataUri);
+    console.log('Wallet public key:', wallet.publicKey.toString());
+
+    // Import atomic transaction function
+    const { createAtomicTokenTransaction } = await import('./metaplex');
+    
+    // Generate a new keypair for the mint
+    const mintKeypair = Keypair.generate();
+    
+    console.log('Generated mint public key:', mintKeypair.publicKey.toString());
+    
+    // Calculate retention amount
+    const retentionPercentage = params.retentionPercentage || 0;
+    const retainedAmount = params.retainedAmount || Math.floor(params.supply * (retentionPercentage / 100));
+    
+    console.log(`🔒 ATOMIC CREATION: ${retainedAmount.toLocaleString()} tokens to user (${retentionPercentage}%)`);
+    console.log(`🛡️ Authorities will be IMMEDIATELY revoked for maximum security`);
+    
+    if (platformFee && platformFee > 0) {
+      console.log(`💰 Platform fee will be included atomically: ${platformFee.toFixed(4)} SOL`);
+    }
+    
+    // Execute atomic transaction
+    const txId = await createAtomicTokenTransaction(
+      connection,
+      wallet,
+      mintKeypair,
+      params,
+      metadataUri,
+      retainedAmount,
+      platformFee || 0,
+      feeRecipientAddress
+    );
+    
+    console.log('✅ ATOMIC token creation completed successfully');
+    console.log('🎉 Token is now FULLY SECURE: unmintable, unfreezable, immutable metadata');
+    return mintKeypair.publicKey.toString();
+    
+  } catch (error) {
+    console.error('❌ ATOMIC token creation failed:', error);
+    if (error instanceof Error) {
+      console.error('Error message:', error.message);
+      console.error('Error stack:', error.stack);
+    }
+    throw error;
+  }
+};
+
+/**
+ * LEGACY: Create a token using the SPL Token Program directly
+ * DEPRECATED: Use createAtomicToken for new implementations
  */
 export const createVerifiedToken = async (
   connection: Connection,
@@ -511,6 +573,7 @@ export const createVerifiedToken = async (
   params: TokenParams
 ): Promise<string> => {
   try {
+    console.log('⚠️ DEPRECATED: createVerifiedToken - Use createAtomicToken instead');
     console.log('Creating token with metadata URI:', metadataUri);
     console.log('Wallet public key:', wallet.publicKey.toString());
     
@@ -534,7 +597,7 @@ export const createVerifiedToken = async (
     const createMintTransaction = new Transaction().add(
       // Add compute budget for Phantom's Lighthouse guard instructions
       ComputeBudgetProgram.setComputeUnitLimit({ units: 400000 }),
-      ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 50000 }), // Increased 50x for network congestion
+      ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 1000 }), // Reduced priority fee
       SystemProgram.createAccount({
         fromPubkey: wallet.publicKey,
         newAccountPubkey: mintPublicKey,
@@ -618,7 +681,7 @@ export const createVerifiedToken = async (
       // Add compute budget for Phantom's Lighthouse guard instructions
       mintToTransaction.add(
         ComputeBudgetProgram.setComputeUnitLimit({ units: 400000 }),
-        ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 50000 }) // Increased 50x for network congestion
+        ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 1000 }) // Reduced priority fee
       );
       
       // Check if the token account exists
@@ -694,7 +757,7 @@ export const createVerifiedToken = async (
         // Add compute budget for Phantom's Lighthouse guard instructions
         memoTransaction.add(
           ComputeBudgetProgram.setComputeUnitLimit({ units: 400000 }),
-          ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 50000 })
+          ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 1000 })
         );
         
         // Most reliable format for metadata in memo - both Solscan and Phantom recognize this
