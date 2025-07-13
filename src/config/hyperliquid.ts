@@ -10,9 +10,9 @@ export const HYPERLIQUID_CONFIG = {
     chainId: 421037, // HYPER LIQUID mainnet chain ID
     explorer: 'https://app.hyperliquid.xyz',
     nativeCurrency: {
-      name: 'USDC',
-      symbol: 'USDC',
-      decimals: 6,
+      name: 'ETH',
+      symbol: 'ETH',
+      decimals: 18,
     },
   },
   

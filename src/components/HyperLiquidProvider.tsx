@@ -8,9 +8,9 @@ export const HYPERLIQUID_NETWORK = {
   chainId: '0x66eed', // 421037 in hex (mainnet)
   chainName: 'HyperLiquid',
   nativeCurrency: {
-    name: 'USDC',
-    symbol: 'USDC',
-    decimals: 6,
+    name: 'ETH',
+    symbol: 'ETH',
+    decimals: 18,
   },
   rpcUrls: ['https://api.hyperliquid.xyz/evm'],
   blockExplorerUrls: ['https://explorer.hyperliquid.xyz'],
