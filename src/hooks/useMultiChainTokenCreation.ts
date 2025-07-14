@@ -42,7 +42,7 @@ export function useMultiChainTokenCreation() {
     }));
   }, []);
 
-  const createToken = useCallback(async (params: UnifiedTokenParams, userAddress?: string): Promise<TokenCreationResult | null> => {
+  const createToken = useCallback(async (params: UnifiedTokenParams, signerOrAddress?: any): Promise<TokenCreationResult | null> => {
     if (state.isCreating) {
       console.warn('Token creation already in progress');
       return null;
@@ -80,7 +80,7 @@ export function useMultiChainTokenCreation() {
       updateProgress(3, `Creating ${params.blockchain} token...`);
       
       // Create the token
-      const result = await provider.createToken(params);
+      const result = await provider.createToken(params, signerOrAddress);
       
       if (!result.success) {
         throw new Error(result.error || 'Token creation failed');
@@ -88,9 +88,21 @@ export function useMultiChainTokenCreation() {
       
       updateProgress(4, 'Saving to database...');
       
+      // Determine user address - if signer object, get address from it, otherwise use as address
+      let userAddress: string;
+      if (signerOrAddress && typeof signerOrAddress === 'object' && signerOrAddress.getAddress) {
+        // It's a signer object (like ethers JsonRpcSigner)
+        userAddress = await signerOrAddress.getAddress();
+      } else if (typeof signerOrAddress === 'string') {
+        // It's already an address string
+        userAddress = signerOrAddress;
+      } else {
+        userAddress = 'UNKNOWN_USER';
+      }
+      
       // Save to database
       await saveMultiChainToken({
-        userAddress: userAddress || 'UNKNOWN_USER',
+        userAddress,
         tokenAddress: result.tokenAddress!,
         tokenName: params.name,
         tokenSymbol: params.symbol,
