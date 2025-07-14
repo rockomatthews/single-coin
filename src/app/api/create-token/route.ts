@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { PublicKey } from '@solana/web3.js';
-import { saveTokenToDatabase } from '@/utils/database';
+import { saveTokenToDatabase, saveMultiChainToken } from '@/utils/database';
 
 // Force dynamic behavior for API routes
 export const dynamic = 'force-dynamic';
@@ -27,8 +27,13 @@ export async function POST(request: NextRequest) {
     const {
       userAddress,
       tokenData,
-      tokenAddress
+      tokenAddress,
+      poolTxId
     } = data;
+    
+    // Detect blockchain type from the request
+    const blockchain = tokenData.blockchain || 
+                      (tokenAddress.startsWith('HL_') ? 'hyperliquid' : 'solana');
     
     // Validate inputs
     if (!userAddress || !tokenAddress || !tokenData.name || !tokenData.symbol) {
@@ -39,25 +44,54 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    // Validate Solana addresses
-    try {
-      console.log('Validating addresses:');
+    // Validate addresses based on blockchain
+    if (blockchain === 'solana') {
+      try {
+        console.log('Validating Solana addresses:');
+        console.log('- User address:', userAddress);
+        console.log('- Token address:', tokenAddress);
+        
+        new PublicKey(userAddress);
+        new PublicKey(tokenAddress);
+      } catch (error) {
+        console.error('Solana address validation error:', error);
+        return NextResponse.json(
+          { 
+            error: 'Invalid Solana address',
+            details: 'One or both addresses are invalid Solana public keys',
+            userAddress,
+            tokenAddress
+          },
+          { status: 400 }
+        );
+      }
+    } else if (blockchain === 'hyperliquid') {
+      console.log('Validating HYPER LIQUID addresses:');
       console.log('- User address:', userAddress);
       console.log('- Token address:', tokenAddress);
       
-      new PublicKey(userAddress);
-      new PublicKey(tokenAddress);
-    } catch (error) {
-      console.error('Address validation error:', error);
-      return NextResponse.json(
-        { 
-          error: 'Invalid Solana address',
-          details: 'One or both addresses are invalid Solana public keys',
-          userAddress,
-          tokenAddress
-        },
-        { status: 400 }
-      );
+      // Basic validation for HYPER LIQUID addresses
+      if (!userAddress.startsWith('0x') || userAddress.length !== 42) {
+        return NextResponse.json(
+          { 
+            error: 'Invalid HYPER LIQUID user address',
+            details: 'User address must be a valid Ethereum address (0x...)',
+            userAddress
+          },
+          { status: 400 }
+        );
+      }
+      
+      if (!tokenAddress.startsWith('HL_')) {
+        return NextResponse.json(
+          { 
+            error: 'Invalid HYPER LIQUID token address',
+            details: 'Token address must be in HYPER LIQUID format (HL_...)',
+            tokenAddress
+          },
+          { status: 400 }
+        );
+      }
     }
     
     // Calculate distribution amounts if not explicitly provided
@@ -67,6 +101,7 @@ export async function POST(request: NextRequest) {
     const liquidityAmount = tokenData.liquidityAmount || (totalSupply - retainedAmount);
     
     console.log('Saving token to database with:');
+    console.log('- Blockchain:', blockchain);
     console.log('- User address:', userAddress);
     console.log('- Token address:', tokenAddress);
     console.log('- Token name:', tokenData.name);
@@ -75,26 +110,64 @@ export async function POST(request: NextRequest) {
     
     // Save token data to database with enhanced error handling
     try {
-      await saveTokenToDatabase(
-        userAddress,
-        tokenAddress,
-        tokenData.name,
-        tokenData.symbol,
-        tokenData.image || '',
-        tokenData.decimals || 9,
-        totalSupply,
-        retentionPercentage,
-        retainedAmount,
-        liquidityAmount,
-        tokenData.description || '',
-        tokenData.website || '',
-        tokenData.twitter || '',
-        tokenData.telegram || '',
-        tokenData.discord || '',
-        tokenData.metadataUri || ''
-      );
+      if (blockchain === 'solana') {
+        // Use legacy Solana function for backward compatibility
+        await saveTokenToDatabase(
+          userAddress,
+          tokenAddress,
+          tokenData.name,
+          tokenData.symbol,
+          tokenData.image || '',
+          tokenData.decimals || 9,
+          totalSupply,
+          retentionPercentage,
+          retainedAmount,
+          liquidityAmount,
+          tokenData.description || '',
+          tokenData.website || '',
+          tokenData.twitter || '',
+          tokenData.telegram || '',
+          tokenData.discord || '',
+          tokenData.metadataUri || ''
+        );
+      } else {
+        // Use multi-chain function for HYPER LIQUID and future blockchains
+        await saveMultiChainToken({
+          userAddress,
+          tokenAddress,
+          tokenName: tokenData.name,
+          tokenSymbol: tokenData.symbol,
+          tokenImage: tokenData.image || '',
+          tokenDescription: tokenData.description || '',
+          website: tokenData.website,
+          twitter: tokenData.twitter,
+          telegram: tokenData.telegram,
+          discord: tokenData.discord,
+          metadataUri: tokenData.metadataUri || '',
+          decimals: tokenData.decimals || (blockchain === 'hyperliquid' ? 6 : 9),
+          supply: totalSupply,
+          retentionPercentage,
+          retainedAmount,
+          liquidityAmount,
+          blockchain: blockchain as 'solana' | 'hyperliquid',
+          network: blockchain === 'solana' 
+            ? (process.env.NEXT_PUBLIC_SOLANA_NETWORK || 'mainnet')
+            : 'mainnet',
+          chainSpecificData: blockchain === 'hyperliquid' ? {
+            tokenStandard: tokenData.tokenStandard || 'HIP-1',
+            szDecimals: tokenData.szDecimals || 6,
+            weiDecimals: tokenData.weiDecimals || 18,
+            maxSupply: tokenData.maxSupply || totalSupply,
+          } : undefined,
+          tokenStandard: blockchain === 'solana' ? 'SPL' : (tokenData.tokenStandard || 'HIP-1'),
+          poolTxId,
+          explorerUrl: blockchain === 'hyperliquid' && tokenAddress.startsWith('HL_')
+            ? `https://app.hyperliquid.xyz/token/${tokenAddress.substring(3)}`
+            : undefined,
+        });
+      }
       
-      console.log('Token saved successfully to database');
+      console.log(`${blockchain.toUpperCase()} token saved successfully to database`);
     } catch (dbError) {
       console.error('Database save error:', dbError);
       console.error('Database error details:', {
@@ -116,11 +189,16 @@ export async function POST(request: NextRequest) {
     // Return success response
     return NextResponse.json({
       success: true,
+      blockchain,
       tokenAddress,
       retainedAmount,
       liquidityAmount,
       retentionPercentage,
-      message: 'Token created and saved successfully'
+      poolTxId,
+      explorerUrl: blockchain === 'hyperliquid' && tokenAddress.startsWith('HL_')
+        ? `https://app.hyperliquid.xyz/token/${tokenAddress.substring(3)}`
+        : undefined,
+      message: `${blockchain.toUpperCase()} token created and saved successfully`
     });
   } catch (error) {
     console.error('Error creating token:', error);

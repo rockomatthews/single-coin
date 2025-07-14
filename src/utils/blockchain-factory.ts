@@ -216,16 +216,25 @@ class HyperLiquidProvider implements BlockchainProvider {
       // Upload metadata first
       const metadataUri = await uploadHyperLiquidMetadata(hyperLiquidParams);
       
-      // Execute the 5-step HYPER LIQUID deployment process
-      const result = await this.executeHyperLiquidDeployment(hyperLiquidParams, metadataUri, signer);
+      // Execute the 5-step HYPER LIQUID deployment process using the actual implementation
+      const { createHyperLiquidToken } = await import('./hyperliquid');
+      
+      const result = await createHyperLiquidToken(
+        hyperLiquidParams, 
+        signer,
+        (step: number, status: string) => {
+          console.log(`Step ${step}/5: ${status}`);
+        }
+      );
       
       return {
         success: result.success,
-        tokenAddress: result.data?.tokenAddress,
-        txHash: result.data?.txHash,
+        tokenAddress: result.tokenId ? `HL_${result.tokenId}` : undefined,
+        txHash: result.txHashes?.[0], // Use the first transaction hash
         error: result.error,
         blockchain: 'hyperliquid',
-        explorer_url: result.data?.explorer_url,
+        explorer_url: result.tokenId ? `https://app.hyperliquid.xyz/token/${result.tokenId}` : undefined,
+        poolTxId: result.spotIndex ? `spot_${result.spotIndex}` : undefined,
       };
     } catch (error) {
       return {
@@ -236,120 +245,6 @@ class HyperLiquidProvider implements BlockchainProvider {
     }
   }
   
-  private async executeHyperLiquidDeployment(
-    params: HyperLiquidTokenParams, 
-    metadataUri: string,
-    signer: any
-  ) {
-    const { makeHyperLiquidRequest } = await import('./hyperliquid');
-    
-    try {
-      // Step 1: Register Token
-      const registerTokenResult = await makeHyperLiquidRequest('/exchange', {
-        action: {
-          type: 'spotDeploy',
-          registerToken2: {
-            spec: {
-              name: params.symbol,
-              szDecimals: params.szDecimals,
-              weiDecimals: params.weiDecimals,
-            },
-            maxGas: params.maxGas || 5000,
-            fullName: params.name,
-          },
-        },
-      }, signer);
-      
-      if (!registerTokenResult.success) {
-        throw new Error(`Token registration failed: ${registerTokenResult.error}`);
-      }
-      
-      const tokenIndex = registerTokenResult.data?.tokenIndex || 0;
-      
-      // Step 2: User Genesis (set initial distribution)
-      if (params.retainedAmount && params.retainedAmount > 0) {
-        await makeHyperLiquidRequest('/exchange', {
-          action: {
-            type: 'spotDeploy',
-            userGenesis: {
-              token: tokenIndex,
-              user: 'USER_ADDRESS', // Would need actual user address
-              amount: params.retainedAmount.toString(),
-            },
-          },
-        }, signer);
-      }
-      
-      // Step 3: Genesis (set max supply)
-      await makeHyperLiquidRequest('/exchange', {
-        action: {
-          type: 'spotDeploy',
-          genesis: {
-            token: tokenIndex,
-            maxSupply: params.maxSupply.toString(),
-            setHyperliquidityBalance: params.enableHyperliquidity,
-          },
-        },
-      }, signer);
-      
-      // Step 4: Register Spot (create trading pair with USDC)
-      const registerSpotResult = await makeHyperLiquidRequest('/exchange', {
-        action: {
-          type: 'spotDeploy',
-          registerSpot: {
-            baseToken: tokenIndex,
-            quoteToken: 0, // USDC index
-          },
-        },
-      }, signer);
-      
-      const spotIndex = registerSpotResult.data?.spotIndex || 0;
-      
-      // Step 5: Register Hyperliquidity (if enabled)
-      if (params.enableHyperliquidity) {
-        await makeHyperLiquidRequest('/exchange', {
-          action: {
-            type: 'spotDeploy',
-            registerHyperliquidity: {
-              spotIndex: spotIndex,
-              startingPrice: params.initialPrice?.toString() || '1.0',
-              orderSize: params.orderSize?.toString() || '1000',
-              nOrders: params.numberOfOrders || 10,
-            },
-          },
-        }, signer);
-      }
-      
-      // Optional: Set deployer fee share
-      if (params.deployerFeeShare) {
-        await makeHyperLiquidRequest('/exchange', {
-          action: {
-            type: 'spotDeploy',
-            setDeployerTradingFeeShare: {
-              spotIndex: spotIndex,
-              feeShare: `${params.deployerFeeShare}%`,
-            },
-          },
-        }, signer);
-      }
-      
-      return {
-        success: true,
-        data: {
-          tokenAddress: `HL_${tokenIndex}`, // HYPER LIQUID token identifier
-          tokenIndex,
-          spotIndex,
-          txHash: registerTokenResult.data?.txHash,
-          explorer_url: `https://app.hyperliquid.xyz/token/${tokenIndex}`,
-        },
-      };
-    } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Deployment failed',
-      };
-    }
-  }
   
   async uploadMetadata(params: UnifiedTokenParams): Promise<string> {
     const { uploadHyperLiquidMetadata } = await import('./hyperliquid');

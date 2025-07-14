@@ -24,8 +24,18 @@ const getBirdeyeApiKey = (): string => {
 };
 
 /**
- * Fetch token price data from Birdeye API
- * @param tokenAddress Solana token mint address
+ * Detect blockchain type from token address
+ */
+function detectBlockchain(tokenAddress: string): 'solana' | 'hyperliquid' {
+  if (tokenAddress.startsWith('HL_') || tokenAddress.startsWith('0x')) {
+    return 'hyperliquid';
+  }
+  return 'solana';
+}
+
+/**
+ * Fetch token price data from appropriate API based on blockchain
+ * @param tokenAddress Token address (Solana mint or HYPER LIQUID identifier)
  * @returns Price data including price and market cap
  */
 export async function getTokenPrice(tokenAddress: string): Promise<{ price: number; marketCap: number }> {
@@ -40,8 +50,15 @@ export async function getTokenPrice(tokenAddress: string): Promise<{ price: numb
     };
   }
   
+  const blockchain = detectBlockchain(tokenAddress);
+  
   try {
-    // Fetch from Birdeye API
+    if (blockchain === 'hyperliquid') {
+      // For HYPER LIQUID tokens, use their API or placeholder for now
+      return getHyperLiquidTokenPrice(tokenAddress);
+    }
+    
+    // For Solana tokens, use Birdeye API
     const apiKey = getBirdeyeApiKey();
     
     // If no API key is provided, use a fallback random value (for development)
@@ -115,10 +132,42 @@ export async function getTokenPrice(tokenAddress: string): Promise<{ price: numb
 }
 
 /**
+ * Fetch HYPER LIQUID token price data
+ * @param tokenAddress HYPER LIQUID token identifier (HL_xxx format)
+ * @returns Price data including price and market cap
+ */
+async function getHyperLiquidTokenPrice(tokenAddress: string): Promise<{ price: number; marketCap: number }> {
+  try {
+    // For now, we'll use placeholder data since HYPER LIQUID price APIs are still in development
+    // In the future, this would integrate with the HYPER LIQUID price feed API
+    
+    // Extract token ID from address (remove HL_ prefix)
+    const tokenId = tokenAddress.startsWith('HL_') ? tokenAddress.substring(3) : tokenAddress;
+    
+    // TODO: Replace with actual HYPER LIQUID API call
+    // const response = await fetch(`https://api.hyperliquid.xyz/info`, {
+    //   method: 'POST',
+    //   headers: { 'Content-Type': 'application/json' },
+    //   body: JSON.stringify({
+    //     type: 'spotMeta',
+    //     tokens: [parseInt(tokenId)]
+    //   })
+    // });
+    
+    // For now, return enhanced placeholder data for HYPER LIQUID tokens
+    return generatePlaceholderPriceData(tokenAddress, 'hyperliquid');
+    
+  } catch (error) {
+    console.error(`Error fetching HYPER LIQUID price for ${tokenAddress}:`, error);
+    return generatePlaceholderPriceData(tokenAddress, 'hyperliquid');
+  }
+}
+
+/**
  * Generate placeholder price data when API fails or isn't available
  * This ensures the UI always has data to display
  */
-function generatePlaceholderPriceData(tokenAddress: string): { price: number; marketCap: number } {
+function generatePlaceholderPriceData(tokenAddress: string, blockchain: 'solana' | 'hyperliquid' = 'solana'): { price: number; marketCap: number } {
   // Generate a consistent but random-looking price based on token address
   // This ensures the same token always gets the same "random" price
   const addressSum = tokenAddress
@@ -126,11 +175,19 @@ function generatePlaceholderPriceData(tokenAddress: string): { price: number; ma
     .map(char => char.charCodeAt(0))
     .reduce((sum, code) => sum + code, 0);
   
-  // Generate price between $0.0001 and $0.01
-  const price = (addressSum % 100) / 10000 + 0.0001;
+  // Different price ranges for different blockchains
+  let price: number;
+  let supply: number;
   
-  // Generate a supply between 1M and 10B
-  const supply = 1000000 + (addressSum % 10000000000);
+  if (blockchain === 'hyperliquid') {
+    // HYPER LIQUID tokens typically have higher prices due to smaller supplies
+    price = (addressSum % 1000) / 100 + 0.1; // $0.1 to $10
+    supply = 1000000 + (addressSum % 100000000); // 1M to 100M
+  } else {
+    // Solana tokens with traditional ranges
+    price = (addressSum % 100) / 10000 + 0.0001; // $0.0001 to $0.01
+    supply = 1000000 + (addressSum % 10000000000); // 1M to 10B
+  }
   
   // Calculate market cap
   const marketCap = price * supply;

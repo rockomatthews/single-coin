@@ -207,6 +207,14 @@ export async function getTokensByUser(
   }
 }
 
+// Multi-chain version of getTokensByUser (alias for consistency)
+export async function getMultiChainTokensByUser(
+  userAddress: string, 
+  blockchain?: 'solana' | 'hyperliquid'
+): Promise<UserToken[]> {
+  return getTokensByUser(userAddress, blockchain);
+}
+
 // Get recent tokens across all chains (with optional blockchain filter)
 export async function getRecentTokens(
   limit: number = 50,

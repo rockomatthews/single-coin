@@ -11,6 +11,44 @@ import LocalFireDepartmentIcon from '@mui/icons-material/LocalFireDepartment';
 import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
 import { formatMarketCap, formatPrice } from '@/utils/tokenPrices';
 
+// Blockchain indicator component
+const BlockchainBadge = ({ blockchain }: { blockchain?: 'solana' | 'hyperliquid' }) => {
+  if (!blockchain) return null;
+  
+  const config = {
+    solana: { icon: '◎', color: '#9945FF', label: 'SOL' },
+    hyperliquid: { icon: '₿', color: '#FF6B00', label: 'HL' }
+  };
+  
+  const { icon, color, label } = config[blockchain];
+  
+  return (
+    <Box
+      sx={{
+        position: 'absolute',
+        top: 4,
+        right: 4,
+        backgroundColor: color,
+        color: 'white',
+        borderRadius: '12px',
+        padding: '2px 6px',
+        fontSize: '0.6rem',
+        fontWeight: 'bold',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '2px',
+        minWidth: '24px',
+        justifyContent: 'center',
+        zIndex: 1,
+        boxShadow: '0 1px 3px rgba(0,0,0,0.3)'
+      }}
+    >
+      <span style={{ fontSize: '0.7rem' }}>{icon}</span>
+      <span>{label}</span>
+    </Box>
+  );
+};
+
 // Token interface
 interface Token {
   id?: number;
@@ -24,6 +62,10 @@ interface Token {
   marketCap?: number; // New field for market cap
   price?: number;     // New field for token price
   created_at?: string; // Added for sorting by date
+  blockchain?: 'solana' | 'hyperliquid'; // Multi-chain support
+  network?: string;
+  token_standard?: string;
+  explorer_url?: string;
 }
 
 export default function Home() {
@@ -81,15 +123,18 @@ export default function Home() {
       const price = Math.random() * 0.001;
       const supply = Math.floor(Math.random() * 1000000000) + 1000000;
       const marketCap = price * supply;
+      const blockchain: 'solana' | 'hyperliquid' = i % 3 === 0 ? 'hyperliquid' : 'solana'; // Mix of blockchains
       
       return {
-        token_address: `placeholder-${i}`,
+        token_address: blockchain === 'hyperliquid' ? `HL_${i}` : `placeholder-${i}`,
         token_name: `Token ${i+1}`,
         token_symbol: `TKN${i+1}`,
         token_image: `/images/logo.png`,
         supply,
         price,
         marketCap,
+        blockchain,
+        token_standard: blockchain === 'hyperliquid' ? 'HIP-1' : 'SPL',
         created_at: new Date(Date.now() - i * 86400000).toISOString() // Decreasing dates
       };
     });
@@ -202,6 +247,7 @@ export default function Home() {
                         boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
                       }}
                     >
+                      <BlockchainBadge blockchain={token.blockchain} />
                       <SafeImage
                         src={token.token_image || '/images/logo.png'}
                         alt={token.token_name}
@@ -340,6 +386,7 @@ export default function Home() {
                         boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
                       }}
                     >
+                      <BlockchainBadge blockchain={token.blockchain} />
                       <SafeImage
                         src={token.token_image || '/images/logo.png'}
                         alt={token.token_name}
