@@ -53,7 +53,7 @@ export default function CreateTokenPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { connected: solanaConnected } = useWallet();
-  const { connected: hyperLiquidConnected, address: hyperLiquidAddress } = useHyperLiquid();
+  const { connected: hyperLiquidConnected, address: hyperLiquidAddress, signer: hyperLiquidSigner } = useHyperLiquid();
   const isConnected = solanaConnected || hyperLiquidConnected;
   const connectedBlockchain = solanaConnected ? 'solana' : hyperLiquidConnected ? 'hyperliquid' : null;
   
@@ -181,7 +181,7 @@ export default function CreateTokenPage() {
       
       console.log('🔥 Creating HYPER LIQUID token with params:', unifiedParams);
       
-      const result = await multiChainCreation.createToken(unifiedParams, hyperLiquidAddress || undefined);
+      const result = await multiChainCreation.createToken(unifiedParams, hyperLiquidSigner || undefined);
       
       if (result && result.success) {
         setCreationResult({
@@ -236,19 +236,19 @@ export default function CreateTokenPage() {
         />;
       case 1:
         return <TokenDistribution 
-          tokenParams={tokenParams} 
+          tokenParams={{...tokenParams, blockchain: connectedBlockchain || tokenParams.blockchain}} 
           updateTokenParams={updateTokenParams}
           calculateFee={calculateFee}
         />;
       case 2:
         return <TokenLiquidity 
-          tokenParams={tokenParams} 
+          tokenParams={{...tokenParams, blockchain: connectedBlockchain || tokenParams.blockchain}} 
           updateTokenParams={updateTokenParams}
           calculateTotalCost={calculateTotalCost}
         />;
       case 3:
         return <TokenReview 
-          tokenParams={tokenParams}
+          tokenParams={{...tokenParams, blockchain: connectedBlockchain || tokenParams.blockchain}}
           calculateFee={calculateFee}
           calculateTotalCost={calculateTotalCost}
         />;
