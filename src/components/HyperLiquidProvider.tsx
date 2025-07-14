@@ -3,16 +3,16 @@ import { createContext, useContext, useState, useEffect, ReactNode, FC } from 'r
 import detectEthereumProvider from '@metamask/detect-provider';
 import { ethers } from 'ethers';
 
-// HYPER LIQUID Mainnet Configuration - Updated to match existing MetaMask network
+// HYPER LIQUID Mainnet Configuration - Correct configuration for HyperEVM
 export const HYPERLIQUID_NETWORK = {
-  chainId: '0x66eed', // 421037 in hex (mainnet)
-  chainName: 'HYPERLIQUID EVM', // Match the exact name in MetaMask
+  chainId: '0x3e7', // 999 in hex (mainnet)
+  chainName: 'Hyperliquid', // Official network name
   nativeCurrency: {
-    name: 'ETH',
-    symbol: 'ETH',
+    name: 'HYPE',
+    symbol: 'HYPE',
     decimals: 18,
   },
-  rpcUrls: ['https://api.hyperliquid.xyz/evm'],
+  rpcUrls: ['https://rpc.hyperliquid.xyz/evm'],
   blockExplorerUrls: ['https://explorer.hyperliquid.xyz'],
 };
 
@@ -105,40 +105,46 @@ export const HyperLiquidProvider: FC<HyperLiquidProviderProps> = ({ children }) 
         method: 'eth_chainId'
       });
 
+      console.log('=== NETWORK DEBUG INFO ===');
       console.log('Current chain ID:', currentChainId);
+      console.log('Current chain ID (decimal):', parseInt(currentChainId, 16));
       console.log('Target HYPER LIQUID chain ID:', HYPERLIQUID_NETWORK.chainId);
+      console.log('Target chain ID (decimal):', parseInt(HYPERLIQUID_NETWORK.chainId, 16));
+      console.log('Chain IDs match?', currentChainId === HYPERLIQUID_NETWORK.chainId);
+      console.log('=========================');
 
       // Only switch if we're not already on HYPER LIQUID
       if (currentChainId !== HYPERLIQUID_NETWORK.chainId) {
-        console.log('Switching to HYPER LIQUID network...');
+        console.log('Need to switch to HYPER LIQUID network...');
+        console.log('Current chain ID:', currentChainId);
+        console.log('Target chain ID:', HYPERLIQUID_NETWORK.chainId);
+        
+        // First, just try to switch without adding - the network should already exist
         try {
+          console.log('Attempting to switch to existing HYPER LIQUID network...');
           await (window as any).ethereum.request({
             method: 'wallet_switchEthereumChain',
             params: [{ chainId: HYPERLIQUID_NETWORK.chainId }],
           });
           console.log('✅ Successfully switched to HYPER LIQUID network');
         } catch (switchError: any) {
-          console.error('❌ Switch error:', switchError);
+          console.error('❌ Switch error details:', {
+            code: switchError.code,
+            message: switchError.message,
+            data: switchError.data
+          });
           
-          // Only add network if it truly doesn't exist (error 4902)
-          if (switchError.code === 4902) {
-            console.log('Network not found, attempting to add...');
-            try {
-              await (window as any).ethereum.request({
-                method: 'wallet_addEthereumChain',
-                params: [HYPERLIQUID_NETWORK],
-              });
-              console.log('✅ Successfully added HYPER LIQUID network');
-            } catch (addError) {
-              console.error('❌ Failed to add network:', addError);
-              throw new Error('Failed to add HYPER LIQUID network to MetaMask');
-            }
+          // Handle different error scenarios
+          if (switchError.code === 4001) {
+            throw new Error('Please approve the network switch in MetaMask to continue.');
+          } else if (switchError.code === 4902) {
+            // Network exists but MetaMask can't switch to it - this is common
+            console.log('⚠️ MetaMask says network not found, but it should exist');
+            console.log('This usually means you need to manually switch to HYPER LIQUID in MetaMask');
+            throw new Error('Please manually switch to the HYPER LIQUID network in MetaMask, then try connecting again.');
           } else {
-            // For other errors (like user rejection), provide helpful message
-            if (switchError.code === 4001) {
-              throw new Error('Network switch rejected by user');
-            }
-            throw new Error(`Failed to switch to HYPER LIQUID network: ${switchError.message}`);
+            console.error('Unexpected switch error:', switchError);
+            throw new Error(`Network switch failed. Please manually switch to HYPER LIQUID network (Chain ID: 421037) in MetaMask and try again.`);
           }
         }
       } else {
