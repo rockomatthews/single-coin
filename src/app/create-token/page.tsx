@@ -23,6 +23,7 @@ import TokenLiquidity from '../../components/token/TokenLiquidity';
 import TokenReview from '../../components/token/TokenReview';
 import TokenSuccess from '../../components/token/TokenSuccess';
 import { useTokenCreation } from '../../hooks/useTokenCreation';
+import { useMultiChainTokenCreation } from '../../hooks/useMultiChainTokenCreation';
 import { calculateFee as calculatePlatformFee } from '../../utils/solana';
 
 const steps = ['Token Settings', 'Token Distribution', 'Add Liquidity', 'Review'];
@@ -52,11 +53,15 @@ export default function CreateTokenPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { connected: solanaConnected } = useWallet();
-  const { connected: hyperLiquidConnected } = useHyperLiquid();
-  const { createToken, isCreating, error, success, tokenAddress } = useTokenCreation();
-
+  const { connected: hyperLiquidConnected, address: hyperLiquidAddress } = useHyperLiquid();
   const isConnected = solanaConnected || hyperLiquidConnected;
   const connectedBlockchain = solanaConnected ? 'solana' : hyperLiquidConnected ? 'hyperliquid' : null;
+  
+  const solanaCreation = useTokenCreation();
+  const multiChainCreation = useMultiChainTokenCreation();
+  
+  // Use the appropriate hook based on connected blockchain
+  const activeCreation = connectedBlockchain === 'solana' ? solanaCreation : multiChainCreation;
   
   const [activeStep, setActiveStep] = useState(0);
   const [tokenParams, setTokenParams] = useState(DEFAULT_TOKEN_PARAMS);
@@ -118,7 +123,7 @@ export default function CreateTokenPage() {
 
   // Create token with parameters
   const createTokenWithParams = useCallback(async () => {
-    if (isCreating) return;
+    if (activeCreation.isCreating) return;
     
     // Calculate token amounts based on percentages
     const retentionPercentage = tokenParams.retentionPercentage || 20;
@@ -126,25 +131,67 @@ export default function CreateTokenPage() {
     const retainedAmount = Math.floor(totalSupply * (retentionPercentage / 100));
     const liquidityAmount = totalSupply - retainedAmount;
     
-    // Execute token creation with updated parameters - FORCE security settings
-    const result = await createToken({
-      ...tokenParams,
-      retainedAmount,
-      liquidityAmount,
-      // FORCE these security settings to be enabled for ALL tokens
-      revokeUpdateAuthority: true,  // Always revoke update authority
-      revokeFreezeAuthority: true,  // Always revoke freeze authority  
-      revokeMintAuthority: true,    // Always revoke mint authority (make unmintable)
-    });
-    
-    if (result) {
-      setCreationResult({
-        tokenAddress: result.tokenAddress,
-        poolTxId: result.poolTxId ?? null,
+    if (connectedBlockchain === 'solana') {
+      // Use Solana-specific creation
+      const result = await solanaCreation.createToken({
+        ...tokenParams,
+        retainedAmount,
+        liquidityAmount,
+        // FORCE these security settings to be enabled for ALL tokens
+        revokeUpdateAuthority: true,  // Always revoke update authority
+        revokeFreezeAuthority: true,  // Always revoke freeze authority  
+        revokeMintAuthority: true,    // Always revoke mint authority (make unmintable)
       });
-      setActiveStep(steps.length); // Move to success step
+      
+      if (result) {
+        setCreationResult({
+          tokenAddress: result.tokenAddress,
+          poolTxId: result.poolTxId ?? null,
+        });
+        setActiveStep(steps.length); // Move to success step
+      }
+    } else if (connectedBlockchain === 'hyperliquid') {
+      // Use HYPER LIQUID creation via multi-chain hook
+      const unifiedParams = {
+        name: tokenParams.name,
+        symbol: tokenParams.symbol,
+        description: tokenParams.description,
+        image: tokenParams.image,
+        website: tokenParams.website,
+        twitter: tokenParams.twitter,
+        telegram: tokenParams.telegram,
+        discord: tokenParams.discord,
+        blockchain: 'hyperliquid' as const,
+        retentionPercentage,
+        retainedAmount,
+        liquidityAmount,
+        createPool: tokenParams.createPool,
+        hyperliquid: {
+          tokenStandard: 'HIP-1' as const,
+          szDecimals: 6,
+          weiDecimals: 18,
+          maxSupply: totalSupply,
+          enableHyperliquidity: tokenParams.createPool,
+          initialPrice: 1.0,
+          orderSize: 1000,
+          numberOfOrders: 10,
+          maxGas: 5000,
+        },
+      };
+      
+      console.log('🔥 Creating HYPER LIQUID token with params:', unifiedParams);
+      
+      const result = await multiChainCreation.createToken(unifiedParams, hyperLiquidAddress || undefined);
+      
+      if (result && result.success) {
+        setCreationResult({
+          tokenAddress: result.tokenAddress || null,
+          poolTxId: result.poolTxId || null,
+        });
+        setActiveStep(steps.length); // Move to success step
+      }
     }
-  }, [tokenParams, isCreating, createToken]);
+  }, [tokenParams, activeCreation.isCreating, connectedBlockchain, solanaCreation, multiChainCreation]);
   
   // Calculate fee based on parameters using the centralized fee calculation
   const calculateFee = useCallback(() => {
@@ -193,7 +240,11 @@ export default function CreateTokenPage() {
           calculateTotalCost={calculateTotalCost}
         />;
       case 4:
-        return <TokenSuccess tokenAddress={creationResult?.tokenAddress || tokenAddress} />;
+        return <TokenSuccess tokenAddress={
+          creationResult?.tokenAddress || 
+          (connectedBlockchain === 'solana' ? solanaCreation.tokenAddress : multiChainCreation.result?.tokenAddress) || 
+          null
+        } />;
       default:
         return 'Unknown step';
     }
@@ -202,8 +253,10 @@ export default function CreateTokenPage() {
     updateTokenParams, 
     calculateFee, 
     calculateTotalCost, 
-    creationResult, 
-    tokenAddress
+    creationResult,
+    connectedBlockchain,
+    solanaCreation.tokenAddress,
+    multiChainCreation.result
   ]);
 
   // Show loading while checking wallet connection
@@ -296,10 +349,10 @@ export default function CreateTokenPage() {
         <Box>
           {getStepContent(activeStep)}
           
-          {error && (
+          {activeCreation.error && (
             <Box mt={2} p={2} bgcolor="error.light" borderRadius={1}>
               <Typography color="error" variant="body1">
-                Error: {error}
+                Error: {activeCreation.error}
               </Typography>
             </Box>
           )}
@@ -309,7 +362,7 @@ export default function CreateTokenPage() {
               <Button
                 variant="outlined"
                 onClick={handleBack}
-                disabled={isCreating}
+                disabled={activeCreation.isCreating}
               >
                 Back
               </Button>
@@ -320,12 +373,12 @@ export default function CreateTokenPage() {
                 variant="contained"
                 color={activeStep === steps.length - 1 ? "success" : "primary"}
                 onClick={handleNext}
-                disabled={isCreating}
+                disabled={activeCreation.isCreating}
                 sx={{ ml: 'auto' }}
-                startIcon={isCreating ? <CircularProgress size={20} color="inherit" /> : null}
+                startIcon={activeCreation.isCreating ? <CircularProgress size={20} color="inherit" /> : null}
               >
                 {activeStep === steps.length - 1 
-                  ? (isCreating ? 'Creating...' : 'Create Token') 
+                  ? (activeCreation.isCreating ? 'Creating...' : `Create ${connectedBlockchain?.toUpperCase()} Token`)
                   : 'Next'}
               </Button>
             )}

@@ -42,7 +42,7 @@ export function useMultiChainTokenCreation() {
     }));
   }, []);
 
-  const createToken = useCallback(async (params: UnifiedTokenParams): Promise<TokenCreationResult | null> => {
+  const createToken = useCallback(async (params: UnifiedTokenParams, userAddress?: string): Promise<TokenCreationResult | null> => {
     if (state.isCreating) {
       console.warn('Token creation already in progress');
       return null;
@@ -90,7 +90,7 @@ export function useMultiChainTokenCreation() {
       
       // Save to database
       await saveMultiChainToken({
-        userAddress: 'USER_ADDRESS', // TODO: Get from wallet context
+        userAddress: userAddress || 'UNKNOWN_USER',
         tokenAddress: result.tokenAddress!,
         tokenName: params.name,
         tokenSymbol: params.symbol,
