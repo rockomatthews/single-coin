@@ -140,15 +140,15 @@ export async function signRequest(payload: any, signer?: any): Promise<string> {
 
   try {
     // HYPER LIQUID uses EIP-712 structured data signing
+    // Based on actual signature format from error logs
     const domain = {
       name: 'HyperLiquid',
-      version: '1',
-      chainId: 421037, // HYPER LIQUID mainnet chain ID
-      verifyingContract: '0x0000000000000000000000000000000000000000', // Zero address for domain
+      version: '1', 
+      chainId: 999, // HYPER LIQUID mainnet chain ID (corrected from 421037)
+      verifyingContract: '0x0000000000000000000000000000000000000000',
     };
 
-    // Define the message types based on HYPER LIQUID specification
-    // Use only the primary type to avoid "ambiguous primary types" error
+    // Define the message types based on actual HYPER LIQUID format
     const types = {
       SpotDeployAction: [
         { name: 'action', type: 'string' },
@@ -158,9 +158,10 @@ export async function signRequest(payload: any, signer?: any): Promise<string> {
     };
 
     // Create the message to sign
+    const nonce = payload.nonce || Date.now();
     const message = {
       action: JSON.stringify(payload),
-      nonce: payload.nonce || Date.now(),
+      nonce: nonce,
       data: '0x' + Buffer.from(JSON.stringify(payload)).toString('hex'),
     };
 
