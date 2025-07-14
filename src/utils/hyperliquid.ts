@@ -148,11 +148,8 @@ export async function signRequest(payload: any, signer?: any): Promise<string> {
     };
 
     // Define the message types based on HYPER LIQUID specification
+    // Use only the primary type to avoid "ambiguous primary types" error
     const types = {
-      Agent: [
-        { name: 'source', type: 'string' },
-        { name: 'connectionId', type: 'bytes32' },
-      ],
       SpotDeployAction: [
         { name: 'action', type: 'string' },
         { name: 'nonce', type: 'uint64' },

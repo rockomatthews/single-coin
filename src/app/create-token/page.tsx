@@ -197,10 +197,11 @@ export default function CreateTokenPage() {
   const calculateFee = useCallback(() => {
     const retentionPercentage = tokenParams.retentionPercentage || 20;
     if (connectedBlockchain === 'hyperliquid') {
-      // HYPER LIQUID has different fee structure
-      const baseDeploymentFee = 5.0; // Base 5 HYPE
-      const retentionMultiplier = retentionPercentage > 50 ? (retentionPercentage / 50) : 1;
-      return (baseDeploymentFee * retentionMultiplier).toFixed(4);
+      // HYPER LIQUID has retention-based fee structure (much more affordable)
+      const baseFee = 0.1; // Base 0.1 HYPE (very low)
+      const retentionMultiplier = Math.pow(retentionPercentage / 100, 2); // Quadratic scaling
+      const fee = baseFee + (retentionMultiplier * 0.4); // Max fee ~0.5 HYPE at 100% retention
+      return fee.toFixed(4);
     }
     return calculatePlatformFee(retentionPercentage).toFixed(4);
   }, [tokenParams.retentionPercentage, connectedBlockchain]);
