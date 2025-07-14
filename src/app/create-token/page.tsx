@@ -196,17 +196,30 @@ export default function CreateTokenPage() {
   // Calculate fee based on parameters using the centralized fee calculation
   const calculateFee = useCallback(() => {
     const retentionPercentage = tokenParams.retentionPercentage || 20;
+    if (connectedBlockchain === 'hyperliquid') {
+      // HYPER LIQUID has different fee structure
+      const baseDeploymentFee = 5.0; // Base 5 HYPE
+      const retentionMultiplier = retentionPercentage > 50 ? (retentionPercentage / 50) : 1;
+      return (baseDeploymentFee * retentionMultiplier).toFixed(4);
+    }
     return calculatePlatformFee(retentionPercentage).toFixed(4);
-  }, [tokenParams.retentionPercentage]);
+  }, [tokenParams.retentionPercentage, connectedBlockchain]);
 
-  // Calculate total cost (platform fee + liquidity + Raydium fees)
+  // Calculate total cost (platform fee + liquidity + protocol fees)
   const calculateTotalCost = useCallback(() => {
     const platformFee = parseFloat(calculateFee());
+    
+    if (connectedBlockchain === 'hyperliquid') {
+      // HYPER LIQUID costs are just the deployment fee
+      return platformFee.toFixed(4);
+    }
+    
+    // Solana costs include liquidity and Raydium fees
     const liquiditySol = tokenParams.liquiditySolAmount || 0;
     const raydiumFees = 0.154; // Actual Raydium pool creation costs
     
     return (platformFee + liquiditySol + raydiumFees).toFixed(4);
-  }, [calculateFee, tokenParams.liquiditySolAmount]);
+  }, [calculateFee, tokenParams.liquiditySolAmount, connectedBlockchain]);
 
   // Convert SOL to lamports
   const solToLamports = useCallback((solAmount: number) => {

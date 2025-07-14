@@ -18,6 +18,7 @@ interface TokenLiquidityProps {
     retentionPercentage: number;
     liquiditySolAmount: number;
     createPool: boolean;
+    blockchain?: 'solana' | 'hyperliquid';
   };
   updateTokenParams: (params: Partial<TokenLiquidityProps['tokenParams']>) => void;
   calculateTotalCost: () => string;
@@ -28,19 +29,106 @@ export default function TokenLiquidity({
   updateTokenParams,
   calculateTotalCost,
 }: TokenLiquidityProps) {
-  // Handle liquidity SOL amount slider change
-  const handleSolAmountChange = (_: Event, value: number | number[]) => {
+  const isHyperLiquid = tokenParams.blockchain === 'hyperliquid';
+  const currency = isHyperLiquid ? 'HYPE' : 'SOL';
+
+  // Handle liquidity amount slider change
+  const handleLiquidityAmountChange = (_: Event, value: number | number[]) => {
     updateTokenParams({ liquiditySolAmount: value as number });
   };
 
-  // Handle toggle for creating pool
+  // Handle toggle for creating pool/trading
   const handleCreatePoolToggle = (event: React.ChangeEvent<HTMLInputElement>) => {
     updateTokenParams({ createPool: event.target.checked });
   };
 
-  // Calculate tokens for liquidity
+  // Calculate tokens for liquidity/trading
   const liquidityTokens = Math.floor(tokenParams.supply * ((100 - tokenParams.retentionPercentage) / 100));
 
+  if (isHyperLiquid) {
+    // HYPER LIQUID specific UI
+    return (
+      <Box>
+        <Typography variant="h6" gutterBottom>
+          ⚡ HYPER LIQUID ORDERBOOK TRADING
+        </Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+          Enable your token for trading on HYPER LIQUID's native orderbook with professional market making features.
+        </Typography>
+
+        <Alert severity="success" sx={{ mb: 3 }}>
+          <Typography variant="subtitle2" fontWeight="bold" gutterBottom>
+            🚀 NATIVE ORDERBOOK TRADING
+          </Typography>
+          <Typography variant="body2" sx={{ mb: 1 }}>
+            Your token will be tradeable on HYPER LIQUID's advanced trading infrastructure:
+          </Typography>
+          <Box component="ul" sx={{ margin: 0, paddingLeft: 2 }}>
+            <li>✅ <strong>Native Orderbook</strong> - Professional trading experience</li>
+            <li>✅ <strong>Market Making</strong> - Automated liquidity provision</li>
+            <li>✅ <strong>Price Discovery</strong> - Real-time order matching</li>
+            <li>✅ <strong>Low Fees</strong> - Minimal trading costs</li>
+          </Box>
+        </Alert>
+
+        <Paper variant="outlined" sx={{ p: 3, mb: 3 }}>
+          <FormControlLabel
+            control={
+              <Switch
+                checked={tokenParams.createPool}
+                onChange={handleCreatePoolToggle}
+                color="primary"
+              />
+            }
+            label="Enable trading on HYPER LIQUID (Recommended)"
+            sx={{ mb: 2 }}
+          />
+
+          {tokenParams.createPool && (
+            <>
+              <Divider sx={{ my: 2 }} />
+              
+              <Alert severity="info" sx={{ mb: 2 }}>
+                <Typography variant="subtitle2" fontWeight="bold" gutterBottom>
+                  🎯 Trading Configuration:
+                </Typography>
+                <Typography variant="body2">
+                  • Trading tokens: {liquidityTokens.toLocaleString()} tokens ({100 - tokenParams.retentionPercentage}%)<br/>
+                  • Token standard: HIP-1 (HYPER LIQUID native)<br/>
+                  • Orderbook: Native HYPER LIQUID exchange<br/>
+                  • Market making: Available with initial orders<br/>
+                  • <strong>Total cost: {calculateTotalCost()} HYPE</strong>
+                </Typography>
+              </Alert>
+
+              <Typography variant="body2" color="text.secondary">
+                HYPER LIQUID uses native orderbook trading instead of AMM pools. Your tokens will be immediately available for professional trading.
+              </Typography>
+            </>
+          )}
+
+          {!tokenParams.createPool && (
+            <Alert severity="warning" sx={{ mt: 2 }}>
+              <Typography variant="body2">
+                Without enabling trading, your tokens won't be available on the HYPER LIQUID exchange. You can enable trading later.
+              </Typography>
+            </Alert>
+          )}
+        </Paper>
+
+        <Paper variant="outlined" sx={{ p: 2 }}>
+          <Typography variant="subtitle2" fontWeight="bold" gutterBottom>
+            Total Cost: {calculateTotalCost()} HYPE
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            Includes token deployment and trading setup costs
+          </Typography>
+        </Paper>
+      </Box>
+    );
+  }
+
+  // Original Solana UI
   return (
     <Box>
       <Typography variant="h6" gutterBottom>
@@ -92,7 +180,7 @@ export default function TokenLiquidity({
             <Box sx={{ px: 2, mb: 3 }}>
               <Slider
                 value={tokenParams.liquiditySolAmount}
-                onChange={handleSolAmountChange}
+                onChange={handleLiquidityAmountChange}
                 step={0.1}
                 min={0.1}
                 max={100}
