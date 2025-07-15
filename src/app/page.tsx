@@ -236,26 +236,28 @@ export default function Home() {
                     component={Link}
                     href={`/token/${token.token_address}`}
                   >
-                    <CardMedia 
-                      component="div"
-                      sx={{
-                        position: 'relative',
-                        paddingTop: '100%', // 1:1 aspect ratio
-                        borderRadius: '50%',
-                        overflow: 'hidden',
-                        border: '2px solid #333',
-                        boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
-                      }}
-                    >
+                    <Box sx={{ position: 'relative' }}>
+                      <CardMedia 
+                        component="div"
+                        sx={{
+                          position: 'relative',
+                          paddingTop: '100%', // 1:1 aspect ratio
+                          borderRadius: '50%',
+                          overflow: 'hidden',
+                          border: '2px solid #333',
+                          boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
+                        }}
+                      >
+                        <SafeImage
+                          src={token.token_image || '/images/logo.png'}
+                          alt={token.token_name}
+                          fill
+                          sizes="(max-width: 600px) 50vw, (max-width: 960px) 33vw, (max-width: 1920px) 20vw, 10vw"
+                          style={{ objectFit: 'cover' }}
+                        />
+                      </CardMedia>
                       <BlockchainBadge blockchain={token.blockchain} />
-                      <SafeImage
-                        src={token.token_image || '/images/logo.png'}
-                        alt={token.token_name}
-                        fill
-                        sizes="(max-width: 600px) 50vw, (max-width: 960px) 33vw, (max-width: 1920px) 20vw, 10vw"
-                        style={{ objectFit: 'cover' }}
-                      />
-                    </CardMedia>
+                    </Box>
                     <CardContent sx={{ flexGrow: 1, p: 1, '&:last-child': { pb: 1 } }}>
                       <Typography variant="caption" align="center" noWrap sx={{ fontWeight: 'bold', display: 'block', lineHeight: 1.2, mb: 0.5 }}>
                         {token.token_name}
@@ -375,26 +377,28 @@ export default function Home() {
                     component={Link}
                     href={`/token/${token.token_address}`}
                   >
-                    <CardMedia 
-                      component="div"
-                      sx={{
-                        position: 'relative',
-                        paddingTop: '100%', // 1:1 aspect ratio
-                        borderRadius: '50%',
-                        overflow: 'hidden',
-                        border: '2px solid #333',
-                        boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
-                      }}
-                    >
+                    <Box sx={{ position: 'relative' }}>
+                      <CardMedia 
+                        component="div"
+                        sx={{
+                          position: 'relative',
+                          paddingTop: '100%', // 1:1 aspect ratio
+                          borderRadius: '50%',
+                          overflow: 'hidden',
+                          border: '2px solid #333',
+                          boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
+                        }}
+                      >
+                        <SafeImage
+                          src={token.token_image || '/images/logo.png'}
+                          alt={token.token_name}
+                          fill
+                          sizes="(max-width: 600px) 50vw, (max-width: 960px) 25vw, (max-width: 1920px) 12vw, 6.666vw"
+                          style={{ objectFit: 'cover' }}
+                        />
+                      </CardMedia>
                       <BlockchainBadge blockchain={token.blockchain} />
-                      <SafeImage
-                        src={token.token_image || '/images/logo.png'}
-                        alt={token.token_name}
-                        fill
-                        sizes="(max-width: 600px) 50vw, (max-width: 960px) 25vw, (max-width: 1920px) 12vw, 6.666vw"
-                        style={{ objectFit: 'cover' }}
-                      />
-                    </CardMedia>
+                    </Box>
                     <CardContent sx={{ flexGrow: 1, p: 0.75, '&:last-child': { pb: 0.75 } }}>
                       <Typography variant="caption" align="center" noWrap sx={{ 
                         fontWeight: 'bold', 
