@@ -192,20 +192,21 @@ export async function makeHyperLiquidRequest(
   
   try {
     const nonce = createNonce();
-    const signature = await signRequest(payload, signer);
     const userAddress = await signer.getAddress();
+    console.log('🔍 User address from signer:', userAddress);
     
-    // Construct the final request payload with proper structure
+    // Sign the action
+    const signature = await signRequest(payload, signer);
+    
+    // Construct the final request payload with proper HyperLiquid format
     const requestPayload = {
       action: payload,
       nonce,
-      signature: {
-        r: signature.slice(0, 66),
-        s: '0x' + signature.slice(66, 130),
-        v: parseInt(signature.slice(130, 132), 16),
-      },
-      vaultAddress: userAddress,
+      signature,
+      vaultAddress: null, // Use null for main account, not userAddress
     };
+    
+    console.log('📤 HyperLiquid Request Payload:', JSON.stringify(requestPayload, null, 2));
     
     const response = await fetch(`${config.apiUrl}${endpoint}`, {
       method,
@@ -216,7 +217,7 @@ export async function makeHyperLiquidRequest(
     });
     
     const responseText = await response.text();
-    console.log('HyperLiquid API Response:', response.status, responseText);
+    console.log('📥 HyperLiquid API Response:', response.status, responseText);
     
     if (!response.ok) {
       throw new Error(`API request failed: ${response.status} ${response.statusText}`);
@@ -369,13 +370,14 @@ export function getHyperLiquidCostBreakdown(params: HyperLiquidTokenParams) {
 }
 
 /**
- * Check if user exists on HyperLiquid
+ * Check if user exists on HyperLiquid by testing a simple API call
  */
-export async function checkUserExists(signer: any): Promise<boolean> {
+export async function checkUserExists(signer: any): Promise<{ exists: boolean; error?: string }> {
   try {
     const config = getHyperLiquidConfig();
     const userAddress = await signer.getAddress();
     
+    // Try to get user state - this will tell us if user exists
     const response = await fetch(`${config.apiUrl}/info`, {
       method: 'POST',
       headers: {
@@ -388,9 +390,26 @@ export async function checkUserExists(signer: any): Promise<boolean> {
     });
     
     const data = await response.json();
-    return response.ok && data && !data.error;
+    
+    // If response contains user data, user exists
+    if (response.ok && data && !data.error) {
+      return { exists: true };
+    }
+    
+    // Check for specific "user does not exist" type errors
+    if (data && (data.error || data.status === 'err')) {
+      return { 
+        exists: false, 
+        error: data.error || data.response || 'User not found'
+      };
+    }
+    
+    return { exists: false, error: 'Unable to verify user status' };
   } catch (error) {
-    return false;
+    return { 
+      exists: false, 
+      error: error instanceof Error ? error.message : 'Network error'
+    };
   }
 }
 
@@ -420,15 +439,15 @@ export async function createHyperLiquidToken(
     };
   }
 
-  // Check if user exists on HyperLiquid
-  onProgress?.(0, 'Checking wallet registration...');
-  const userExists = await checkUserExists(signer);
-  if (!userExists) {
-    return {
-      success: false,
-      error: 'Your wallet is not registered on HyperLiquid. Please visit https://app.hyperliquid.xyz and make a transaction first to initialize your wallet.',
-    };
-  }
+  // TODO: Re-enable wallet check after fixing API format
+  // onProgress?.(0, 'Checking wallet registration...');
+  // const userCheck = await checkUserExists(signer);
+  // if (!userCheck.exists) {
+  //   return {
+  //     success: false,
+  //     error: `Your wallet is not registered on HyperLiquid.`,
+  //   };
+  // }
 
   const txHashes: string[] = [];
   let tokenId: number | undefined;
