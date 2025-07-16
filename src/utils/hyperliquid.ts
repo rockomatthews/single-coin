@@ -145,7 +145,7 @@ export async function signRequest(payload: any, signer?: any): Promise<string> {
     const domain = {
       name: 'Exchange',
       version: '1', 
-      chainId: config.isMainnet ? 42161 : 421614, // Arbitrum One mainnet or testnet
+      chainId: 999, // HyperLiquid mainnet chain ID
       verifyingContract: '0x0000000000000000000000000000000000000000',
     };
 
