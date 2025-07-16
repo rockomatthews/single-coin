@@ -204,6 +204,7 @@ export async function makeHyperLiquidRequest(
       nonce,
       signature,
       vaultAddress: null, // Use null for main account, not userAddress
+      expiresAfter: null,  // No expiration for the signature
     };
     
     console.log('📤 HyperLiquid Request Payload:', JSON.stringify(requestPayload, null, 2));
@@ -456,7 +457,7 @@ export async function createHyperLiquidToken(
   try {
     onProgress?.(1, 'Registering token...');
 
-    // Step 1: Register Token - use correct HyperLiquid format
+    // Step 1: Register Token - use exact Python SDK format
     const registerTokenPayload = {
       type: 'spotDeploy',
       registerToken2: {
@@ -465,7 +466,7 @@ export async function createHyperLiquidToken(
           szDecimals: params.szDecimals,
           weiDecimals: params.weiDecimals,
         },
-        maxGas: params.maxGas || 100000,
+        maxGas: params.maxGas || 5000,
         fullName: params.name,
       },
     };
