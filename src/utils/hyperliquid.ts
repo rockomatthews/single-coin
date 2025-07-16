@@ -369,6 +369,32 @@ export function getHyperLiquidCostBreakdown(params: HyperLiquidTokenParams) {
 }
 
 /**
+ * Check if user exists on HyperLiquid
+ */
+export async function checkUserExists(signer: any): Promise<boolean> {
+  try {
+    const config = getHyperLiquidConfig();
+    const userAddress = await signer.getAddress();
+    
+    const response = await fetch(`${config.apiUrl}/info`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        type: 'clearinghouseState',
+        user: userAddress,
+      }),
+    });
+    
+    const data = await response.json();
+    return response.ok && data && !data.error;
+  } catch (error) {
+    return false;
+  }
+}
+
+/**
  * Create HYPER LIQUID token using the 5-step deployment process
  */
 export async function createHyperLiquidToken(
@@ -391,6 +417,16 @@ export async function createHyperLiquidToken(
     return {
       success: false,
       error: `Invalid parameters: ${validation.errors.join(', ')}`,
+    };
+  }
+
+  // Check if user exists on HyperLiquid
+  onProgress?.(0, 'Checking wallet registration...');
+  const userExists = await checkUserExists(signer);
+  if (!userExists) {
+    return {
+      success: false,
+      error: 'Your wallet is not registered on HyperLiquid. Please visit https://app.hyperliquid.xyz and make a transaction first to initialize your wallet.',
     };
   }
 
@@ -425,22 +461,29 @@ export async function createHyperLiquidToken(
       throw new Error(`Token registration failed: ${registerResponse.error}`);
     }
 
+    // Check if the response indicates an error
+    if (registerResponse.data?.status === 'err') {
+      throw new Error(`Token registration failed: ${registerResponse.data.response}`);
+    }
+
     tokenId = registerResponse.data?.tokenId;
     if (registerResponse.txHash) txHashes.push(registerResponse.txHash);
 
     onProgress?.(2, 'Setting up user genesis...');
 
-    // Step 2: User Genesis (initial distribution)
+    // Step 2: User Genesis (initial distribution) - use correct format
     const userAddress = await signer.getAddress();
-    const userGenesisPayload: UserGenesis = {
-      token: tokenId!,
-      user: userAddress,
-      amount: (params.retainedAmount || 0).toString(),
+    const userGenesisPayload = {
+      type: 'spotDeploy',
+      userGenesis: {
+        token: tokenId!,
+        userAndWei: [userAddress, (params.retainedAmount || 0).toString()],
+      },
     };
 
     const userGenesisResponse = await makeHyperLiquidRequest(
       '/exchange',
-      { type: 'spotDeploy', userGenesis: userGenesisPayload },
+      userGenesisPayload,
       signer
     );
 
@@ -453,15 +496,18 @@ export async function createHyperLiquidToken(
     onProgress?.(3, 'Configuring genesis...');
 
     // Step 3: Genesis (max supply configuration)
-    const genesisPayload: Genesis = {
-      token: tokenId!,
-      maxSupply: params.maxSupply.toString(),
-      setHyperliquidityBalance: params.enableHyperliquidity || false,
+    const genesisPayload = {
+      type: 'spotDeploy',
+      genesis: {
+        token: tokenId!,
+        maxSupply: params.maxSupply.toString(),
+        setHyperliquidityBalance: params.enableHyperliquidity || false,
+      },
     };
 
     const genesisResponse = await makeHyperLiquidRequest(
       '/exchange',
-      { type: 'spotDeploy', genesis: genesisPayload },
+      genesisPayload,
       signer
     );
 
@@ -474,14 +520,17 @@ export async function createHyperLiquidToken(
     onProgress?.(4, 'Registering spot trading...');
 
     // Step 4: Register Spot (trading pair with USDC)
-    const registerSpotPayload: RegisterSpot = {
-      baseToken: tokenId!,
-      quoteToken: 0, // USDC token ID
+    const registerSpotPayload = {
+      type: 'spotDeploy',
+      registerSpot: {
+        baseToken: tokenId!,
+        quoteToken: 0, // USDC token ID
+      },
     };
 
     const spotResponse = await makeHyperLiquidRequest(
       '/exchange',
-      { type: 'spotDeploy', registerSpot: registerSpotPayload },
+      registerSpotPayload,
       signer
     );
 
@@ -496,16 +545,19 @@ export async function createHyperLiquidToken(
     if (params.enableHyperliquidity && params.initialPrice && params.orderSize && params.numberOfOrders) {
       onProgress?.(5, 'Enabling hyperliquidity...');
 
-      const hyperliquidityPayload: RegisterHyperliquidity = {
-        spotIndex: spotIndex!,
-        startingPrice: params.initialPrice.toString(),
-        orderSize: params.orderSize.toString(),
-        nOrders: params.numberOfOrders,
+      const hyperliquidityPayload = {
+        type: 'spotDeploy',
+        registerHyperliquidity: {
+          spotIndex: spotIndex!,
+          startingPrice: params.initialPrice.toString(),
+          orderSize: params.orderSize.toString(),
+          nOrders: params.numberOfOrders,
+        },
       };
 
       const hyperliquidityResponse = await makeHyperLiquidRequest(
         '/exchange',
-        { type: 'spotDeploy', registerHyperliquidity: hyperliquidityPayload },
+        hyperliquidityPayload,
         signer
       );
 
