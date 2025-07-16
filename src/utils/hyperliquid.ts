@@ -457,9 +457,8 @@ export async function createHyperLiquidToken(
   try {
     onProgress?.(1, 'Registering token...');
 
-    // Step 1: Register Token - use exact Python SDK format
+    // Step 1: Register Token - use exact working SDK format  
     const registerTokenPayload = {
-      type: 'spotDeploy',
       registerToken2: {
         spec: {
           name: params.symbol,
@@ -494,7 +493,6 @@ export async function createHyperLiquidToken(
     // Step 2: User Genesis (initial distribution) - use correct format
     const userAddress = await signer.getAddress();
     const userGenesisPayload = {
-      type: 'spotDeploy',
       userGenesis: {
         token: tokenId!,
         userAndWei: [userAddress, (params.retainedAmount || 0).toString()],
@@ -517,7 +515,6 @@ export async function createHyperLiquidToken(
 
     // Step 3: Genesis (max supply configuration)
     const genesisPayload = {
-      type: 'spotDeploy',
       genesis: {
         token: tokenId!,
         maxSupply: params.maxSupply.toString(),
@@ -541,7 +538,6 @@ export async function createHyperLiquidToken(
 
     // Step 4: Register Spot (trading pair with USDC)
     const registerSpotPayload = {
-      type: 'spotDeploy',
       registerSpot: {
         baseToken: tokenId!,
         quoteToken: 0, // USDC token ID
@@ -566,7 +562,6 @@ export async function createHyperLiquidToken(
       onProgress?.(5, 'Enabling hyperliquidity...');
 
       const hyperliquidityPayload = {
-        type: 'spotDeploy',
         registerHyperliquidity: {
           spotIndex: spotIndex!,
           startingPrice: params.initialPrice.toString(),
