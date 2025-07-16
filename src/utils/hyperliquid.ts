@@ -173,7 +173,7 @@ export async function signRequest(payload: any, signer?: any, nonce?: number, va
     const domain = {
       name: 'Exchange',
       version: '1', 
-      chainId: 1337, // From Python SDK - uses 1337, not 999!
+      chainId: 999, // Must match wallet's active chain ID
       verifyingContract: '0x0000000000000000000000000000000000000000',
     };
 
