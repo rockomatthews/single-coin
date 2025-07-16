@@ -141,28 +141,26 @@ export async function signRequest(payload: any, signer?: any): Promise<string> {
   try {
     // HYPER LIQUID uses EIP-712 structured data signing
     // Based on actual signature format from error logs
+    const config = getHyperLiquidConfig();
     const domain = {
-      name: 'HyperLiquid',
+      name: 'Exchange',
       version: '1', 
-      chainId: 999, // HYPER LIQUID mainnet chain ID (corrected from 421037)
+      chainId: config.isMainnet ? 42161 : 421614, // Arbitrum One mainnet or testnet
       verifyingContract: '0x0000000000000000000000000000000000000000',
     };
 
-    // Define the message types based on actual HYPER LIQUID format
+    // HyperLiquid signing format - simplified approach
     const types = {
-      SpotDeployAction: [
-        { name: 'action', type: 'string' },
-        { name: 'nonce', type: 'uint64' },
-        { name: 'data', type: 'bytes' },
+      Agent: [
+        { name: 'source', type: 'string' },
+        { name: 'connectionId', type: 'bytes32' },
       ],
     };
 
-    // Create the message to sign
-    const nonce = payload.nonce || Date.now();
+    // Create the message to sign - use the actual payload structure
     const message = {
-      action: JSON.stringify(payload),
-      nonce: nonce,
-      data: '0x' + Buffer.from(JSON.stringify(payload)).toString('hex'),
+      source: 'a',
+      connectionId: '0x' + '0'.repeat(64), // 32 bytes of zeros
     };
 
     // Sign using EIP-712
@@ -194,29 +192,37 @@ export async function makeHyperLiquidRequest(
   
   try {
     const nonce = createNonce();
-    const requestPayload = {
-      ...payload,
-      nonce,
-    };
-    
-    const signature = await signRequest(requestPayload, signer);
+    const signature = await signRequest(payload, signer);
     const userAddress = await signer.getAddress();
+    
+    // Construct the final request payload with proper structure
+    const requestPayload = {
+      action: payload,
+      nonce,
+      signature: {
+        r: signature.slice(0, 66),
+        s: '0x' + signature.slice(66, 130),
+        v: parseInt(signature.slice(130, 132), 16),
+      },
+      vaultAddress: userAddress,
+    };
     
     const response = await fetch(`${config.apiUrl}${endpoint}`, {
       method,
       headers: {
         'Content-Type': 'application/json',
-        'X-Signature': signature,
-        'X-User-Address': userAddress,
       },
       body: method === 'POST' ? JSON.stringify(requestPayload) : undefined,
     });
+    
+    const responseText = await response.text();
+    console.log('HyperLiquid API Response:', response.status, responseText);
     
     if (!response.ok) {
       throw new Error(`API request failed: ${response.status} ${response.statusText}`);
     }
     
-    const data = await response.json();
+    const data = JSON.parse(responseText);
     return {
       success: true,
       data,
@@ -395,20 +401,23 @@ export async function createHyperLiquidToken(
   try {
     onProgress?.(1, 'Registering token...');
 
-    // Step 1: Register Token
-    const registerTokenPayload: RegisterToken2 = {
-      spec: {
-        name: params.symbol,
-        szDecimals: params.szDecimals,
-        weiDecimals: params.weiDecimals,
+    // Step 1: Register Token - use correct HyperLiquid format
+    const registerTokenPayload = {
+      type: 'spotDeploy',
+      registerToken2: {
+        spec: {
+          name: params.symbol,
+          szDecimals: params.szDecimals,
+          weiDecimals: params.weiDecimals,
+        },
+        maxGas: params.maxGas || 100000,
+        fullName: params.name,
       },
-      maxGas: params.maxGas || 100000,
-      fullName: params.name,
     };
 
     const registerResponse = await makeHyperLiquidRequest(
       '/exchange',
-      { type: 'spotDeploy', registerToken2: registerTokenPayload },
+      registerTokenPayload,
       signer
     );
 
