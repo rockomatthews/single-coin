@@ -289,13 +289,22 @@ export function createHyperLiquidClients(signer: any) {
   
   // Verify what address the SDK will use
   if (typeof window !== 'undefined' && window.ethereum) {
-    window.ethereum.request({ method: 'eth_requestAccounts' })
-      .then((accounts: string[]) => {
-        console.log('🔍 SDK will use address from eth_requestAccounts:', accounts[0]);
-        console.log('🔍 Expected address: 0xe649dd43Eb47d14FD1069C641a5Dfd57456F19eC');
-        console.log('🔍 Addresses match:', accounts[0]?.toLowerCase() === '0xe649dd43Eb47d14FD1069C641a5Dfd57456F19eC'.toLowerCase());
-      })
-      .catch((err: any) => console.warn('Could not verify SDK address:', err));
+    // Check both eth_accounts and eth_requestAccounts
+    Promise.all([
+      window.ethereum.request({ method: 'eth_accounts' }),
+      window.ethereum.request({ method: 'eth_requestAccounts' })
+    ]).then(([currentAccounts, requestedAccounts]: [string[], string[]]) => {
+      console.log('🔍 Current accounts (eth_accounts):', currentAccounts);
+      console.log('🔍 Requested accounts (eth_requestAccounts):', requestedAccounts);
+      console.log('🔍 SDK will use address:', requestedAccounts[0]);
+      console.log('🔍 Expected address: 0xe649dd43Eb47d14FD1069C641a5Dfd57456F19eC');
+      console.log('🔍 Addresses match:', requestedAccounts[0]?.toLowerCase() === '0xe649dd43Eb47d14FD1069C641a5Dfd57456F19eC'.toLowerCase());
+      
+      // Also check if MetaMask is on the correct network
+      window.ethereum.request({ method: 'eth_chainId' }).then((chainId: string) => {
+        console.log('🔍 MetaMask chain ID:', chainId, '(decimal:', parseInt(chainId, 16), ')');
+      });
+    }).catch((err: any) => console.warn('Could not verify SDK address:', err));
   }
   
   return {
@@ -489,6 +498,33 @@ export async function createHyperLiquidToken(
   }
 
   onProgress?.(0, 'Checking wallet registration...');
+  
+  // First, verify MetaMask is connected to the correct account
+  if (typeof window !== 'undefined' && window.ethereum) {
+    try {
+      const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+      if (!accounts || accounts.length === 0) {
+        return {
+          success: false,
+          error: 'No MetaMask accounts connected. Please connect your wallet.',
+        };
+      }
+      
+      const connectedAddress = accounts[0];
+      console.log('🔍 MetaMask connected address:', connectedAddress);
+      console.log('🔍 Expected address: 0xe649dd43Eb47d14FD1069C641a5Dfd57456F19eC');
+      
+      if (connectedAddress.toLowerCase() !== '0xe649dd43Eb47d14FD1069C641a5Dfd57456F19eC'.toLowerCase()) {
+        return {
+          success: false,
+          error: `MetaMask is connected to ${connectedAddress} but expected 0xe649dd43Eb47d14FD1069C641a5Dfd57456F19eC. Please switch to the correct account.`,
+        };
+      }
+    } catch (error) {
+      console.error('Failed to verify MetaMask connection:', error);
+    }
+  }
+  
   const userCheck = await checkUserExists(signer);
   if (!userCheck.exists) {
     return {
