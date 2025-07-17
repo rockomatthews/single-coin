@@ -80,9 +80,22 @@ export function getHyperLiquidConfig() {
   const isMainnet = network === 'mainnet';
   const isCustom999 = network === 'custom999';
   
+  // Auto-detect chain ID 999 as mainnet if not explicitly set
+  let detectedChainId: number | undefined;
+  if (typeof window !== 'undefined' && window.ethereum) {
+    try {
+      const chainIdHex = window.ethereum.chainId;
+      if (chainIdHex) {
+        detectedChainId = parseInt(chainIdHex, 16);
+      }
+    } catch (error) {
+      console.warn('Could not detect chain ID:', error);
+    }
+  }
+  
   // Determine which network configuration to use
   let currentNetwork;
-  if (isCustom999) {
+  if (isCustom999 || detectedChainId === 999) {
     currentNetwork = HYPERLIQUID_CONFIG.CUSTOM_999;
   } else {
     currentNetwork = isMainnet ? HYPERLIQUID_CONFIG.MAINNET : HYPERLIQUID_CONFIG.TESTNET;
@@ -100,8 +113,8 @@ export function getHyperLiquidConfig() {
     currentNetwork,
     apiUrl,
     explorerUrl,
-    isMainnet,
-    isCustom999,
+    isMainnet: isMainnet || detectedChainId === 999, // Treat chain ID 999 as mainnet
+    isCustom999: isCustom999 || detectedChainId === 999,
     network,
   };
 }
@@ -112,3 +125,21 @@ export const REQUIRED_ENV_VARS = {
   NEXT_PUBLIC_HYPERLIQUID_API_KEY: 'API key for HYPER LIQUID (if required)',
   HYPERLIQUID_PRIVATE_KEY: 'Private key for API wallet signing',
 } as const;
+
+// Helper function to get MetaMask network configuration
+export function getMetaMaskNetworkConfig(chainId?: number) {
+  const config = getHyperLiquidConfig();
+  const targetChainId = chainId || 999; // Default to 999 for HyperLiquid mainnet
+  
+  return {
+    chainId: `0x${targetChainId.toString(16)}`,
+    chainName: `HyperLiquid ${targetChainId === 999 ? 'Mainnet' : 'Custom'}`,
+    nativeCurrency: {
+      name: 'HYPE',
+      symbol: 'HYPE',
+      decimals: 18,
+    },
+    rpcUrls: ['https://api.hyperliquid.xyz'],
+    blockExplorerUrls: ['https://app.hyperliquid.xyz'],
+  };
+}

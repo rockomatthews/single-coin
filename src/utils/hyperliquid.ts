@@ -1,4 +1,4 @@
-import { getHyperLiquidConfig } from '../config/hyperliquid';
+import { getHyperLiquidConfig, getMetaMaskNetworkConfig } from '../config/hyperliquid';
 import * as hl from '@nktkas/hyperliquid';
 
 // Add window ethereum type declaration
@@ -104,6 +104,31 @@ export interface HyperLiquidApiResponse {
   data?: any;
   error?: string;
   txHash?: string;
+}
+
+/**
+ * Add HyperLiquid network to MetaMask
+ */
+export async function addHyperLiquidNetworkToMetaMask(chainId: number = 999): Promise<boolean> {
+  if (typeof window === 'undefined' || !window.ethereum) {
+    console.error('MetaMask not found');
+    return false;
+  }
+
+  try {
+    const networkConfig = getMetaMaskNetworkConfig(chainId);
+    
+    await window.ethereum.request({
+      method: 'wallet_addEthereumChain',
+      params: [networkConfig],
+    });
+    
+    console.log('✅ HyperLiquid network added to MetaMask');
+    return true;
+  } catch (error) {
+    console.error('Failed to add HyperLiquid network to MetaMask:', error);
+    return false;
+  }
 }
 
 /**
@@ -248,7 +273,7 @@ function createHyperLiquidCompatibleSigner(originalSigner: any) {
 /**
  * Create HyperLiquid API clients using official SDK v0.23.1
  */
-export function createHyperLiquidClients(signer: any) {
+export async function createHyperLiquidClients(signer: any) {
   const config = getHyperLiquidConfig();
   
   console.log('🔧 Creating HyperLiquid clients with signer:', {
@@ -289,11 +314,25 @@ export function createHyperLiquidClients(signer: any) {
     walletForSDK = createHyperLiquidCompatibleSigner(signer);
   }
   
+  // Get current chain ID from MetaMask
+  let currentChainId: `0x${string}` = '0x3e7'; // Default to 999 (HyperLiquid mainnet)
+  
+  if (typeof window !== 'undefined' && window.ethereum) {
+    try {
+      const chainIdHex = await window.ethereum.request({ method: 'eth_chainId' });
+      currentChainId = chainIdHex as `0x${string}`;
+      console.log('🔧 Using dynamic chain ID for SDK:', currentChainId, '(decimal:', parseInt(chainIdHex, 16), ')');
+    } catch (error) {
+      console.warn('Could not get chain ID from MetaMask, using default 999:', error);
+    }
+  }
+  
   // Create exchange client for authenticated operations using new API
   const exchangeClient = new hl.ExchangeClient({ 
     wallet: walletForSDK, 
     transport,
     isTestnet: !config.isMainnet,
+    signatureChainId: currentChainId, // Use the actual connected chain ID
   });
   
   // Verify what address the SDK will use
@@ -457,7 +496,7 @@ export function getHyperLiquidCostBreakdown(params: HyperLiquidTokenParams) {
  */
 export async function checkUserExists(signer: any): Promise<{ exists: boolean; error?: string }> {
   try {
-    const { infoClient } = createHyperLiquidClients(signer);
+    const { infoClient } = await createHyperLiquidClients(signer);
     const userAddress = await signer.getAddress();
     
     // Try to get user state - this will tell us if user exists
@@ -536,7 +575,7 @@ export async function createHyperLiquidToken(
   let spotIndex: number | undefined;
 
   try {
-    const { exchangeClient } = createHyperLiquidClients(signer);
+    const { exchangeClient } = await createHyperLiquidClients(signer);
     const userAddress = await signer.getAddress();
     
     console.log('🎯 Token creation - User address:', userAddress);
@@ -673,6 +712,27 @@ export async function createHyperLiquidToken(
 
   } catch (error) {
     console.error('HYPER LIQUID token creation failed:', error);
+    
+    // Check if this is a chain ID mismatch error
+    if (error instanceof Error && error.message.includes('chainId')) {
+      console.log('🔧 Attempting to fix chain ID mismatch by adding HyperLiquid network...');
+      
+      // Try to add/switch to HyperLiquid network
+      const networkAdded = await addHyperLiquidNetworkToMetaMask(999);
+      
+      if (networkAdded) {
+        return {
+          success: false,
+          error: 'Please switch to the HyperLiquid network in MetaMask and try again. We\'ve added the network for you.',
+        };
+      } else {
+        return {
+          success: false,
+          error: 'Chain ID mismatch: Please manually add the HyperLiquid network to MetaMask (Chain ID: 999, RPC: https://api.hyperliquid.xyz)',
+        };
+      }
+    }
+    
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error occurred',
