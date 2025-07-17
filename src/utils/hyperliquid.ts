@@ -246,7 +246,7 @@ function createHyperLiquidCompatibleSigner(originalSigner: any) {
 }
 
 /**
- * Create HyperLiquid API clients using official SDK
+ * Create HyperLiquid API clients using official SDK v0.23.1
  */
 export function createHyperLiquidClients(signer: any) {
   const config = getHyperLiquidConfig();
@@ -258,49 +258,29 @@ export function createHyperLiquidClients(signer: any) {
     hasProvider: !!signer?.provider
   });
   
-  // Create transport
+  // Create transport for the new SDK
   const transport = new hl.HttpTransport({
-    url: config.apiUrl, // Use configured API URL
+    isTestnet: !config.isMainnet,
+    server: {
+      mainnet: {
+        api: config.apiUrl,
+      },
+      testnet: {
+        api: config.apiUrl,
+      }
+    }
   });
   
-  // Create public client for market data
-  const publicClient = new hl.PublicClient({ transport });
+  // Create info client for market data
+  const infoClient = new hl.InfoClient({ transport });
   
-  // SOLUTION: Use window.ethereum but with chain ID fix
-  // This ensures the SDK can properly determine the address AND use correct chain ID
+  // SOLUTION: Use window.ethereum directly with the new SDK
+  // The v0.23.1 SDK has better window.ethereum support
   let walletForSDK;
   
   if (typeof window !== 'undefined' && window.ethereum) {
-    console.log('✅ Using window.ethereum with chain ID fix for SDK compatibility');
-    
-    // Create a proxy of window.ethereum that fixes the chain ID issue
-    walletForSDK = new Proxy(window.ethereum, {
-      get(target, prop) {
-        if (prop === 'request') {
-          return async (args: any) => {
-            // Intercept signTypedData calls and fix the chain ID
-            if (args.method === 'eth_signTypedData_v4') {
-              const params = args.params || [];
-              if (params.length >= 2) {
-                try {
-                  const typedData = JSON.parse(params[1]);
-                  if (typedData.domain && typedData.domain.chainId) {
-                    console.log('🔧 Fixing chain ID in signTypedData from', typedData.domain.chainId, 'to 999');
-                    typedData.domain.chainId = 999;
-                    params[1] = JSON.stringify(typedData);
-                    args.params = params;
-                  }
-                } catch (e) {
-                  console.warn('Could not parse typed data for chain ID fix:', e);
-                }
-              }
-            }
-            return target.request(args);
-          };
-        }
-        return target[prop as keyof typeof target];
-      }
-    });
+    console.log('✅ Using window.ethereum directly with new SDK v0.23.1');
+    walletForSDK = window.ethereum;
   } else if (signer?.provider) {
     console.log('✅ Using signer.provider for SDK compatibility');
     walletForSDK = signer.provider;
@@ -309,10 +289,11 @@ export function createHyperLiquidClients(signer: any) {
     walletForSDK = createHyperLiquidCompatibleSigner(signer);
   }
   
-  // Create wallet client for authenticated operations
-  const walletClient = new hl.WalletClient({ 
+  // Create exchange client for authenticated operations using new API
+  const exchangeClient = new hl.ExchangeClient({ 
     wallet: walletForSDK, 
     transport,
+    isTestnet: !config.isMainnet,
   });
   
   // Verify what address the SDK will use
@@ -325,8 +306,6 @@ export function createHyperLiquidClients(signer: any) {
       console.log('🔍 Current accounts (eth_accounts):', currentAccounts);
       console.log('🔍 Requested accounts (eth_requestAccounts):', requestedAccounts);
       console.log('🔍 SDK will use address:', requestedAccounts[0]);
-      console.log('🔍 Expected address: 0xe649dd43Eb47d14FD1069C641a5Dfd57456F19eC');
-      console.log('🔍 Addresses match:', requestedAccounts[0]?.toLowerCase() === '0xe649dd43Eb47d14FD1069C641a5Dfd57456F19eC'.toLowerCase());
       
       // Also check if MetaMask is on the correct network
       window.ethereum.request({ method: 'eth_chainId' }).then((chainId: string) => {
@@ -336,8 +315,8 @@ export function createHyperLiquidClients(signer: any) {
   }
   
   return {
-    publicClient,
-    walletClient,
+    infoClient,
+    exchangeClient,
     config
   };
 }
@@ -478,11 +457,11 @@ export function getHyperLiquidCostBreakdown(params: HyperLiquidTokenParams) {
  */
 export async function checkUserExists(signer: any): Promise<{ exists: boolean; error?: string }> {
   try {
-    const { publicClient } = createHyperLiquidClients(signer);
+    const { infoClient } = createHyperLiquidClients(signer);
     const userAddress = await signer.getAddress();
     
     // Try to get user state - this will tell us if user exists
-    const userState = await publicClient.clearinghouseState({ user: userAddress });
+    const userState = await infoClient.clearinghouseState({ user: userAddress });
     
     // If we get user state data, user exists
     if (userState) {
@@ -527,7 +506,7 @@ export async function createHyperLiquidToken(
 
   onProgress?.(0, 'Checking wallet registration...');
   
-  // First, verify MetaMask is connected to the correct account
+  // Verify MetaMask is connected
   if (typeof window !== 'undefined' && window.ethereum) {
     try {
       const accounts = await window.ethereum.request({ method: 'eth_accounts' });
@@ -540,14 +519,6 @@ export async function createHyperLiquidToken(
       
       const connectedAddress = accounts[0];
       console.log('🔍 MetaMask connected address:', connectedAddress);
-      console.log('🔍 Expected address: 0xe649dd43Eb47d14FD1069C641a5Dfd57456F19eC');
-      
-      if (connectedAddress.toLowerCase() !== '0xe649dd43Eb47d14FD1069C641a5Dfd57456F19eC'.toLowerCase()) {
-        return {
-          success: false,
-          error: `MetaMask is connected to ${connectedAddress} but expected 0xe649dd43Eb47d14FD1069C641a5Dfd57456F19eC. Please switch to the correct account.`,
-        };
-      }
     } catch (error) {
       console.error('Failed to verify MetaMask connection:', error);
     }
@@ -561,22 +532,19 @@ export async function createHyperLiquidToken(
     };
   }
 
-  const txHashes: string[] = [];
   let tokenId: number | undefined;
   let spotIndex: number | undefined;
 
   try {
-    const { walletClient } = createHyperLiquidClients(signer);
+    const { exchangeClient } = createHyperLiquidClients(signer);
     const userAddress = await signer.getAddress();
     
     console.log('🎯 Token creation - User address:', userAddress);
-    console.log('🎯 Expected address: 0xe649dd43Eb47d14FD1069C641a5Dfd57456F19eC');
-    console.log('🎯 Addresses match:', userAddress?.toLowerCase() === '0xe649dd43Eb47d14FD1069C641a5Dfd57456F19eC'.toLowerCase());
 
     onProgress?.(1, 'Registering token...');
 
     // Step 1: Register Token using official SDK with correct parameters
-    const registerResult = await walletClient.spotDeploy({
+    const registerResult = await exchangeClient.spotDeploy({
       registerToken2: {
         spec: {
           name: params.symbol,
@@ -590,19 +558,13 @@ export async function createHyperLiquidToken(
 
     console.log('Register token result:', registerResult);
 
-    // Handle response - SDK returns BaseExchangeResponse
-    if (typeof registerResult === 'string') {
-      txHashes.push(registerResult);
-      // For now, we'll need to derive tokenId from subsequent calls
-      // This is a limitation - we may need to query the API for the latest token ID
+    // Handle response - SDK v0.23.1 returns SuccessResponse with type: "default"
+    if (registerResult.status === 'ok') {
+      console.log('✅ Token registration successful');
+      // Note: SuccessResponse doesn't include transaction hashes or specific data
     } else {
-      // The response structure may vary, check for different possible formats
-      if ('response' in registerResult) {
-        tokenId = (registerResult.response as any)?.tokenId;
-        if ((registerResult.response as any)?.hash) {
-          txHashes.push((registerResult.response as any).hash);
-        }
-      }
+      // status === 'err'
+      throw new Error(`Token registration failed: ${registerResult.response}`);
     }
 
     // For now, let's assume tokenId is sequential and try to get it via another method
@@ -618,7 +580,7 @@ export async function createHyperLiquidToken(
     console.log('🎯 User Genesis - Using address:', userAddress);
     console.log('🎯 User Genesis - Retained amount:', params.retainedAmount || 0);
     
-    const userGenesisResult = await walletClient.spotDeploy({
+    const userGenesisResult = await exchangeClient.spotDeploy({
       userGenesis: {
         token: tokenId,
         userAndWei: [[userAddress, (params.retainedAmount || 0).toString()]],
@@ -628,16 +590,17 @@ export async function createHyperLiquidToken(
 
     console.log('User genesis result:', userGenesisResult);
     
-    if (typeof userGenesisResult === 'string') {
-      txHashes.push(userGenesisResult);
-    } else if ('response' in userGenesisResult && (userGenesisResult.response as any)?.hash) {
-      txHashes.push((userGenesisResult.response as any).hash);
+    if (userGenesisResult.status === 'ok') {
+      console.log('✅ User genesis successful');
+    } else {
+      // status === 'err'
+      throw new Error(`User genesis failed: ${userGenesisResult.response}`);
     }
 
     onProgress?.(3, 'Configuring genesis...');
 
     // Step 3: Genesis (max supply configuration) - using correct format
-    const genesisResult = await walletClient.spotDeploy({
+    const genesisResult = await exchangeClient.spotDeploy({
       genesis: {
         token: tokenId,
         maxSupply: params.maxSupply.toString(),
@@ -646,16 +609,17 @@ export async function createHyperLiquidToken(
 
     console.log('Genesis result:', genesisResult);
     
-    if (typeof genesisResult === 'string') {
-      txHashes.push(genesisResult);
-    } else if ('response' in genesisResult && (genesisResult.response as any)?.hash) {
-      txHashes.push((genesisResult.response as any).hash);
+    if (genesisResult.status === 'ok') {
+      console.log('✅ Genesis successful');
+    } else {
+      // status === 'err'
+      throw new Error(`Genesis failed: ${genesisResult.response}`);
     }
 
     onProgress?.(4, 'Registering spot trading...');
 
     // Step 4: Register Spot (trading pair with USDC) - using correct format
-    const spotResult = await walletClient.spotDeploy({
+    const spotResult = await exchangeClient.spotDeploy({
       registerSpot: {
         tokens: [tokenId, 0], // [baseToken, quoteToken] format
       },
@@ -663,22 +627,22 @@ export async function createHyperLiquidToken(
 
     console.log('Spot registration result:', spotResult);
 
-    if (typeof spotResult === 'string') {
-      txHashes.push(spotResult);
+    if (spotResult.status === 'ok') {
+      console.log('✅ Spot registration successful');
       // Derive spot index from token ID (usually tokenId - 1 for the first spot pair)
-      spotIndex = tokenId - 1;
-    } else if ('response' in spotResult) {
-      spotIndex = (spotResult.response as any)?.spotIndex;
-      if ((spotResult.response as any)?.hash) {
-        txHashes.push((spotResult.response as any).hash);
+      if (tokenId) {
+        spotIndex = tokenId - 1;
       }
+    } else {
+      // status === 'err'
+      throw new Error(`Spot registration failed: ${spotResult.response}`);
     }
 
     // Step 5: Register Hyperliquidity (if enabled) - using correct format
     if (params.enableHyperliquidity && params.initialPrice && params.orderSize && params.numberOfOrders) {
       onProgress?.(5, 'Enabling hyperliquidity...');
 
-      const hyperliquidityResult = await walletClient.spotDeploy({
+      const hyperliquidityResult = await exchangeClient.spotDeploy({
         registerHyperliquidity: {
           spot: spotIndex || tokenId,
           startPx: params.initialPrice.toString(),
@@ -690,10 +654,11 @@ export async function createHyperLiquidToken(
 
       console.log('Hyperliquidity result:', hyperliquidityResult);
       
-      if (typeof hyperliquidityResult === 'string') {
-        txHashes.push(hyperliquidityResult);
-      } else if ('response' in hyperliquidityResult && (hyperliquidityResult.response as any)?.hash) {
-        txHashes.push((hyperliquidityResult.response as any).hash);
+      if (hyperliquidityResult.status === 'ok') {
+        console.log('✅ Hyperliquidity registration successful');
+      } else {
+        // status === 'err'
+        throw new Error(`Hyperliquidity registration failed: ${hyperliquidityResult.response}`);
       }
     }
 
@@ -703,7 +668,7 @@ export async function createHyperLiquidToken(
       success: true,
       tokenId,
       spotIndex,
-      txHashes,
+      txHashes: [], // SDK doesn't return transaction hashes in SuccessResponse
     };
 
   } catch (error) {
