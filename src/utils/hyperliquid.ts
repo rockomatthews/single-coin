@@ -251,6 +251,13 @@ function createHyperLiquidCompatibleSigner(originalSigner: any) {
 export function createHyperLiquidClients(signer: any) {
   const config = getHyperLiquidConfig();
   
+  console.log('🔧 Creating HyperLiquid clients with signer:', {
+    signerType: signer?.constructor?.name,
+    signerKeys: Object.keys(signer || {}),
+    hasGetAddress: !!signer?.getAddress,
+    hasProvider: !!signer?.provider
+  });
+  
   // Create transport
   const transport = new hl.HttpTransport({
     url: config.apiUrl, // Use configured API URL
@@ -259,14 +266,37 @@ export function createHyperLiquidClients(signer: any) {
   // Create public client for market data
   const publicClient = new hl.PublicClient({ transport });
   
-  // Create compatible signer that handles chain ID mismatch
-  const compatibleSigner = createHyperLiquidCompatibleSigner(signer);
+  // SOLUTION: Use window.ethereum directly instead of a wrapper
+  // This ensures the SDK can properly determine the address
+  let walletForSDK;
+  
+  if (typeof window !== 'undefined' && window.ethereum) {
+    console.log('✅ Using window.ethereum directly for SDK compatibility');
+    walletForSDK = window.ethereum;
+  } else if (signer?.provider) {
+    console.log('✅ Using signer.provider for SDK compatibility');
+    walletForSDK = signer.provider;
+  } else {
+    console.log('⚠️ Falling back to wrapped signer (may cause address mismatch)');
+    walletForSDK = createHyperLiquidCompatibleSigner(signer);
+  }
   
   // Create wallet client for authenticated operations
   const walletClient = new hl.WalletClient({ 
-    wallet: compatibleSigner, 
+    wallet: walletForSDK, 
     transport,
   });
+  
+  // Verify what address the SDK will use
+  if (typeof window !== 'undefined' && window.ethereum) {
+    window.ethereum.request({ method: 'eth_requestAccounts' })
+      .then((accounts: string[]) => {
+        console.log('🔍 SDK will use address from eth_requestAccounts:', accounts[0]);
+        console.log('🔍 Expected address: 0xe649dd43Eb47d14FD1069C641a5Dfd57456F19eC');
+        console.log('🔍 Addresses match:', accounts[0]?.toLowerCase() === '0xe649dd43Eb47d14FD1069C641a5Dfd57456F19eC'.toLowerCase());
+      })
+      .catch((err: any) => console.warn('Could not verify SDK address:', err));
+  }
   
   return {
     publicClient,
