@@ -125,21 +125,47 @@ export function calculateHyperLiquidFee(
 }
 
 /**
+ * Create a wrapped signer that works with HyperLiquid SDK's hardcoded chain ID expectations
+ */
+function createHyperLiquidCompatibleSigner(originalSigner: any) {
+  return {
+    ...originalSigner,
+    // Override signTypedData to handle the chain ID mismatch
+    signTypedData: async (domain: any, types: any, message: any) => {
+      // Use the current wallet's chain ID instead of the hardcoded one
+      const currentChainId = await originalSigner.getChainId();
+      const modifiedDomain = {
+        ...domain,
+        chainId: currentChainId // Use wallet's actual chain ID
+      };
+      
+      console.log('🔧 Modified domain for HyperLiquid signing:', modifiedDomain);
+      return originalSigner.signTypedData(modifiedDomain, types, message);
+    }
+  };
+}
+
+/**
  * Create HyperLiquid API clients using official SDK
  */
 export function createHyperLiquidClients(signer: any) {
   const config = getHyperLiquidConfig();
   
   // Create transport
-  const transport = new hl.HttpTransport();
+  const transport = new hl.HttpTransport({
+    url: config.apiUrl, // Use configured API URL
+  });
   
   // Create public client for market data
   const publicClient = new hl.PublicClient({ transport });
   
+  // Create compatible signer that handles chain ID mismatch
+  const compatibleSigner = createHyperLiquidCompatibleSigner(signer);
+  
   // Create wallet client for authenticated operations
   const walletClient = new hl.WalletClient({ 
-    wallet: signer, 
-    transport 
+    wallet: compatibleSigner, 
+    transport,
   });
   
   return {

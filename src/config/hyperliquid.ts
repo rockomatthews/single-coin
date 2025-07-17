@@ -27,6 +27,18 @@ export const HYPERLIQUID_CONFIG = {
     },
   },
   
+  // Custom configuration for chain ID 999 (local/custom HyperLiquid)
+  CUSTOM_999: {
+    name: 'custom',
+    chainId: 999, // Custom HyperLiquid chain ID
+    explorer: 'https://app.hyperliquid.xyz',
+    nativeCurrency: {
+      name: 'HYPE',
+      symbol: 'HYPE',
+      decimals: 18,
+    },
+  },
+  
   // Token Standards
   TOKEN_STANDARDS: {
     HIP1: 'HIP-1', // Capped supply fungible token with spot order book
@@ -66,20 +78,30 @@ export const HYPERLIQUID_CONFIG = {
 export function getHyperLiquidConfig() {
   const network = process.env.NEXT_PUBLIC_HYPERLIQUID_NETWORK || 'mainnet';
   const isMainnet = network === 'mainnet';
+  const isCustom999 = network === 'custom999';
+  
+  // Determine which network configuration to use
+  let currentNetwork;
+  if (isCustom999) {
+    currentNetwork = HYPERLIQUID_CONFIG.CUSTOM_999;
+  } else {
+    currentNetwork = isMainnet ? HYPERLIQUID_CONFIG.MAINNET : HYPERLIQUID_CONFIG.TESTNET;
+  }
   
   // Use environment variables if available, otherwise fall back to defaults
   const apiUrl = process.env.NEXT_PUBLIC_HYPERLIQUID_API_URL || 
     (isMainnet ? HYPERLIQUID_CONFIG.MAINNET_API : HYPERLIQUID_CONFIG.TESTNET_API);
   
   const explorerUrl = process.env.NEXT_PUBLIC_HYPERLIQUID_EXPLORER ||
-    (isMainnet ? HYPERLIQUID_CONFIG.MAINNET.explorer : HYPERLIQUID_CONFIG.TESTNET.explorer);
+    currentNetwork.explorer;
   
   return {
     ...HYPERLIQUID_CONFIG,
-    currentNetwork: isMainnet ? HYPERLIQUID_CONFIG.MAINNET : HYPERLIQUID_CONFIG.TESTNET,
+    currentNetwork,
     apiUrl,
     explorerUrl,
     isMainnet,
+    isCustom999,
     network,
   };
 }
