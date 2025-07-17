@@ -137,16 +137,67 @@ export function calculateHyperLiquidFee(
 function createHyperLiquidCompatibleSigner(originalSigner: any) {
   return {
     ...originalSigner,
+    
+    // Override getAddress to ensure we're using the correct address
+    getAddress: async () => {
+      let address;
+      
+      try {
+        if (originalSigner.getAddress) {
+          address = await originalSigner.getAddress();
+          console.log('🏠 Got address from signer.getAddress():', address);
+        } else if (originalSigner.address) {
+          address = originalSigner.address;
+          console.log('🏠 Got address from signer.address:', address);
+        } else if (originalSigner.provider && originalSigner.provider.request) {
+          const accounts = await originalSigner.provider.request({ method: 'eth_accounts' });
+          address = accounts[0];
+          console.log('🏠 Got address from provider.request():', address);
+        } else if (typeof window !== 'undefined' && window.ethereum) {
+          const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+          address = accounts[0];
+          console.log('🏠 Got address from window.ethereum:', address);
+        }
+      } catch (error) {
+        console.error('❌ Failed to get wallet address:', error);
+        throw new Error('Could not get wallet address');
+      }
+      
+      if (!address) {
+        throw new Error('No wallet address found');
+      }
+      
+      return address;
+    },
+    
     // Override signTypedData to handle the chain ID mismatch
     signTypedData: async (domain: any, types: any, message: any) => {
       // Debug the signer structure
       console.log('🔍 Signer object structure:', {
         hasGetChainId: !!originalSigner.getChainId,
+        hasGetAddress: !!originalSigner.getAddress,
         hasProvider: !!originalSigner.provider,
         providerType: originalSigner.provider?.constructor?.name,
         signerKeys: Object.keys(originalSigner),
         providerKeys: originalSigner.provider ? Object.keys(originalSigner.provider) : null
       });
+      
+      // Get the wallet address using the wrapper's method
+      const walletAddress = await (async () => {
+        if (originalSigner.getAddress) {
+          return await originalSigner.getAddress();
+        } else if (originalSigner.address) {
+          return originalSigner.address;
+        } else if (originalSigner.provider && originalSigner.provider.request) {
+          const accounts = await originalSigner.provider.request({ method: 'eth_accounts' });
+          return accounts[0];
+        } else if (typeof window !== 'undefined' && window.ethereum) {
+          const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+          return accounts[0];
+        }
+        return null;
+      })();
+      console.log('🔐 Using wallet address for signing:', walletAddress);
       
       // Try different methods to get the current chain ID
       let currentChainId = 999; // Default fallback to 999
@@ -173,6 +224,11 @@ function createHyperLiquidCompatibleSigner(originalSigner: any) {
       } catch (error) {
         console.warn('Could not get chain ID, using fallback 999:', error);
         currentChainId = 999;
+      }
+      
+      // Convert BigInt to number if necessary
+      if (typeof currentChainId === 'bigint') {
+        currentChainId = Number(currentChainId);
       }
       
       const modifiedDomain = {
@@ -418,6 +474,10 @@ export async function createHyperLiquidToken(
   try {
     const { walletClient } = createHyperLiquidClients(signer);
     const userAddress = await signer.getAddress();
+    
+    console.log('🎯 Token creation - User address:', userAddress);
+    console.log('🎯 Expected address: 0xe649dd43Eb47d14FD1069C641a5Dfd57456F19eC');
+    console.log('🎯 Addresses match:', userAddress?.toLowerCase() === '0xe649dd43Eb47d14FD1069C641a5Dfd57456F19eC'.toLowerCase());
 
     onProgress?.(1, 'Registering token...');
 
@@ -461,6 +521,9 @@ export async function createHyperLiquidToken(
     onProgress?.(2, 'Setting up user genesis...');
 
     // Step 2: User Genesis (initial distribution) - using correct format
+    console.log('🎯 User Genesis - Using address:', userAddress);
+    console.log('🎯 User Genesis - Retained amount:', params.retainedAmount || 0);
+    
     const userGenesisResult = await walletClient.spotDeploy({
       userGenesis: {
         token: tokenId,
