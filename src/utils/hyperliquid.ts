@@ -266,13 +266,41 @@ export function createHyperLiquidClients(signer: any) {
   // Create public client for market data
   const publicClient = new hl.PublicClient({ transport });
   
-  // SOLUTION: Use window.ethereum directly instead of a wrapper
-  // This ensures the SDK can properly determine the address
+  // SOLUTION: Use window.ethereum but with chain ID fix
+  // This ensures the SDK can properly determine the address AND use correct chain ID
   let walletForSDK;
   
   if (typeof window !== 'undefined' && window.ethereum) {
-    console.log('✅ Using window.ethereum directly for SDK compatibility');
-    walletForSDK = window.ethereum;
+    console.log('✅ Using window.ethereum with chain ID fix for SDK compatibility');
+    
+    // Create a proxy of window.ethereum that fixes the chain ID issue
+    walletForSDK = new Proxy(window.ethereum, {
+      get(target, prop) {
+        if (prop === 'request') {
+          return async (args: any) => {
+            // Intercept signTypedData calls and fix the chain ID
+            if (args.method === 'eth_signTypedData_v4') {
+              const params = args.params || [];
+              if (params.length >= 2) {
+                try {
+                  const typedData = JSON.parse(params[1]);
+                  if (typedData.domain && typedData.domain.chainId) {
+                    console.log('🔧 Fixing chain ID in signTypedData from', typedData.domain.chainId, 'to 999');
+                    typedData.domain.chainId = 999;
+                    params[1] = JSON.stringify(typedData);
+                    args.params = params;
+                  }
+                } catch (e) {
+                  console.warn('Could not parse typed data for chain ID fix:', e);
+                }
+              }
+            }
+            return target.request(args);
+          };
+        }
+        return target[prop as keyof typeof target];
+      }
+    });
   } else if (signer?.provider) {
     console.log('✅ Using signer.provider for SDK compatibility');
     walletForSDK = signer.provider;
