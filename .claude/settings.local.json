@@ -10,7 +10,8 @@
       "Bash(npm run build:*)",
       "Bash(npm run typecheck:*)",
       "WebFetch(domain:github.com)",
-      "WebFetch(domain:gist.github.com)"
+      "WebFetch(domain:gist.github.com)",
+      "Bash(npx tsc:*)"
     ],
     "deny": []
   }

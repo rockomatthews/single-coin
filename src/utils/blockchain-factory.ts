@@ -183,7 +183,7 @@ class HyperLiquidProvider implements BlockchainProvider {
   async createToken(params: UnifiedTokenParams, signer?: any): Promise<TokenCreationResult> {
     try {
       const { 
-        makeHyperLiquidRequest, 
+        createHyperLiquidToken, 
         uploadHyperLiquidMetadata 
       } = await import('./hyperliquid');
       
@@ -217,7 +217,6 @@ class HyperLiquidProvider implements BlockchainProvider {
       const metadataUri = await uploadHyperLiquidMetadata(hyperLiquidParams);
       
       // Execute the 5-step HYPER LIQUID deployment process using the actual implementation
-      const { createHyperLiquidToken } = await import('./hyperliquid');
       
       const result = await createHyperLiquidToken(
         hyperLiquidParams, 
