@@ -299,18 +299,31 @@ export async function createHyperLiquidClients(signer: any) {
   // Create info client for market data
   const infoClient = new hl.InfoClient({ transport });
   
-  // SOLUTION: Use window.ethereum directly with the new SDK
-  // The v0.23.1 SDK has better window.ethereum support
+  // SOLUTION: Use the compatible signer wrapper to handle chain ID mismatch
+  // HyperLiquid SDK hardcodes chain ID 1337 for L1 actions, but MetaMask is on 999
   let walletForSDK;
   
   if (typeof window !== 'undefined' && window.ethereum) {
-    console.log('✅ Using window.ethereum directly with new SDK v0.23.1');
-    walletForSDK = window.ethereum;
+    console.log('🔧 Using compatible signer wrapper to handle chain ID mismatch (1337 → 999)');
+    // Create a wrapper that uses window.ethereum but fixes the chain ID issue
+    const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+    walletForSDK = createHyperLiquidCompatibleSigner({
+      getAddress: async () => {
+        return accounts[0];
+      },
+      signTypedData: async (domain: any, types: any, message: any) => {
+        return window.ethereum.request({
+          method: 'eth_signTypedData_v4',
+          params: [accounts[0], JSON.stringify({ domain, types, message })]
+        });
+      },
+      provider: window.ethereum
+    });
   } else if (signer?.provider) {
-    console.log('✅ Using signer.provider for SDK compatibility');
-    walletForSDK = signer.provider;
+    console.log('✅ Using compatible signer for provider');
+    walletForSDK = createHyperLiquidCompatibleSigner(signer);
   } else {
-    console.log('⚠️ Falling back to wrapped signer (may cause address mismatch)');
+    console.log('⚠️ Falling back to wrapped signer');
     walletForSDK = createHyperLiquidCompatibleSigner(signer);
   }
   
