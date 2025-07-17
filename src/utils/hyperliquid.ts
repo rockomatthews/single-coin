@@ -1,6 +1,13 @@
 import { getHyperLiquidConfig } from '../config/hyperliquid';
 import * as hl from '@nktkas/hyperliquid';
 
+// Add window ethereum type declaration
+declare global {
+  interface Window {
+    ethereum?: any;
+  }
+}
+
 // Types for HYPER LIQUID token creation
 export interface HyperLiquidTokenParams {
   // Core token information
@@ -132,14 +139,51 @@ function createHyperLiquidCompatibleSigner(originalSigner: any) {
     ...originalSigner,
     // Override signTypedData to handle the chain ID mismatch
     signTypedData: async (domain: any, types: any, message: any) => {
-      // Use the current wallet's chain ID instead of the hardcoded one
-      const currentChainId = await originalSigner.getChainId();
+      // Debug the signer structure
+      console.log('🔍 Signer object structure:', {
+        hasGetChainId: !!originalSigner.getChainId,
+        hasProvider: !!originalSigner.provider,
+        providerType: originalSigner.provider?.constructor?.name,
+        signerKeys: Object.keys(originalSigner),
+        providerKeys: originalSigner.provider ? Object.keys(originalSigner.provider) : null
+      });
+      
+      // Try different methods to get the current chain ID
+      let currentChainId = 999; // Default fallback to 999
+      
+      try {
+        if (originalSigner.getChainId) {
+          currentChainId = await originalSigner.getChainId();
+          console.log('✅ Got chain ID from signer.getChainId():', currentChainId);
+        } else if (originalSigner.provider && originalSigner.provider.getNetwork) {
+          const network = await originalSigner.provider.getNetwork();
+          currentChainId = network.chainId;
+          console.log('✅ Got chain ID from provider.getNetwork():', currentChainId);
+        } else if (originalSigner.provider && originalSigner.provider.request) {
+          // MetaMask/Web3 provider method
+          const chainIdHex = await originalSigner.provider.request({ method: 'eth_chainId' });
+          currentChainId = parseInt(chainIdHex, 16);
+          console.log('✅ Got chain ID from provider.request():', currentChainId);
+        } else if (typeof window !== 'undefined' && window.ethereum) {
+          // Direct MetaMask access
+          const chainIdHex = await window.ethereum.request({ method: 'eth_chainId' });
+          currentChainId = parseInt(chainIdHex, 16);
+          console.log('✅ Got chain ID from window.ethereum:', currentChainId);
+        }
+      } catch (error) {
+        console.warn('Could not get chain ID, using fallback 999:', error);
+        currentChainId = 999;
+      }
+      
       const modifiedDomain = {
         ...domain,
         chainId: currentChainId // Use wallet's actual chain ID
       };
       
       console.log('🔧 Modified domain for HyperLiquid signing:', modifiedDomain);
+      console.log('🔧 Original domain:', domain);
+      console.log('🔧 Detected chain ID:', currentChainId);
+      
       return originalSigner.signTypedData(modifiedDomain, types, message);
     }
   };
