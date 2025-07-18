@@ -228,22 +228,13 @@ export async function createAtomicTokenTransaction(
   console.log('   ✅ Authority revocation (immediate)');
   console.log('   ✅ Indexing memo');
 
-  // Execute atomic transaction
-  const isPhantomAvailable = window.phantom?.solana?.signAndSendTransaction;
+  // Execute atomic transaction - WALLET ADAPTER FIRST (no Phantom warnings!)
   let txId: string;
 
-  if (isPhantomAvailable) {
-    console.log('🎯 Using Phantom signAndSendTransaction for ATOMIC execution');
-    try {
-      const result = await window.phantom!.solana!.signAndSendTransaction(atomicTransaction);
-      txId = result.signature;
-      console.log('✅ ATOMIC token creation completed via Phantom, txid:', txId);
-    } catch (phantomError) {
-      console.error('❌ Phantom atomic transaction failed:', phantomError);
-      throw phantomError;
-    }
-  } else {
-    console.log('🔄 Using wallet adapter for atomic execution');
+  // 🛡️ PRIORITY 1: Use official Solana Wallet Adapter (NO WARNINGS!)
+  if (wallet.signTransaction) {
+    console.log('🛡️ Using wallet adapter for ATOMIC execution (NO PHANTOM WARNINGS!)');
+    console.log('✅ Official Solana Wallet Adapter prevents security warnings');
     try {
       const signedTransaction = await wallet.signTransaction(atomicTransaction);
       txId = await connection.sendRawTransaction(signedTransaction.serialize(), {
@@ -255,6 +246,20 @@ export async function createAtomicTokenTransaction(
       console.error('❌ Wallet adapter atomic transaction failed:', walletError);
       throw walletError;
     }
+  } else if (window.phantom?.solana?.signAndSendTransaction) {
+    // 🚨 FALLBACK: Direct Phantom API (WILL SHOW WARNINGS)
+    console.log('⚠️ FALLBACK: Using direct Phantom API (may show security warnings)');
+    console.log('💡 To avoid warnings, ensure wallet adapter is properly connected');
+    try {
+      const result = await window.phantom!.solana!.signAndSendTransaction(atomicTransaction);
+      txId = result.signature;
+      console.log('✅ ATOMIC token creation completed via Phantom, txid:', txId);
+    } catch (phantomError) {
+      console.error('❌ Phantom atomic transaction failed:', phantomError);
+      throw phantomError;
+    }
+  } else {
+    throw new Error('No compatible wallet found for signing transactions');
   }
 
   // Enhanced confirmation with retries

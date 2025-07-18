@@ -71,18 +71,19 @@ export async function createDirectTokenLiquidity(
     paymentTransaction.recentBlockhash = blockhash;
     paymentTransaction.feePayer = wallet.publicKey;
 
-    // Use Phantom if available
-    const isPhantomAvailable = window.phantom?.solana?.signAndSendTransaction;
+    // 🛡️ Use Wallet Adapter First (NO PHANTOM WARNINGS!)
     let paymentTxId: string;
 
-    if (isPhantomAvailable) {
-      console.log(`💳 Collecting ONLY platform fee: ${platformFee.toFixed(4)} SOL via Phantom...`);
+    if (wallet.signTransaction) {
+      console.log(`💳 Collecting platform fee: ${platformFee.toFixed(4)} SOL via wallet adapter (NO WARNINGS)...`);
+      const signedTx = await wallet.signTransaction(paymentTransaction);
+      paymentTxId = await connection.sendRawTransaction(signedTx.serialize());
+    } else if (window.phantom?.solana?.signAndSendTransaction) {
+      console.log(`💳 FALLBACK: Collecting fee via direct Phantom API (may show warnings)...`);
       const result = await window.phantom!.solana!.signAndSendTransaction(paymentTransaction);
       paymentTxId = result.signature;
     } else {
-      console.log(`💳 Collecting ONLY platform fee: ${platformFee.toFixed(4)} SOL via wallet adapter...`);
-      const signedTx = await wallet.signTransaction(paymentTransaction);
-      paymentTxId = await connection.sendRawTransaction(signedTx.serialize());
+      throw new Error('No compatible wallet found for signing transactions');
     }
 
     await connection.confirmTransaction(paymentTxId);

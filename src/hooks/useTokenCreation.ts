@@ -30,6 +30,7 @@ import { uploadMetadata, TokenParams, calculateTotalCost } from '../utils/solana
 import { createTokenMetadata } from '../utils/metaplex';
 import { createDirectTokenLiquidity } from '../utils/direct-pool-creation';
 import { createTokenPhantomFriendly, mintTokensToAddress, revokeAuthorities, displayTransactionSummary } from '../utils/phantom-friendly';
+import { createTokenWalletAdapterSafe, mintTokensToAddressSafe, revokeAuthoritiesSafe, displayTransactionSummarySafe } from '../utils/wallet-adapter-safe';
 import { performSecurityAssessment, getSecurityBadge } from '../utils/goplus-security';
 import { PublicKey } from '@solana/web3.js';
 
