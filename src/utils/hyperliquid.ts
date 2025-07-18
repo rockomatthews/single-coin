@@ -157,171 +157,60 @@ export function calculateHyperLiquidFee(
 }
 
 /**
- * Create a wrapped signer that works with HyperLiquid SDK's hardcoded chain ID expectations
+ * Create a proper ethers signer from MetaMask that preserves the correct address
  */
-function createHyperLiquidCompatibleSigner(originalSigner: any) {
-  return {
-    ...originalSigner,
-    
-    // Override getAddress to ensure we're using the correct address
-    getAddress: async () => {
-      let address;
-      
-      try {
-        if (originalSigner.getAddress) {
-          address = await originalSigner.getAddress();
-          console.log('🏠 Got address from signer.getAddress():', address);
-        } else if (originalSigner.address) {
-          address = originalSigner.address;
-          console.log('🏠 Got address from signer.address:', address);
-        } else if (originalSigner.provider && originalSigner.provider.request) {
-          const accounts = await originalSigner.provider.request({ method: 'eth_accounts' });
-          address = accounts[0];
-          console.log('🏠 Got address from provider.request():', address);
-        } else if (typeof window !== 'undefined' && window.ethereum) {
-          const accounts = await window.ethereum.request({ method: 'eth_accounts' });
-          address = accounts[0];
-          console.log('🏠 Got address from window.ethereum:', address);
-        }
-      } catch (error) {
-        console.error('❌ Failed to get wallet address:', error);
-        throw new Error('Could not get wallet address');
-      }
-      
-      if (!address) {
-        throw new Error('No wallet address found');
-      }
-      
-      return address;
-    },
-    
-    // Override signTypedData to handle the chain ID mismatch
-    signTypedData: async (domain: any, types: any, message: any) => {
-      // Debug the signer structure
-      console.log('🔍 Signer object structure:', {
-        hasGetChainId: !!originalSigner.getChainId,
-        hasGetAddress: !!originalSigner.getAddress,
-        hasProvider: !!originalSigner.provider,
-        providerType: originalSigner.provider?.constructor?.name,
-        signerKeys: Object.keys(originalSigner),
-        providerKeys: originalSigner.provider ? Object.keys(originalSigner.provider) : null
-      });
-      
-      // Get the wallet address using the wrapper's method
-      const walletAddress = await (async () => {
-        if (originalSigner.getAddress) {
-          return await originalSigner.getAddress();
-        } else if (originalSigner.address) {
-          return originalSigner.address;
-        } else if (originalSigner.provider && originalSigner.provider.request) {
-          const accounts = await originalSigner.provider.request({ method: 'eth_accounts' });
-          return accounts[0];
-        } else if (typeof window !== 'undefined' && window.ethereum) {
-          const accounts = await window.ethereum.request({ method: 'eth_accounts' });
-          return accounts[0];
-        }
-        return null;
-      })();
-      console.log('🔐 Using wallet address for signing:', walletAddress);
-      
-      // Try different methods to get the current chain ID
-      let currentChainId = 999; // Default fallback to 999
-      
-      try {
-        if (originalSigner.getChainId) {
-          currentChainId = await originalSigner.getChainId();
-          console.log('✅ Got chain ID from signer.getChainId():', currentChainId);
-        } else if (originalSigner.provider && originalSigner.provider.getNetwork) {
-          const network = await originalSigner.provider.getNetwork();
-          currentChainId = network.chainId;
-          console.log('✅ Got chain ID from provider.getNetwork():', currentChainId);
-        } else if (originalSigner.provider && originalSigner.provider.request) {
-          // MetaMask/Web3 provider method
-          const chainIdHex = await originalSigner.provider.request({ method: 'eth_chainId' });
-          currentChainId = parseInt(chainIdHex, 16);
-          console.log('✅ Got chain ID from provider.request():', currentChainId);
-        } else if (typeof window !== 'undefined' && window.ethereum) {
-          // Direct MetaMask access
-          const chainIdHex = await window.ethereum.request({ method: 'eth_chainId' });
-          currentChainId = parseInt(chainIdHex, 16);
-          console.log('✅ Got chain ID from window.ethereum:', currentChainId);
-        }
-      } catch (error) {
-        console.warn('Could not get chain ID, using fallback 999:', error);
-        currentChainId = 999;
-      }
-      
-      // Convert BigInt to number if necessary
-      if (typeof currentChainId === 'bigint') {
-        currentChainId = Number(currentChainId);
-      }
-      
-      const modifiedDomain = {
-        ...domain,
-        chainId: currentChainId // Use wallet's actual chain ID
-      };
-      
-      console.log('🔧 Modified domain for HyperLiquid signing:', modifiedDomain);
-      console.log('🔧 Original domain:', domain);
-      console.log('🔧 Detected chain ID:', currentChainId);
-      console.log('🔧 Types:', types);
-      console.log('🔧 Message:', message);
-      
-      // Try different methods to sign the typed data
-      if (originalSigner.signTypedData) {
-        console.log('📝 Using originalSigner.signTypedData');
-        return originalSigner.signTypedData(modifiedDomain, types, message);
-      } else if (originalSigner.provider && originalSigner.provider.request) {
-        console.log('📝 Using provider.request eth_signTypedData_v4');
-        // Find the primary type (exclude EIP712Domain)
-        const primaryType = Object.keys(types).find(key => key !== 'EIP712Domain') || 'Agent';
-        const typedData = {
-          domain: modifiedDomain,
-          types,
-          primaryType,
-          message
-        };
-        console.log('📝 Constructed typedData:', JSON.stringify(typedData, null, 2));
-        return originalSigner.provider.request({
-          method: 'eth_signTypedData_v4',
-          params: [walletAddress, JSON.stringify(typedData)]
-        });
-      } else if (typeof window !== 'undefined' && window.ethereum) {
-        console.log('📝 Using window.ethereum.request eth_signTypedData_v4');
-        // Find the primary type (exclude EIP712Domain)
-        const primaryType = Object.keys(types).find(key => key !== 'EIP712Domain') || 'Agent';
-        const typedData = {
-          domain: modifiedDomain,
-          types,
-          primaryType,
-          message
-        };
-        console.log('📝 Constructed typedData:', JSON.stringify(typedData, null, 2));
-        return window.ethereum.request({
-          method: 'eth_signTypedData_v4',
-          params: [walletAddress, JSON.stringify(typedData)]
-        });
-      } else {
-        throw new Error('No valid signing method found');
-      }
-    }
-  };
+async function createEthersSigner() {
+  if (typeof window === 'undefined' || !window.ethereum) {
+    throw new Error('MetaMask not found');
+  }
+
+  // Import ethers dynamically
+  const { ethers } = await import('ethers');
+  
+  // Get the current connected account
+  const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+  if (!accounts || accounts.length === 0) {
+    throw new Error('No MetaMask accounts connected');
+  }
+  
+  const connectedAddress = accounts[0];
+  console.log('🔗 Connected MetaMask address:', connectedAddress);
+  
+  // Create a Web3Provider with the current window.ethereum
+  const provider = new ethers.BrowserProvider(window.ethereum);
+  
+  // Get the signer for the connected account
+  const signer = await provider.getSigner();
+  
+  // Verify the signer address matches the connected address
+  const signerAddress = await signer.getAddress();
+  console.log('🔐 Ethers signer address:', signerAddress);
+  
+  if (signerAddress.toLowerCase() !== connectedAddress.toLowerCase()) {
+    console.warn('⚠️ Address mismatch between MetaMask and ethers signer');
+  }
+  
+  return signer;
 }
 
 /**
- * Create HyperLiquid API clients using official SDK v0.23.1
+ * Create HyperLiquid API clients using the official SDK with explicit wallet address
  */
-export async function createHyperLiquidClients(signer: any) {
+export async function createHyperLiquidClients(signer?: any) {
   const config = getHyperLiquidConfig();
   
-  console.log('🔧 Creating HyperLiquid clients with signer:', {
-    signerType: signer?.constructor?.name,
-    signerKeys: Object.keys(signer || {}),
-    hasGetAddress: !!signer?.getAddress,
-    hasProvider: !!signer?.provider
-  });
+  console.log('🔧 Creating HyperLiquid clients with explicit wallet address...');
   
-  // Create transport for the new SDK
+  // If no signer provided, create one from MetaMask
+  if (!signer) {
+    console.log('🔧 Creating ethers signer from MetaMask...');
+    signer = await createEthersSigner();
+  }
+  
+  const walletAddress = await signer.getAddress();
+  console.log('🔧 Using wallet address:', walletAddress);
+  
+  // Create transport for the official SDK
   const transport = new hl.HttpTransport({
     isTestnet: !config.isMainnet,
     server: {
@@ -337,14 +226,6 @@ export async function createHyperLiquidClients(signer: any) {
   // Create info client for market data
   const infoClient = new hl.InfoClient({ transport });
   
-  // SOLUTION: Use the compatible signer wrapper to handle chain ID mismatch
-  // HyperLiquid SDK hardcodes chain ID 1337 for L1 actions, but MetaMask is on 999
-  let walletForSDK;
-  
-  console.log('🔧 Using compatible signer wrapper to handle chain ID mismatch (1337 → 999)');
-  // Always use the compatible signer wrapper to handle the chain ID mismatch
-  walletForSDK = createHyperLiquidCompatibleSigner(signer);
-  
   // Get current chain ID from MetaMask
   let currentChainId: `0x${string}` = '0x3e7'; // Default to 999 (HyperLiquid mainnet)
   
@@ -358,35 +239,39 @@ export async function createHyperLiquidClients(signer: any) {
     }
   }
   
-  // Create exchange client for authenticated operations using new API
+  // The key insight: ensure the signer address matches MetaMask address exactly
+  // Create a signer wrapper that ensures address consistency
+  const consistentSigner = {
+    ...signer,
+    
+    // Override getAddress to always return the MetaMask address
+    getAddress: async () => {
+      return walletAddress;
+    },
+    
+    // Preserve original signing functionality but log for debugging
+    signTypedData: async (domain: any, types: any, message: any) => {
+      console.log('🔐 Signing with address:', walletAddress);
+      console.log('🔐 Domain:', domain);
+      console.log('🔐 Chain ID from domain:', domain.chainId);
+      return signer.signTypedData(domain, types, message);
+    }
+  };
+  
   const exchangeClient = new hl.ExchangeClient({ 
-    wallet: walletForSDK, 
+    wallet: consistentSigner, 
     transport,
     isTestnet: !config.isMainnet,
-    signatureChainId: currentChainId, // Use the actual connected chain ID
+    signatureChainId: currentChainId,
   });
   
-  // Verify what address the SDK will use
-  if (typeof window !== 'undefined' && window.ethereum) {
-    // Check both eth_accounts and eth_requestAccounts
-    Promise.all([
-      window.ethereum.request({ method: 'eth_accounts' }),
-      window.ethereum.request({ method: 'eth_requestAccounts' })
-    ]).then(([currentAccounts, requestedAccounts]: [string[], string[]]) => {
-      console.log('🔍 Current accounts (eth_accounts):', currentAccounts);
-      console.log('🔍 Requested accounts (eth_requestAccounts):', requestedAccounts);
-      console.log('🔍 SDK will use address:', requestedAccounts[0]);
-      
-      // Also check if MetaMask is on the correct network
-      window.ethereum.request({ method: 'eth_chainId' }).then((chainId: string) => {
-        console.log('🔍 MetaMask chain ID:', chainId, '(decimal:', parseInt(chainId, 16), ')');
-      });
-    }).catch((err: any) => console.warn('Could not verify SDK address:', err));
-  }
+  console.log('✅ HyperLiquid SDK initialized with explicit wallet address');
+  console.log('🔍 Explicit wallet address:', walletAddress);
   
   return {
     infoClient,
     exchangeClient,
+    walletAddress,
     config
   };
 }
@@ -527,11 +412,14 @@ export function getHyperLiquidCostBreakdown(params: HyperLiquidTokenParams) {
  */
 export async function checkUserExists(signer: any): Promise<{ exists: boolean; error?: string }> {
   try {
-    const { infoClient } = await createHyperLiquidClients(signer);
-    const userAddress = await signer.getAddress();
+    const { infoClient, walletAddress } = await createHyperLiquidClients(signer);
+    
+    console.log('🔍 Checking if user exists on HyperLiquid:', walletAddress);
     
     // Try to get user state - this will tell us if user exists
-    const userState = await infoClient.clearinghouseState({ user: userAddress });
+    const userState = await infoClient.clearinghouseState({ user: walletAddress });
+    
+    console.log('📊 User state response:', userState);
     
     // If we get user state data, user exists
     if (userState) {
@@ -540,6 +428,7 @@ export async function checkUserExists(signer: any): Promise<{ exists: boolean; e
     
     return { exists: false, error: 'User not found on HyperLiquid' };
   } catch (error) {
+    console.error('❌ Error checking user existence:', error);
     // Most likely user doesn't exist or network error
     return { 
       exists: false, 
@@ -606,10 +495,10 @@ export async function createHyperLiquidToken(
   let spotIndex: number | undefined;
 
   try {
-    const { exchangeClient } = await createHyperLiquidClients(signer);
-    const userAddress = await signer.getAddress();
+    const { exchangeClient, walletAddress } = await createHyperLiquidClients(signer);
     
-    console.log('🎯 Token creation - User address:', userAddress);
+    console.log('🎯 Token creation - User address:', walletAddress);
+    console.log('🔍 Exchange client initialized successfully');
 
     onProgress?.(1, 'Registering token...');
 
@@ -647,13 +536,13 @@ export async function createHyperLiquidToken(
     onProgress?.(2, 'Setting up user genesis...');
 
     // Step 2: User Genesis (initial distribution) - using correct format
-    console.log('🎯 User Genesis - Using address:', userAddress);
+    console.log('🎯 User Genesis - Using address:', walletAddress);
     console.log('🎯 User Genesis - Retained amount:', params.retainedAmount || 0);
     
     const userGenesisResult = await exchangeClient.spotDeploy({
       userGenesis: {
         token: tokenId,
-        userAndWei: [[userAddress, (params.retainedAmount || 0).toString()]],
+        userAndWei: [[walletAddress, (params.retainedAmount || 0).toString()]],
         existingTokenAndWei: [],
       },
     });
