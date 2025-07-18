@@ -249,12 +249,22 @@ export async function createHyperLiquidClients(signer?: any) {
       return walletAddress;
     },
     
-    // Preserve original signing functionality but log for debugging
+    // Override signTypedData to fix the chain ID mismatch
     signTypedData: async (domain: any, types: any, message: any) => {
       console.log('🔐 Signing with address:', walletAddress);
-      console.log('🔐 Domain:', domain);
-      console.log('🔐 Chain ID from domain:', domain.chainId);
-      return signer.signTypedData(domain, types, message);
+      console.log('🔐 Original domain:', domain);
+      console.log('🔐 Original chain ID from domain:', domain.chainId);
+      
+      // Create a modified domain with the correct chain ID
+      const modifiedDomain = {
+        ...domain,
+        chainId: parseInt(currentChainId, 16) // Convert hex chain ID to decimal for MetaMask
+      };
+      
+      console.log('🔧 Modified domain for MetaMask:', modifiedDomain);
+      console.log('🔧 Using chain ID:', parseInt(currentChainId, 16));
+      
+      return signer.signTypedData(modifiedDomain, types, message);
     }
   };
   

@@ -133,13 +133,13 @@ export function getMetaMaskNetworkConfig(chainId?: number) {
   
   return {
     chainId: `0x${targetChainId.toString(16)}`,
-    chainName: `HyperLiquid ${targetChainId === 999 ? 'Mainnet' : 'Custom'}`,
+    chainName: `HyperLiquid EVM`,
     nativeCurrency: {
-      name: 'HYPE',
-      symbol: 'HYPE',
+      name: 'Ethereum',
+      symbol: 'ETH',
       decimals: 18,
     },
-    rpcUrls: ['https://api.hyperliquid.xyz'],
-    blockExplorerUrls: ['https://app.hyperliquid.xyz'],
+    rpcUrls: ['https://api.hyperliquid.xyz/evm'],
+    blockExplorerUrls: ['https://explorer.hyperliquid.xyz'],
   };
 }
