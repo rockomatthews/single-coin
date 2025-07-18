@@ -208,12 +208,12 @@ export function useTokenCreation() {
       console.log('Creating token with metadata URI:', metadataUri);
       
       try {
-        // 🚀 STEP 1: Create token using ATOMIC transaction pattern (pump.fun style)
-        console.log('🚀 ATOMIC TOKEN CREATION: Professional single-transaction approach');
-        console.log('🎯 This mirrors pump.fun and coinfactory.app patterns for maximum Phantom compatibility');
+        // 🛡️ STEP 1: Create token using PHANTOM-FRIENDLY multi-step approach (NO WARNINGS!)
+        console.log('🛡️ PHANTOM-FRIENDLY TOKEN CREATION: Breaking into simple steps');
+        console.log('🎯 This eliminates red warnings by using multiple simple transactions');
         
-        // Import the new atomic creation function
-        const { createAtomicToken } = await import('../utils/solana');
+        // Import the phantom-friendly creation function
+        const { createTokenWalletAdapterSafe } = await import('../utils/wallet-adapter-safe');
         
         // Calculate token distribution
         const retainedAmount = tokenData.retainedAmount || 
@@ -221,52 +221,81 @@ export function useTokenCreation() {
         const liquidityAmount = tokenData.liquidityAmount || 
                               (tokenData.supply - retainedAmount);
         
-        // Calculate platform fee
+        console.log(`📊 Token Distribution Plan:`);
+        console.log(`   Total Supply: ${totalSupply.toLocaleString()}`);
+        console.log(`   User Gets: ${retainedAmount.toLocaleString()} (${retentionPercentage}%)`);
+        console.log(`   Pool Gets: ${liquidityAmount.toLocaleString()} (${100 - retentionPercentage}%)`);
+        
+        // Execute phantom-friendly token creation (4 simple transactions)
+        const phantomFriendlyResult = await createTokenWalletAdapterSafe(
+          connection,
+          wallet,
+          {
+            decimals: tokenData.decimals,
+            supply: totalSupply,
+            retentionPercentage: retentionPercentage
+          }
+        );
+        
+        if (!phantomFriendlyResult.mintAddress) {
+          throw new Error('Failed to create token - no token address returned');
+        }
+        
+        const tokenAddress = phantomFriendlyResult.mintAddress;
+        
+        console.log('✅ PHANTOM-FRIENDLY token creation completed successfully!');
+        console.log('🛡️ Each transaction should have shown normal Phantom dialogs (no red warnings!)');
+        console.log(`🎯 Token address: ${tokenAddress}`);
+        console.log(`📊 User received: ${phantomFriendlyResult.userTokenAmount.toLocaleString()} tokens`);
+        console.log(`🏊 Reserved for liquidity: ${phantomFriendlyResult.liquidityTokenAmount.toLocaleString()} tokens`);
+        
+        // Create compatible result for existing flow
+        const secureResult = {
+          mintAddress: tokenAddress,
+          userTokenAmount: phantomFriendlyResult.userTokenAmount,
+          liquidityTokenAmount: phantomFriendlyResult.liquidityTokenAmount
+        };
+        
+        // 🔒 STEP 2: Collect platform fee
+        console.log('💳 Collecting platform fee...');
         const { calculateFee } = await import('../utils/solana');
         const platformFee = calculateFee(retentionPercentage);
         const FEE_RECIPIENT_ADDRESS = process.env.NEXT_PUBLIC_FEE_RECIPIENT_ADDRESS;
         
-        console.log(`💰 Platform fee: ${platformFee.toFixed(4)} SOL (included in atomic transaction)`);
-        
-        // Execute atomic token creation with integrated fee payment
-        const tokenAddress = await createAtomicToken(
-          connection,
-          wallet,
-          metadataUri,
-          {
-            ...tokenData,
-            retentionPercentage,
-            retainedAmount,
-            liquidityAmount,
-            revokeUpdateAuthority: true,
-            revokeFreezeAuthority: true,
-            revokeMintAuthority: true
-          },
-          platformFee,
-          FEE_RECIPIENT_ADDRESS
-        );
-        
-        if (!tokenAddress) {
-          throw new Error('Failed to create token - no token address returned');
+        if (platformFee > 0 && FEE_RECIPIENT_ADDRESS) {
+          // Simple SOL transfer for platform fee
+          const { SystemProgram, Transaction } = await import('@solana/web3.js');
+          const { PublicKey } = await import('@solana/web3.js');
+          
+          const feeTransaction = new Transaction().add(
+            SystemProgram.transfer({
+              fromPubkey: wallet.publicKey!,
+              toPubkey: new PublicKey(FEE_RECIPIENT_ADDRESS),
+              lamports: Math.floor(platformFee * 1000000000), // Convert SOL to lamports
+            })
+          );
+          
+          const { blockhash } = await connection.getLatestBlockhash();
+          feeTransaction.recentBlockhash = blockhash;
+          feeTransaction.feePayer = wallet.publicKey!;
+          
+          const signedFeeTransaction = await wallet.signTransaction!(feeTransaction);
+          const feeTxId = await connection.sendRawTransaction(signedFeeTransaction.serialize());
+          await connection.confirmTransaction(feeTxId);
+          
+          console.log(`✅ Platform fee collected: ${platformFee.toFixed(4)} SOL - TxId: ${feeTxId}`);
         }
         
-        console.log('✅ ATOMIC token creation completed successfully!');
-        console.log('🛡️ Token is immediately secure: unmintable, unfreezable, immutable metadata');
-        console.log(`🎯 Token address: ${tokenAddress}`);
-        console.log(`📊 User received: ${retainedAmount.toLocaleString()} tokens`);
-        console.log(`🏊 Reserved for liquidity: ${liquidityAmount.toLocaleString()} tokens`);
+        // 🔒 STEP 3: Revoke authorities for security
+        console.log('🔒 Revoking token authorities for security...');
+        const { revokeAuthoritiesSafe } = await import('../utils/wallet-adapter-safe');
+        await revokeAuthoritiesSafe(connection, wallet, tokenAddress, true, true);
+        console.log('✅ Token authorities revoked - fully secured');
         
-        // Create mock result for compatibility with existing flow
-        const secureResult = {
-          mintAddress: tokenAddress,
-          userTokenAmount: retainedAmount,
-          liquidityTokenAmount: liquidityAmount
-        };
-        
-        // 🔒 STEP 2: Automatically verify token in wallet
+        // 🔒 STEP 4: Automatically verify token in wallet
         await verifyTokenInWallet(connection, tokenAddress, publicKey);
         
-        // 🔒 STEP 3: Handle pool creation (authorities already revoked, fee already paid)
+        // 🔒 STEP 5: Handle pool creation (authorities now revoked)
         let poolTxId = null;
         
         if (tokenData.createPool && tokenData.liquiditySolAmount && tokenData.liquiditySolAmount > 0) {
@@ -281,11 +310,11 @@ export function useTokenCreation() {
               console.log('💡 Consider using 9 decimals for Raydium compatibility, or manually create pools later');
               console.log('✅ Platform fee already paid atomically - token fully secured');
             } else {
-              console.log('⚠️ CRITICAL: Pool creation requested but authorities already revoked by atomic transaction');
+              console.log('⚠️ CRITICAL: Pool creation requested but authorities already revoked');
               console.log('❌ Cannot create pools for tokens with revoked mint authority');
               console.log('💡 SOLUTION: To create pools, tokens need temporary mint authority for liquidity token creation');
-              console.log('🔄 Consider using legacy token creation for pool-enabled tokens');
-              console.log('✅ Platform fee already paid atomically - no additional charges');
+              console.log('🔄 Consider creating pools before revoking authorities');
+              console.log('✅ Platform fee already collected - no additional charges');
               console.log('🛡️ Token is fully secured - consider manual pool creation on DEXes');
               console.log(`🔗 Manual trading: https://jup.ag/swap/SOL-${tokenAddress}`);
             }
@@ -296,11 +325,11 @@ export function useTokenCreation() {
           }
         } else {
           console.log('✅ No pool requested - token creation completed');
-          console.log('✅ Platform fee already paid atomically');
-          console.log('🛡️ Token authorities already revoked by atomic transaction - fully secured');
+          console.log('✅ Platform fee already collected');
+          console.log('🛡️ Token authorities already revoked - fully secured');
         }
         
-        // 🔒 STEP 4: Save token to database
+        // 🔒 STEP 6: Save token to database
         console.log('💾 Saving token to database...');
         const response = await fetch('/api/create-token', {
           method: 'POST',
