@@ -264,8 +264,46 @@ function createHyperLiquidCompatibleSigner(originalSigner: any) {
       console.log('🔧 Modified domain for HyperLiquid signing:', modifiedDomain);
       console.log('🔧 Original domain:', domain);
       console.log('🔧 Detected chain ID:', currentChainId);
+      console.log('🔧 Types:', types);
+      console.log('🔧 Message:', message);
       
-      return originalSigner.signTypedData(modifiedDomain, types, message);
+      // Try different methods to sign the typed data
+      if (originalSigner.signTypedData) {
+        console.log('📝 Using originalSigner.signTypedData');
+        return originalSigner.signTypedData(modifiedDomain, types, message);
+      } else if (originalSigner.provider && originalSigner.provider.request) {
+        console.log('📝 Using provider.request eth_signTypedData_v4');
+        // Find the primary type (exclude EIP712Domain)
+        const primaryType = Object.keys(types).find(key => key !== 'EIP712Domain') || 'Agent';
+        const typedData = {
+          domain: modifiedDomain,
+          types,
+          primaryType,
+          message
+        };
+        console.log('📝 Constructed typedData:', JSON.stringify(typedData, null, 2));
+        return originalSigner.provider.request({
+          method: 'eth_signTypedData_v4',
+          params: [walletAddress, JSON.stringify(typedData)]
+        });
+      } else if (typeof window !== 'undefined' && window.ethereum) {
+        console.log('📝 Using window.ethereum.request eth_signTypedData_v4');
+        // Find the primary type (exclude EIP712Domain)
+        const primaryType = Object.keys(types).find(key => key !== 'EIP712Domain') || 'Agent';
+        const typedData = {
+          domain: modifiedDomain,
+          types,
+          primaryType,
+          message
+        };
+        console.log('📝 Constructed typedData:', JSON.stringify(typedData, null, 2));
+        return window.ethereum.request({
+          method: 'eth_signTypedData_v4',
+          params: [walletAddress, JSON.stringify(typedData)]
+        });
+      } else {
+        throw new Error('No valid signing method found');
+      }
     }
   };
 }
@@ -303,29 +341,9 @@ export async function createHyperLiquidClients(signer: any) {
   // HyperLiquid SDK hardcodes chain ID 1337 for L1 actions, but MetaMask is on 999
   let walletForSDK;
   
-  if (typeof window !== 'undefined' && window.ethereum) {
-    console.log('🔧 Using compatible signer wrapper to handle chain ID mismatch (1337 → 999)');
-    // Create a wrapper that uses window.ethereum but fixes the chain ID issue
-    const accounts = await window.ethereum.request({ method: 'eth_accounts' });
-    walletForSDK = createHyperLiquidCompatibleSigner({
-      getAddress: async () => {
-        return accounts[0];
-      },
-      signTypedData: async (domain: any, types: any, message: any) => {
-        return window.ethereum.request({
-          method: 'eth_signTypedData_v4',
-          params: [accounts[0], JSON.stringify({ domain, types, message })]
-        });
-      },
-      provider: window.ethereum
-    });
-  } else if (signer?.provider) {
-    console.log('✅ Using compatible signer for provider');
-    walletForSDK = createHyperLiquidCompatibleSigner(signer);
-  } else {
-    console.log('⚠️ Falling back to wrapped signer');
-    walletForSDK = createHyperLiquidCompatibleSigner(signer);
-  }
+  console.log('🔧 Using compatible signer wrapper to handle chain ID mismatch (1337 → 999)');
+  // Always use the compatible signer wrapper to handle the chain ID mismatch
+  walletForSDK = createHyperLiquidCompatibleSigner(signer);
   
   // Get current chain ID from MetaMask
   let currentChainId: `0x${string}` = '0x3e7'; // Default to 999 (HyperLiquid mainnet)
