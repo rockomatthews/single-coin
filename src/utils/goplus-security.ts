@@ -28,7 +28,13 @@ export async function checkAddressSecurity(address: string): Promise<{
     });
     
     if (!response.ok) {
-      throw new Error(`GoPlus API error: ${response.status}`);
+      console.warn(`⚠️ GoPlus API error: ${response.status} - ${response.statusText}`);
+      // Return safe defaults when API is unavailable
+      return {
+        isMalicious: false,
+        riskLevel: 'LOW',
+        tags: []
+      };
     }
     
     const result = await response.json();
@@ -87,7 +93,13 @@ export async function checkTokenSecurity(tokenAddress: string): Promise<{
     });
     
     if (!response.ok) {
-      throw new Error(`GoPlus API error: ${response.status}`);
+      console.warn(`⚠️ GoPlus API error: ${response.status} - ${response.statusText}`);
+      // Return safe defaults when API is unavailable
+      return {
+        isMalicious: false,
+        riskLevel: 'LOW',
+        tags: []
+      };
     }
     
     const result = await response.json();

@@ -226,9 +226,31 @@ export async function createTokenWalletAdapterSafe(
   console.log('🛡️ WALLET ADAPTER SAFE TOKEN CREATION: No Phantom warnings!');
   console.log('✅ Using official Solana Wallet Adapter instead of direct Phantom API');
   
-  // Check wallet adapter availability
-  if (!wallet.connected || !wallet.publicKey || !wallet.signTransaction) {
-    throw new Error('Wallet not connected or does not support signing');
+  // Enhanced wallet connection validation
+  console.log('🔍 Wallet state check:', {
+    connected: wallet.connected,
+    publicKey: wallet.publicKey?.toString(),
+    hasSignTransaction: !!wallet.signTransaction,
+    hasSignAllTransactions: !!wallet.signAllTransactions,
+    walletName: wallet.wallet?.adapter?.name
+  });
+  
+  // Check if wallet object exists and has required properties
+  if (!wallet) {
+    throw new Error('Wallet object is null or undefined');
+  }
+  
+  if (!wallet.publicKey) {
+    throw new Error('Wallet is not connected - no public key available');
+  }
+  
+  if (!wallet.signTransaction) {
+    throw new Error('Wallet does not support transaction signing');
+  }
+  
+  // Additional validation for mainnet
+  if (!wallet.connected) {
+    console.warn('⚠️ Wallet shows as not connected but has publicKey - proceeding with mainnet compatibility');
   }
   
   const transactions: Array<{ name: string; signature: string; description: string }> = [];

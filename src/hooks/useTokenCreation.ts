@@ -32,6 +32,7 @@ import { createDirectTokenLiquidity } from '../utils/direct-pool-creation';
 import { createTokenPhantomFriendly, mintTokensToAddress, revokeAuthorities, displayTransactionSummary } from '../utils/phantom-friendly';
 import { createTokenWalletAdapterSafe, mintTokensToAddressSafe, revokeAuthoritiesSafe, displayTransactionSummarySafe } from '../utils/wallet-adapter-safe';
 import { performSecurityAssessment, getSecurityBadge } from '../utils/goplus-security';
+import { validateWalletConnection, getWalletErrorMessage, logWalletState } from '../utils/wallet-connection-fix';
 import { PublicKey } from '@solana/web3.js';
 
 /**
@@ -87,7 +88,8 @@ interface TokenCreationState {
 
 export function useTokenCreation() {
   const { connection } = useConnection();
-  const { publicKey, signTransaction, signAllTransactions } = useWallet();
+  const wallet = useWallet();
+  const { publicKey, signTransaction, signAllTransactions } = wallet;
   const [state, setState] = useState<TokenCreationState>({
     isCreating: false,
     error: null,
@@ -110,12 +112,22 @@ export function useTokenCreation() {
     tokenAddress: string;
     poolTxId: string | null;
   } | null> => {
-    if (!publicKey || !signTransaction) {
+    // Enhanced wallet validation using new validation utility
+    logWalletState(wallet, '🔍 Pre-creation wallet state');
+    
+    const walletValidation = validateWalletConnection(wallet);
+    
+    if (!walletValidation.isValid) {
+      const errorMessage = getWalletErrorMessage(walletValidation.errors[0]);
       setState({
         ...state,
-        error: 'Wallet not connected or missing signing capabilities',
+        error: errorMessage,
       });
       return null;
+    }
+    
+    if (walletValidation.warnings.length > 0) {
+      walletValidation.warnings.forEach(warning => console.warn('⚠️', warning));
     }
 
     setState({
@@ -153,25 +165,8 @@ export function useTokenCreation() {
         throw new Error(`🛑 Security Check Failed: ${preSecurityAssessment.warnings.join('. ')}`);
       }
 
-      // Create wallet adapter for SPL token operations with guaranteed signAllTransactions
-      const wallet = {
-        publicKey, 
-        signTransaction,
-        signAllTransactions: signAllTransactions ? 
-          (async (transactions: any[]) => {
-            const result = await signAllTransactions(transactions);
-            return result as any[];
-          }) : 
-          (async (transactions: any[]) => {
-            // If signAllTransactions is not available, sign them one by one
-            const signedTransactions = [];
-            for (const transaction of transactions) {
-              const signedTx = await signTransaction(transaction);
-              signedTransactions.push(signedTx);
-            }
-            return signedTransactions;
-          }),
-      };
+      // Use the validated wallet from our validation utility
+      const validatedWallet = walletValidation.wallet;
       
       // Calculate token distribution
       const retentionPercentage = tokenData.retentionPercentage || 50;
@@ -229,7 +224,7 @@ export function useTokenCreation() {
         // Execute phantom-friendly token creation (4 simple transactions)
         const phantomFriendlyResult = await createTokenWalletAdapterSafe(
           connection,
-          wallet,
+          validatedWallet,
           {
             decimals: tokenData.decimals,
             supply: totalSupply,
@@ -269,7 +264,7 @@ export function useTokenCreation() {
           
           const feeTransaction = new Transaction().add(
             SystemProgram.transfer({
-              fromPubkey: wallet.publicKey!,
+              fromPubkey: validatedWallet.publicKey!,
               toPubkey: new PublicKey(FEE_RECIPIENT_ADDRESS),
               lamports: Math.floor(platformFee * 1000000000), // Convert SOL to lamports
             })
@@ -277,9 +272,9 @@ export function useTokenCreation() {
           
           const { blockhash } = await connection.getLatestBlockhash();
           feeTransaction.recentBlockhash = blockhash;
-          feeTransaction.feePayer = wallet.publicKey!;
+          feeTransaction.feePayer = validatedWallet.publicKey!;
           
-          const signedFeeTransaction = await wallet.signTransaction!(feeTransaction);
+          const signedFeeTransaction = await validatedWallet.signTransaction!(feeTransaction);
           const feeTxId = await connection.sendRawTransaction(signedFeeTransaction.serialize());
           await connection.confirmTransaction(feeTxId);
           
@@ -289,7 +284,7 @@ export function useTokenCreation() {
         // 🔒 STEP 3: Revoke authorities for security
         console.log('🔒 Revoking token authorities for security...');
         const { revokeAuthoritiesSafe } = await import('../utils/wallet-adapter-safe');
-        await revokeAuthoritiesSafe(connection, wallet, tokenAddress, true, true);
+        await revokeAuthoritiesSafe(connection, validatedWallet, tokenAddress, true, true);
         console.log('✅ Token authorities revoked - fully secured');
         
         // 🔒 STEP 4: Automatically verify token in wallet
