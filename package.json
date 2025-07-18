@@ -35,6 +35,8 @@
     "crypto-browserify": "^3.12.1",
     "ethers": "^6.15.0",
     "https-browserify": "^1.0.0",
+    "hyperliquid": "^1.7.6",
+    "hyperliquid-sdk-turnkey": "^1.5.8",
     "next": "14.1.0",
     "os-browserify": "^0.3.0",
     "pg": "^8.11.3",
