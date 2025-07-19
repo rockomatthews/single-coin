@@ -96,9 +96,10 @@ export async function checkTokenSecurity(tokenAddress: string): Promise<{
       console.warn(`⚠️ GoPlus API error: ${response.status} - ${response.statusText}`);
       // Return safe defaults when API is unavailable
       return {
-        isMalicious: false,
+        isSecure: true,
         riskLevel: 'LOW',
-        tags: []
+        issues: [],
+        details: null
       };
     }
     

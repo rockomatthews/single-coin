@@ -139,7 +139,7 @@ export function useTokenCreation() {
     try {
       // Debug output the wallet for inspection
       console.log('Using wallet for token creation:', {
-        publicKey: publicKey.toString(),
+        publicKey: publicKey?.toString(),
         hasSignTransaction: !!signTransaction,
         hasSignAllTransactions: !!signAllTransactions,
       });
@@ -149,7 +149,7 @@ export function useTokenCreation() {
       const FEE_RECIPIENT_ADDRESS = process.env.NEXT_PUBLIC_FEE_RECIPIENT_ADDRESS;
       
       const preSecurityAssessment = await performSecurityAssessment({
-        userAddress: publicKey.toString(),
+        userAddress: publicKey?.toString() || '',
         feeRecipientAddress: FEE_RECIPIENT_ADDRESS || undefined,
       });
       
@@ -288,7 +288,9 @@ export function useTokenCreation() {
         console.log('✅ Token authorities revoked - fully secured');
         
         // 🔒 STEP 4: Automatically verify token in wallet
-        await verifyTokenInWallet(connection, tokenAddress, publicKey);
+        if (publicKey) {
+          await verifyTokenInWallet(connection, tokenAddress, publicKey);
+        }
         
         // 🔒 STEP 5: Handle pool creation (authorities now revoked)
         let poolTxId = null;
@@ -332,7 +334,7 @@ export function useTokenCreation() {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            userAddress: publicKey.toString(),
+            userAddress: publicKey?.toString() || '',
             tokenAddress,
             tokenData: {
               ...tokenData,
