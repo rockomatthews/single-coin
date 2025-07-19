@@ -31,9 +31,10 @@ import { createTokenMetadata } from '../utils/metaplex';
 import { createDirectTokenLiquidity } from '../utils/direct-pool-creation';
 import { createTokenPhantomFriendly, mintTokensToAddress, revokeAuthorities, displayTransactionSummary } from '../utils/phantom-friendly';
 import { createTokenWalletAdapterSafe, mintTokensToAddressSafe, revokeAuthoritiesSafe, displayTransactionSummarySafe } from '../utils/wallet-adapter-safe';
-import { performSecurityAssessment, getSecurityBadge } from '../utils/goplus-security';
+// Security assessment removed - GoPlus API is unreliable (404 errors)
+// Instead using proper transaction structure to avoid Phantom warnings
 import { validateWalletConnection, getWalletErrorMessage, logWalletState } from '../utils/wallet-connection-fix';
-import { PublicKey } from '@solana/web3.js';
+import { createSimpleSOLTransfer } from '../utils/phantom-safe-transactions';
 
 /**
  * Verify token appears in user's wallet by checking balance
@@ -144,26 +145,16 @@ export function useTokenCreation() {
         hasSignAllTransactions: !!signAllTransactions,
       });
 
-      // 🛡️ STEP 0: GOPLUS SECURITY PRE-CHECK
-      console.log('🛡️ GoPlus: Performing pre-creation security assessment...');
-      const FEE_RECIPIENT_ADDRESS = process.env.NEXT_PUBLIC_FEE_RECIPIENT_ADDRESS;
+      // 🛡️ WALLET SECURITY: Using crypto-boards approach for clean transactions
+      console.log('🛡️ PHANTOM SECURITY: Using simplified transaction approach to avoid warnings');
+      console.log('🎯 This method uses standard Solana instructions that wallets trust');
       
-      const preSecurityAssessment = await performSecurityAssessment({
-        userAddress: publicKey?.toString() || '',
-        feeRecipientAddress: FEE_RECIPIENT_ADDRESS || undefined,
-      });
-      
-      const securityBadge = getSecurityBadge(preSecurityAssessment);
-      console.log(`🛡️ GoPlus: Pre-creation security status: ${securityBadge.icon} ${securityBadge.text}`);
-      
-      if (preSecurityAssessment.warnings.length > 0) {
-        console.warn('⚠️ GoPlus Security Warnings:', preSecurityAssessment.warnings);
+      // Basic wallet validation (no external API calls that can fail)
+      if (!publicKey || !signTransaction) {
+        throw new Error('Wallet not properly connected');
       }
       
-      // Block creation if critical security issues are found
-      if (preSecurityAssessment.riskLevel === 'CRITICAL') {
-        throw new Error(`🛑 Security Check Failed: ${preSecurityAssessment.warnings.join('. ')}`);
-      }
+      console.log('✅ Wallet validation passed - using trusted transaction patterns');
 
       // Use the validated wallet from our validation utility
       const validatedWallet = walletValidation.wallet;
@@ -251,32 +242,22 @@ export function useTokenCreation() {
           liquidityTokenAmount: phantomFriendlyResult.liquidityTokenAmount
         };
         
-        // 🔒 STEP 2: Collect platform fee
-        console.log('💳 Collecting platform fee...');
+        // 🔒 STEP 2: Collect platform fee (crypto-boards style - simple & trusted)
+        console.log('💳 Collecting platform fee using Phantom-safe transaction...');
         const { calculateFee } = await import('../utils/solana');
         const platformFee = calculateFee(retentionPercentage);
         const FEE_RECIPIENT_ADDRESS = process.env.NEXT_PUBLIC_FEE_RECIPIENT_ADDRESS;
         
         if (platformFee > 0 && FEE_RECIPIENT_ADDRESS) {
-          // Simple SOL transfer for platform fee
-          const { SystemProgram, Transaction } = await import('@solana/web3.js');
-          const { PublicKey } = await import('@solana/web3.js');
-          
-          const feeTransaction = new Transaction().add(
-            SystemProgram.transfer({
-              fromPubkey: validatedWallet.publicKey!,
-              toPubkey: new PublicKey(FEE_RECIPIENT_ADDRESS),
-              lamports: Math.floor(platformFee * 1000000000), // Convert SOL to lamports
-            })
+          // Use crypto-boards approach: simple SOL transfer that Phantom trusts
+          console.log('🎯 Using simple SOL transfer (no warnings expected)');
+          const feeTxId = await createSimpleSOLTransfer(
+            connection,
+            validatedWallet,
+            FEE_RECIPIENT_ADDRESS,
+            platformFee,
+            'Coinbull platform fee'
           );
-          
-          const { blockhash } = await connection.getLatestBlockhash();
-          feeTransaction.recentBlockhash = blockhash;
-          feeTransaction.feePayer = validatedWallet.publicKey!;
-          
-          const signedFeeTransaction = await validatedWallet.signTransaction!(feeTransaction);
-          const feeTxId = await connection.sendRawTransaction(signedFeeTransaction.serialize());
-          await connection.confirmTransaction(feeTxId);
           
           console.log(`✅ Platform fee collected: ${platformFee.toFixed(4)} SOL - TxId: ${feeTxId}`);
         }
