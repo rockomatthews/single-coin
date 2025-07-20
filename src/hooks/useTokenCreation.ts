@@ -35,6 +35,7 @@ import { createTokenWalletAdapterSafe, mintTokensToAddressSafe, revokeAuthoritie
 // Instead using proper transaction structure to avoid Phantom warnings
 import { validateWalletConnection, getWalletErrorMessage, logWalletState } from '../utils/wallet-connection-fix';
 import { createUltraMinimalSOLTransfer } from '../utils/ultra-minimal-transaction';
+import { createCompleteMinimalToken } from '../utils/ultra-minimal-token-creation';
 
 /**
  * Verify token appears in user's wallet by checking balance
@@ -145,9 +146,10 @@ export function useTokenCreation() {
         hasSignAllTransactions: !!signAllTransactions,
       });
 
-      // 🛡️ WALLET SECURITY: Using crypto-boards approach for clean transactions
-      console.log('🛡️ PHANTOM SECURITY: Using simplified transaction approach to avoid warnings');
-      console.log('🎯 This method uses standard Solana instructions that wallets trust');
+      // 🛡️ NEW APPROACH: Fee payment FIRST, then token creation
+      console.log('🛡️ PHANTOM SECURITY: NEW APPROACH - Pay fee first with minimal transaction');
+      console.log('🎯 This eliminates warnings by doing zero prep work before first signature');
+      console.log('✨ Flow: 1) Minimal fee payment → 2) Metadata upload → 3) Token creation');
       
       // Basic wallet validation (no external API calls that can fail)
       if (!publicKey || !signTransaction) {
@@ -180,6 +182,16 @@ export function useTokenCreation() {
         
         // If we get here with no warnings, the minimal approach works!
         console.log('🎉 SUCCESS: Minimal transaction completed without warnings!');
+        console.log('🚀 Now proceeding with token creation (fee already paid)...');
+        
+        // Update state to reflect successful fee payment
+        setState(prev => ({
+          ...prev,
+          isCreating: true,
+          error: null,
+        }));
+      } else {
+        console.log('⚠️ Skipping fee payment - no recipient address configured');
       }
 
       // Use the validated wallet from our validation utility
@@ -193,7 +205,8 @@ export function useTokenCreation() {
       const liquidityAmount = tokenData.liquidityAmount || 
                             (totalSupply - retainedAmount);
       
-      // Upload metadata to Pinata
+      // 🎯 NOW UPLOAD METADATA (after fee is paid)
+      console.log('📝 Uploading metadata to Pinata (fee already paid, should be smooth)...');
       console.log('Uploading metadata to Pinata with:', tokenData);
       const metadataUri = await uploadMetadata(connection, tokenData);
       
@@ -220,12 +233,10 @@ export function useTokenCreation() {
       console.log('Creating token with metadata URI:', metadataUri);
       
       try {
-        // 🛡️ STEP 1: Create token using PHANTOM-FRIENDLY multi-step approach (NO WARNINGS!)
-        console.log('🛡️ PHANTOM-FRIENDLY TOKEN CREATION: Breaking into simple steps');
-        console.log('🎯 This eliminates red warnings by using multiple simple transactions');
-        
-        // Import the phantom-friendly creation function
-        const { createTokenWalletAdapterSafe } = await import('../utils/wallet-adapter-safe');
+        // 🛡️ STEP 1: Create token using ULTRA MINIMAL approach (same as fee payment)
+        console.log('🛡️ TOKEN CREATION: Using ULTRA MINIMAL approach');
+        console.log('✅ Fee already paid with minimal transaction (no warnings!)');
+        console.log('🎯 Now creating token with same minimal approach that worked for fee');
         
         // Calculate token distribution
         const retainedAmount = tokenData.retainedAmount || 
@@ -238,34 +249,32 @@ export function useTokenCreation() {
         console.log(`   User Gets: ${retainedAmount.toLocaleString()} (${retentionPercentage}%)`);
         console.log(`   Pool Gets: ${liquidityAmount.toLocaleString()} (${100 - retentionPercentage}%)`);
         
-        // Execute phantom-friendly token creation (4 simple transactions)
-        const phantomFriendlyResult = await createTokenWalletAdapterSafe(
+        // Execute ULTRA MINIMAL token creation (same pattern as successful fee payment)
+        const minimalTokenResult = await createCompleteMinimalToken(
           connection,
-          validatedWallet,
+          { publicKey, signTransaction },
           {
+            name: tokenData.name,
+            symbol: tokenData.symbol,
             decimals: tokenData.decimals,
             supply: totalSupply,
-            retentionPercentage: retentionPercentage
+            retainedAmount
           }
         );
         
-        if (!phantomFriendlyResult.mintAddress) {
-          throw new Error('Failed to create token - no token address returned');
-        }
+        const tokenAddress = minimalTokenResult.mintAddress;
         
-        const tokenAddress = phantomFriendlyResult.mintAddress;
-        
-        console.log('✅ PHANTOM-FRIENDLY token creation completed successfully!');
+        console.log('✅ ULTRA MINIMAL token creation completed successfully!');
         console.log('🛡️ Each transaction should have shown normal Phantom dialogs (no red warnings!)');
         console.log(`🎯 Token address: ${tokenAddress}`);
-        console.log(`📊 User received: ${phantomFriendlyResult.userTokenAmount.toLocaleString()} tokens`);
-        console.log(`🏊 Reserved for liquidity: ${phantomFriendlyResult.liquidityTokenAmount.toLocaleString()} tokens`);
+        console.log(`📊 User received: ${retainedAmount.toLocaleString()} tokens`);
+        console.log(`🏊 Reserved for liquidity: ${liquidityAmount.toLocaleString()} tokens`);
         
         // Create compatible result for existing flow
         const secureResult = {
           mintAddress: tokenAddress,
-          userTokenAmount: phantomFriendlyResult.userTokenAmount,
-          liquidityTokenAmount: phantomFriendlyResult.liquidityTokenAmount
+          userTokenAmount: retainedAmount,
+          liquidityTokenAmount: liquidityAmount
         };
         
         // 🔒 STEP 2: Platform fee already collected at the start (minimal approach)
