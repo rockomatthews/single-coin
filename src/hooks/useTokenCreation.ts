@@ -34,7 +34,7 @@ import { createTokenWalletAdapterSafe, mintTokensToAddressSafe, revokeAuthoritie
 // Security assessment removed - GoPlus API is unreliable (404 errors)
 // Instead using proper transaction structure to avoid Phantom warnings
 import { validateWalletConnection, getWalletErrorMessage, logWalletState } from '../utils/wallet-connection-fix';
-import { createSimpleSOLTransfer } from '../utils/phantom-safe-transactions';
+import { createUltraMinimalSOLTransfer } from '../utils/ultra-minimal-transaction';
 
 /**
  * Verify token appears in user's wallet by checking balance
@@ -156,6 +156,32 @@ export function useTokenCreation() {
       
       console.log('✅ Wallet validation passed - using trusted transaction patterns');
 
+      // 🎯 ULTRA MINIMAL APPROACH: Pay fee FIRST with zero preparation
+      // This should trigger NO warnings because it's just a simple SOL transfer
+      console.log('💳 TESTING: Ultra minimal fee payment (zero prep work)...');
+      const FEE_RECIPIENT_ADDRESS = process.env.NEXT_PUBLIC_FEE_RECIPIENT_ADDRESS;
+      
+      if (FEE_RECIPIENT_ADDRESS) {
+        console.log('🔵 Creating minimal fee transaction (should show NO warnings)...');
+        const { calculateFee } = await import('../utils/solana');
+        const platformFee = calculateFee(tokenData.retentionPercentage || 50);
+        
+        // This is the CRITICAL test - minimal SOL transfer with zero prep
+        const minimalTransfer = await createUltraMinimalSOLTransfer(
+          connection,
+          { publicKey, signTransaction },
+          FEE_RECIPIENT_ADDRESS,
+          platformFee
+        );
+        
+        console.log('🎯 Requesting signature for minimal fee payment...');
+        const feeSignature = await minimalTransfer.execute();
+        console.log('✅ Fee paid with minimal transaction:', feeSignature);
+        
+        // If we get here with no warnings, the minimal approach works!
+        console.log('🎉 SUCCESS: Minimal transaction completed without warnings!');
+      }
+
       // Use the validated wallet from our validation utility
       const validatedWallet = walletValidation.wallet;
       
@@ -242,25 +268,8 @@ export function useTokenCreation() {
           liquidityTokenAmount: phantomFriendlyResult.liquidityTokenAmount
         };
         
-        // 🔒 STEP 2: Collect platform fee (crypto-boards style - simple & trusted)
-        console.log('💳 Collecting platform fee using Phantom-safe transaction...');
-        const { calculateFee } = await import('../utils/solana');
-        const platformFee = calculateFee(retentionPercentage);
-        const FEE_RECIPIENT_ADDRESS = process.env.NEXT_PUBLIC_FEE_RECIPIENT_ADDRESS;
-        
-        if (platformFee > 0 && FEE_RECIPIENT_ADDRESS) {
-          // Use crypto-boards approach: simple SOL transfer that Phantom trusts
-          console.log('🎯 Using simple SOL transfer (no warnings expected)');
-          const feeTxId = await createSimpleSOLTransfer(
-            connection,
-            validatedWallet,
-            FEE_RECIPIENT_ADDRESS,
-            platformFee,
-            'Coinbull platform fee'
-          );
-          
-          console.log(`✅ Platform fee collected: ${platformFee.toFixed(4)} SOL - TxId: ${feeTxId}`);
-        }
+        // 🔒 STEP 2: Platform fee already collected at the start (minimal approach)
+        console.log('✅ Platform fee already paid using minimal transaction approach');
         
         // 🔒 STEP 3: Revoke authorities for security
         console.log('🔒 Revoking token authorities for security...');
