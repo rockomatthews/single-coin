@@ -182,7 +182,8 @@ export function useTokenCreation() {
         
         // If we get here with no warnings, the minimal approach works!
         console.log('🎉 SUCCESS: Minimal transaction completed without warnings!');
-        console.log('🚀 Now proceeding with token creation (fee already paid)...');
+        console.log('🚀 CRITICAL: Now executing ALL token transactions immediately (NO METADATA WORK!)');
+        console.log('📝 Following successful dApp pattern: ALL transactions first, metadata after');
         
         // Update state to reflect successful fee payment
         setState(prev => ({
@@ -205,8 +206,31 @@ export function useTokenCreation() {
       const liquidityAmount = tokenData.liquidityAmount || 
                             (totalSupply - retainedAmount);
       
-      // 🎯 NOW UPLOAD METADATA (after fee is paid)
-      console.log('📝 Uploading metadata to Pinata (fee already paid, should be smooth)...');
+      // 🚨 CRITICAL: Execute ALL token transactions IMMEDIATELY (NO metadata work between!)
+      console.log('⚡ EXECUTING ALL TOKEN TRANSACTIONS NOW (before any metadata work)');
+      console.log('🎯 Pattern: Fee payment → Token creation → THEN metadata (like successful dApps)');
+      
+      // Execute ULTRA MINIMAL token creation (same pattern as successful fee payment)
+      const minimalTokenResult = await createCompleteMinimalToken(
+        connection,
+        { publicKey, signTransaction },
+        {
+          name: tokenData.name,
+          symbol: tokenData.symbol,
+          decimals: tokenData.decimals,
+          supply: totalSupply,
+          retainedAmount
+        }
+      );
+      
+      const tokenAddress = minimalTokenResult.mintAddress;
+      
+      console.log('✅ ALL TOKEN TRANSACTIONS COMPLETED!');
+      console.log('🎉 NO complex work was done between transactions!');
+      console.log('🎯 NOW doing metadata work (after all transactions done)');
+      
+      // 🎯 NOW UPLOAD METADATA (AFTER all transactions are complete)
+      console.log('📝 Uploading metadata to Pinata (all transactions done, safe to do complex work)...');
       console.log('Uploading metadata to Pinata with:', tokenData);
       const metadataUri = await uploadMetadata(connection, tokenData);
       
@@ -230,42 +254,13 @@ export function useTokenCreation() {
         }
       }
       
-      console.log('Creating token with metadata URI:', metadataUri);
+      console.log('✅ Metadata uploaded successfully');
+      console.log(`🌐 Metadata URI: ${metadataUri}`);
       
       try {
-        // 🛡️ STEP 1: Create token using ULTRA MINIMAL approach (same as fee payment)
-        console.log('🛡️ TOKEN CREATION: Using ULTRA MINIMAL approach');
-        console.log('✅ Fee already paid with minimal transaction (no warnings!)');
-        console.log('🎯 Now creating token with same minimal approach that worked for fee');
-        
-        // Calculate token distribution
-        const retainedAmount = tokenData.retainedAmount || 
-                              Math.floor(tokenData.supply * (retentionPercentage / 100));
-        const liquidityAmount = tokenData.liquidityAmount || 
-                              (tokenData.supply - retainedAmount);
-        
-        console.log(`📊 Token Distribution Plan:`);
-        console.log(`   Total Supply: ${totalSupply.toLocaleString()}`);
-        console.log(`   User Gets: ${retainedAmount.toLocaleString()} (${retentionPercentage}%)`);
-        console.log(`   Pool Gets: ${liquidityAmount.toLocaleString()} (${100 - retentionPercentage}%)`);
-        
-        // Execute ULTRA MINIMAL token creation (same pattern as successful fee payment)
-        const minimalTokenResult = await createCompleteMinimalToken(
-          connection,
-          { publicKey, signTransaction },
-          {
-            name: tokenData.name,
-            symbol: tokenData.symbol,
-            decimals: tokenData.decimals,
-            supply: totalSupply,
-            retainedAmount
-          }
-        );
-        
-        const tokenAddress = minimalTokenResult.mintAddress;
-        
-        console.log('✅ ULTRA MINIMAL token creation completed successfully!');
-        console.log('🛡️ Each transaction should have shown normal Phantom dialogs (no red warnings!)');
+        // Token creation already completed before metadata upload
+        console.log('🛡️ TOKEN ALREADY CREATED: Using successful pattern');
+        console.log('✅ All transactions completed BEFORE metadata work');
         console.log(`🎯 Token address: ${tokenAddress}`);
         console.log(`📊 User received: ${retainedAmount.toLocaleString()} tokens`);
         console.log(`🏊 Reserved for liquidity: ${liquidityAmount.toLocaleString()} tokens`);
