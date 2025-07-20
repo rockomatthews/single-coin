@@ -36,7 +36,7 @@ export const SolanaProvider: FC<SolanaProviderProps> = ({ children }) => {
     <ConnectionProvider endpoint={endpoint}>
       <WalletProvider 
         wallets={wallets} 
-        autoConnect={true}
+        autoConnect={false}
         onError={(error) => {
           console.error('Wallet connection error:', error);
         }}
