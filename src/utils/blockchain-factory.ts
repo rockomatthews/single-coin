@@ -1,5 +1,6 @@
 import { TokenParams } from './solana';
 import { HyperLiquidTokenParams } from './hyperliquid';
+import { PolygonTokenParams } from './polygon';
 
 // Unified token parameters that support both chains
 export interface UnifiedTokenParams {
@@ -14,7 +15,7 @@ export interface UnifiedTokenParams {
   discord?: string;
   
   // Chain selection
-  blockchain: 'solana' | 'hyperliquid';
+  blockchain: 'solana' | 'hyperliquid' | 'polygon';
   
   // Distribution settings
   retentionPercentage?: number;
@@ -26,6 +27,7 @@ export interface UnifiedTokenParams {
   // Chain-specific parameters
   solana?: Partial<TokenParams>;
   hyperliquid?: Partial<HyperLiquidTokenParams>;
+  polygon?: Partial<PolygonTokenParams>;
 }
 
 // Result type for token creation
@@ -35,7 +37,7 @@ export interface TokenCreationResult {
   poolTxId?: string | null;
   txHash?: string;
   error?: string;
-  blockchain: 'solana' | 'hyperliquid';
+  blockchain: 'solana' | 'hyperliquid' | 'polygon';
   explorer_url?: string;
 }
 
@@ -53,7 +55,7 @@ export interface CostBreakdown {
 // Abstract blockchain provider interface
 export interface BlockchainProvider {
   name: string;
-  blockchain: 'solana' | 'hyperliquid';
+  blockchain: 'solana' | 'hyperliquid' | 'polygon';
   
   // Core operations
   createToken(params: UnifiedTokenParams, signer?: any): Promise<TokenCreationResult>;
@@ -308,20 +310,155 @@ class HyperLiquidProvider implements BlockchainProvider {
   }
 }
 
+// Polygon Provider Implementation
+class PolygonProvider implements BlockchainProvider {
+  name = 'Polygon';
+  blockchain = 'polygon' as const;
+  
+  async createToken(params: UnifiedTokenParams, signer?: any): Promise<TokenCreationResult> {
+    try {
+      const { 
+        deployPolygonToken, 
+        uploadPolygonMetadata,
+        connectPolygonWallet 
+      } = await import('./polygon');
+      
+      // Convert unified params to Polygon-specific params
+      const polygonParams: PolygonTokenParams = {
+        name: params.name,
+        symbol: params.symbol,
+        description: params.description,
+        image: params.image,
+        blockchain: 'polygon',
+        decimals: params.polygon?.decimals || 18,
+        totalSupply: params.polygon?.totalSupply || 1000000,
+        website: params.website,
+        twitter: params.twitter,
+        telegram: params.telegram,
+        discord: params.discord,
+        retentionPercentage: params.retentionPercentage,
+        retainedAmount: params.retainedAmount,
+        liquidityAmount: params.liquidityAmount,
+        createLiquidity: params.polygon?.createLiquidity || false,
+        liquidityMaticAmount: params.polygon?.liquidityMaticAmount || 0,
+        dexChoice: params.polygon?.dexChoice || 'uniswap-v3',
+        ...params.polygon,
+      };
+      
+      // Use provided signer or connect to MetaMask
+      let walletSigner = signer;
+      if (!walletSigner) {
+        const walletConnection = await connectPolygonWallet();
+        if (!walletConnection.signer) {
+          throw new Error(walletConnection.error || 'Failed to connect MetaMask wallet');
+        }
+        walletSigner = walletConnection.signer;
+      }
+      
+      // Upload metadata first
+      const metadataUri = await uploadPolygonMetadata(polygonParams);
+      console.log(`✅ Polygon metadata uploaded: ${metadataUri}`);
+      
+      // Deploy token contract
+      const result = await deployPolygonToken(
+        walletSigner,
+        polygonParams,
+        (step: number, status: string) => {
+          console.log(`Step ${step}/4: ${status}`);
+        }
+      );
+      
+      return {
+        success: result.success,
+        tokenAddress: result.tokenAddress,
+        txHash: result.txHash,
+        error: result.error,
+        blockchain: 'polygon',
+        explorer_url: result.tokenAddress ? `https://polygonscan.com/token/${result.tokenAddress}` : undefined,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+        blockchain: 'polygon',
+      };
+    }
+  }
+  
+  async uploadMetadata(params: UnifiedTokenParams): Promise<string> {
+    const { uploadPolygonMetadata } = await import('./polygon');
+    
+    const polygonParams: PolygonTokenParams = {
+      name: params.name,
+      symbol: params.symbol,
+      description: params.description,
+      image: params.image,
+      blockchain: 'polygon',
+      decimals: params.polygon?.decimals || 18,
+      totalSupply: params.polygon?.totalSupply || 1000000,
+      website: params.website,
+      twitter: params.twitter,
+      telegram: params.telegram,
+      discord: params.discord,
+      ...params.polygon,
+    };
+    
+    return uploadPolygonMetadata(polygonParams);
+  }
+  
+  calculateCosts(params: UnifiedTokenParams): CostBreakdown {
+    const { getPolygonCostBreakdown } = require('./polygon');
+    
+    const polygonParams: PolygonTokenParams = {
+      name: params.name,
+      symbol: params.symbol,
+      description: params.description,
+      image: params.image,
+      blockchain: 'polygon',
+      decimals: params.polygon?.decimals || 18,
+      totalSupply: params.polygon?.totalSupply || 1000000,
+      createLiquidity: params.polygon?.createLiquidity || false,
+      liquidityMaticAmount: params.polygon?.liquidityMaticAmount || 0,
+      ...params.polygon,
+    };
+    
+    return getPolygonCostBreakdown(polygonParams);
+  }
+  
+  validateParams(params: UnifiedTokenParams): { isValid: boolean; errors: string[] } {
+    const { validatePolygonParams } = require('./polygon');
+    
+    const polygonParams: PolygonTokenParams = {
+      name: params.name,
+      symbol: params.symbol,
+      description: params.description,
+      image: params.image,
+      blockchain: 'polygon',
+      decimals: params.polygon?.decimals || 18,
+      totalSupply: params.polygon?.totalSupply || 1000000,
+      ...params.polygon,
+    };
+    
+    return validatePolygonParams(polygonParams);
+  }
+}
+
 // Factory function to get the appropriate blockchain provider
-export function getBlockchainProvider(blockchain: 'solana' | 'hyperliquid'): BlockchainProvider {
+export function getBlockchainProvider(blockchain: 'solana' | 'hyperliquid' | 'polygon'): BlockchainProvider {
   switch (blockchain) {
     case 'solana':
       return new SolanaProvider();
     case 'hyperliquid':
       return new HyperLiquidProvider();
+    case 'polygon':
+      return new PolygonProvider();
     default:
       throw new Error(`Unsupported blockchain: ${blockchain}`);
   }
 }
 
 // Helper function to get all supported blockchains
-export function getSupportedBlockchains(): Array<{ id: 'solana' | 'hyperliquid'; name: string; description: string; icon: string }> {
+export function getSupportedBlockchains(): Array<{ id: 'solana' | 'hyperliquid' | 'polygon'; name: string; description: string; icon: string }> {
   return [
     {
       id: 'solana',
@@ -334,6 +471,12 @@ export function getSupportedBlockchains(): Array<{ id: 'solana' | 'hyperliquid';
       name: 'HYPER LIQUID',
       description: 'Bitcoin L2 with native order book and HYPE token',
       icon: '₿',
+    },
+    {
+      id: 'polygon',
+      name: 'Polygon',
+      description: 'Ethereum-compatible with ultra-low fees (~$0.01)',
+      icon: '🔷',
     },
   ];
 }

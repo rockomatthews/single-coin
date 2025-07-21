@@ -115,21 +115,33 @@ export function useMultiChainTokenCreation() {
         metadataUri,
         decimals: params.blockchain === 'solana' 
           ? (params.solana?.decimals || 9)
-          : (params.hyperliquid?.szDecimals || 6),
+          : params.blockchain === 'hyperliquid'
+          ? (params.hyperliquid?.szDecimals || 6)
+          : (params.polygon?.decimals || 18), // Polygon default 18 decimals
         supply: params.blockchain === 'solana'
           ? (params.solana?.supply || 1000000000)
-          : (params.hyperliquid?.maxSupply || 1000000000),
+          : params.blockchain === 'hyperliquid'
+          ? (params.hyperliquid?.maxSupply || 1000000000)
+          : (params.polygon?.totalSupply || 1000000), // Polygon default 1M tokens
         retentionPercentage: params.retentionPercentage,
         retainedAmount: params.retainedAmount,
         liquidityAmount: params.liquidityAmount,
         blockchain: params.blockchain,
         network: params.blockchain === 'solana' 
           ? (process.env.NEXT_PUBLIC_SOLANA_NETWORK || 'devnet')
-          : (process.env.NEXT_PUBLIC_HYPERLIQUID_NETWORK || 'testnet'),
-        chainSpecificData: params.blockchain === 'solana' ? params.solana : params.hyperliquid,
+          : params.blockchain === 'hyperliquid'
+          ? (process.env.NEXT_PUBLIC_HYPERLIQUID_NETWORK || 'testnet')
+          : 'mainnet', // Polygon mainnet
+        chainSpecificData: params.blockchain === 'solana' 
+          ? params.solana 
+          : params.blockchain === 'hyperliquid'
+          ? params.hyperliquid
+          : params.polygon,
         tokenStandard: params.blockchain === 'solana' 
           ? 'SPL' 
-          : (params.hyperliquid?.tokenStandard || 'HIP-1'),
+          : params.blockchain === 'hyperliquid'
+          ? (params.hyperliquid?.tokenStandard || 'HIP-1')
+          : 'ERC-20', // Polygon uses ERC-20
         poolTxId: result.poolTxId || undefined,
         explorerUrl: result.explorer_url,
       });
