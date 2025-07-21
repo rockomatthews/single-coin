@@ -121,7 +121,9 @@ export function useMultiChainTokenCreation() {
           ? (params.polygon?.decimals || 18)
           : params.blockchain === 'base'
           ? (params.base?.decimals || 18)
-          : (params.rsk?.decimals || 18), // RSK default 18 decimals
+          : params.blockchain === 'rsk'
+          ? (params.rsk?.decimals || 18)
+          : (params.arbitrum?.decimals || 18), // Arbitrum default 18 decimals
         supply: params.blockchain === 'solana'
           ? (params.solana?.supply || 1000000000)
           : params.blockchain === 'hyperliquid'
@@ -130,7 +132,9 @@ export function useMultiChainTokenCreation() {
           ? (params.polygon?.totalSupply || 1000000)
           : params.blockchain === 'base'
           ? (params.base?.totalSupply || 1000000)
-          : (params.rsk?.totalSupply || 1000000), // RSK default 1M tokens
+          : params.blockchain === 'rsk'
+          ? (params.rsk?.totalSupply || 1000000)
+          : (params.arbitrum?.totalSupply || 1000000), // Arbitrum default 1M tokens
         retentionPercentage: params.retentionPercentage,
         retainedAmount: params.retainedAmount,
         liquidityAmount: params.liquidityAmount,
@@ -139,7 +143,7 @@ export function useMultiChainTokenCreation() {
           ? (process.env.NEXT_PUBLIC_SOLANA_NETWORK || 'devnet')
           : params.blockchain === 'hyperliquid'
           ? (process.env.NEXT_PUBLIC_HYPERLIQUID_NETWORK || 'testnet')
-          : 'mainnet', // Polygon, BASE, and RSK mainnet
+          : 'mainnet', // Polygon, BASE, RSK, and Arbitrum mainnet
         chainSpecificData: params.blockchain === 'solana' 
           ? params.solana 
           : params.blockchain === 'hyperliquid'
@@ -148,12 +152,14 @@ export function useMultiChainTokenCreation() {
           ? params.polygon
           : params.blockchain === 'base'
           ? params.base
-          : params.rsk,
+          : params.blockchain === 'rsk'
+          ? params.rsk
+          : params.arbitrum,
         tokenStandard: params.blockchain === 'solana' 
           ? 'SPL' 
           : params.blockchain === 'hyperliquid'
           ? (params.hyperliquid?.tokenStandard || 'HIP-1')
-          : 'ERC-20', // Polygon, BASE, and RSK use ERC-20
+          : 'ERC-20', // Polygon, BASE, RSK, and Arbitrum use ERC-20
         poolTxId: result.poolTxId || undefined,
         explorerUrl: result.explorer_url,
       });

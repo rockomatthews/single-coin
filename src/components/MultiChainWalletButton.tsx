@@ -20,22 +20,24 @@ import { useHyperLiquid } from './HyperLiquidProvider';
 import { usePolygon } from './PolygonProvider';
 import { useBase } from './BaseProvider';
 import { useRsk } from './RskProvider';
+import { useArbitrum } from './ArbitrumProvider';
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
 import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
 import LogoutIcon from '@mui/icons-material/Logout';
 
 export default function MultiChainWalletButton() {
   const [showNetworkModal, setShowNetworkModal] = useState(false);
-  const [selectedNetwork, setSelectedNetwork] = useState<'solana' | 'hyperliquid' | 'polygon' | 'base' | 'rsk' | null>(null);
+  const [selectedNetwork, setSelectedNetwork] = useState<'solana' | 'hyperliquid' | 'polygon' | 'base' | 'rsk' | 'arbitrum' | null>(null);
   
   const solanaWallet = useWallet();
   const hyperLiquidWallet = useHyperLiquid();
   const polygonWallet = usePolygon();
   const baseWallet = useBase();
   const rskWallet = useRsk();
+  const arbitrumWallet = useArbitrum();
 
-  const isConnected = solanaWallet.connected || hyperLiquidWallet.connected || polygonWallet.connected || baseWallet.connected || rskWallet.connected;
-  const connectedNetwork = solanaWallet.connected ? 'solana' : hyperLiquidWallet.connected ? 'hyperliquid' : polygonWallet.connected ? 'polygon' : baseWallet.connected ? 'base' : rskWallet.connected ? 'rsk' : null;
+  const isConnected = solanaWallet.connected || hyperLiquidWallet.connected || polygonWallet.connected || baseWallet.connected || rskWallet.connected || arbitrumWallet.isConnected;
+  const connectedNetwork = solanaWallet.connected ? 'solana' : hyperLiquidWallet.connected ? 'hyperliquid' : polygonWallet.connected ? 'polygon' : baseWallet.connected ? 'base' : rskWallet.connected ? 'rsk' : arbitrumWallet.isConnected ? 'arbitrum' : null;
 
   const handleConnectClick = () => {
     if (isConnected) {
@@ -55,13 +57,16 @@ export default function MultiChainWalletButton() {
       if (rskWallet.connected) {
         rskWallet.disconnect();
       }
+      if (arbitrumWallet.isConnected) {
+        arbitrumWallet.disconnect();
+      }
     } else {
       // If not connected, show network selection
       setShowNetworkModal(true);
     }
   };
 
-  const handleNetworkSelect = async (network: 'solana' | 'hyperliquid' | 'polygon' | 'base' | 'rsk') => {
+  const handleNetworkSelect = async (network: 'solana' | 'hyperliquid' | 'polygon' | 'base' | 'rsk' | 'arbitrum') => {
     setSelectedNetwork(network);
     setShowNetworkModal(false);
     
@@ -85,6 +90,9 @@ export default function MultiChainWalletButton() {
       } else if (network === 'rsk') {
         // Connect to Bitcoin (RSK)
         await rskWallet.connect();
+      } else if (network === 'arbitrum') {
+        // Connect to Arbitrum
+        await arbitrumWallet.connect();
       }
     } catch (error) {
       console.error(`Failed to connect to ${network}:`, error);
@@ -130,6 +138,14 @@ export default function MultiChainWalletButton() {
         network: 'Bitcoin',
         address: `${rskWallet.address.slice(0, 4)}...${rskWallet.address.slice(-4)}`,
         color: '#F7931A'
+      };
+    }
+    
+    if (arbitrumWallet.isConnected && arbitrumWallet.account) {
+      return {
+        network: 'Arbitrum',
+        address: `${arbitrumWallet.account.slice(0, 4)}...${arbitrumWallet.account.slice(-4)}`,
+        color: '#28A0F0'
       };
     }
     
@@ -355,6 +371,41 @@ export default function MultiChainWalletButton() {
                   Connect with MetaMask
                   <br />
                   RSK sidechain with Sovryn
+                </Typography>
+              </CardContent>
+            </Card>
+
+            <Card 
+              sx={{ 
+                flex: 1, 
+                cursor: 'pointer',
+                border: '2px solid transparent',
+                '&:hover': { 
+                  border: '2px solid #28A0F0',
+                  transform: 'translateY(-2px)',
+                  transition: 'all 0.2s'
+                }
+              }}
+              onClick={() => handleNetworkSelect('arbitrum')}
+            >
+              <CardContent sx={{ textAlign: 'center', p: 3 }}>
+                <Avatar sx={{ 
+                  width: 60, 
+                  height: 60, 
+                  bgcolor: '#28A0F0', 
+                  mx: 'auto', 
+                  mb: 2,
+                  fontSize: '1.5rem'
+                }}>
+                  🔺
+                </Avatar>
+                <Typography variant="h6" gutterBottom>
+                  Arbitrum
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Connect with MetaMask
+                  <br />
+                  95% cheaper than Ethereum
                 </Typography>
               </CardContent>
             </Card>

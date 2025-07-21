@@ -3,6 +3,7 @@ import { HyperLiquidTokenParams } from './hyperliquid';
 import { PolygonTokenParams } from './polygon';
 import { BaseTokenParams } from './base';
 import { RskTokenParams } from './rsk';
+import { ArbitrumTokenParams } from './arbitrum-types';
 
 // Unified token parameters that support both chains
 export interface UnifiedTokenParams {
@@ -17,7 +18,7 @@ export interface UnifiedTokenParams {
   discord?: string;
   
   // Chain selection
-  blockchain: 'solana' | 'hyperliquid' | 'polygon' | 'base' | 'rsk';
+  blockchain: 'solana' | 'hyperliquid' | 'polygon' | 'base' | 'rsk' | 'arbitrum';
   
   // Distribution settings
   retentionPercentage?: number;
@@ -32,6 +33,7 @@ export interface UnifiedTokenParams {
   polygon?: Partial<PolygonTokenParams>;
   base?: Partial<BaseTokenParams>;
   rsk?: Partial<RskTokenParams>;
+  arbitrum?: Partial<ArbitrumTokenParams>;
 }
 
 // Result type for token creation
@@ -41,7 +43,7 @@ export interface TokenCreationResult {
   poolTxId?: string | null;
   txHash?: string;
   error?: string;
-  blockchain: 'solana' | 'hyperliquid' | 'polygon' | 'base' | 'rsk';
+  blockchain: 'solana' | 'hyperliquid' | 'polygon' | 'base' | 'rsk' | 'arbitrum';
   explorer_url?: string;
 }
 
@@ -59,7 +61,7 @@ export interface CostBreakdown {
 // Abstract blockchain provider interface
 export interface BlockchainProvider {
   name: string;
-  blockchain: 'solana' | 'hyperliquid' | 'polygon' | 'base' | 'rsk';
+  blockchain: 'solana' | 'hyperliquid' | 'polygon' | 'base' | 'rsk' | 'arbitrum';
   
   // Core operations
   createToken(params: UnifiedTokenParams, signer?: any): Promise<TokenCreationResult>;
@@ -827,8 +829,71 @@ class RskProvider implements BlockchainProvider {
   }
 }
 
+// Arbitrum Provider Implementation
+class ArbitrumProvider implements BlockchainProvider {
+  name = 'Arbitrum';
+  blockchain = 'arbitrum' as const;
+  
+  async createToken(params: UnifiedTokenParams, signer?: any): Promise<TokenCreationResult> {
+    try {
+      const { deployArbitrumToken } = await import('./arbitrum');
+      
+      // Deploy token using Arbitrum utils
+      const result = await deployArbitrumToken(params);
+      
+      return {
+        success: result.success,
+        tokenAddress: result.tokenAddress,
+        poolTxId: result.poolTxId,
+        txHash: result.txHash,
+        error: result.error,
+        blockchain: 'arbitrum',
+        explorer_url: result.explorer_url,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+        blockchain: 'arbitrum',
+      };
+    }
+  }
+  
+  async uploadMetadata(params: UnifiedTokenParams): Promise<string> {
+    const { uploadToPinata } = await import('./pinata');
+    
+    const metadata = {
+      name: params.name,
+      symbol: params.symbol,
+      description: params.description || `${params.name} - A meme token on Arbitrum`,
+      image: params.image,
+      external_url: params.website,
+      attributes: [
+        { trait_type: 'Blockchain', value: 'Arbitrum' },
+        { trait_type: 'Token Standard', value: 'ERC-20' },
+        { trait_type: 'Total Supply', value: (params.arbitrum?.totalSupply || 1000000).toString() },
+        { trait_type: 'Decimals', value: (params.arbitrum?.decimals || 18).toString() },
+      ],
+    };
+    
+    return uploadToPinata(metadata);
+  }
+  
+  calculateCosts(params: UnifiedTokenParams): CostBreakdown {
+    const { calculateArbitrumCosts } = require('./arbitrum');
+    
+    return calculateArbitrumCosts(params);
+  }
+  
+  validateParams(params: UnifiedTokenParams): { isValid: boolean; errors: string[] } {
+    const { validateArbitrumParams } = require('./arbitrum');
+    
+    return validateArbitrumParams(params);
+  }
+}
+
 // Factory function to get the appropriate blockchain provider
-export function getBlockchainProvider(blockchain: 'solana' | 'hyperliquid' | 'polygon' | 'base' | 'rsk'): BlockchainProvider {
+export function getBlockchainProvider(blockchain: 'solana' | 'hyperliquid' | 'polygon' | 'base' | 'rsk' | 'arbitrum'): BlockchainProvider {
   switch (blockchain) {
     case 'solana':
       return new SolanaProvider();
@@ -840,13 +905,15 @@ export function getBlockchainProvider(blockchain: 'solana' | 'hyperliquid' | 'po
       return new BaseProvider();
     case 'rsk':
       return new RskProvider();
+    case 'arbitrum':
+      return new ArbitrumProvider();
     default:
       throw new Error(`Unsupported blockchain: ${blockchain}`);
   }
 }
 
 // Helper function to get all supported blockchains
-export function getSupportedBlockchains(): Array<{ id: 'solana' | 'hyperliquid' | 'polygon' | 'base' | 'rsk'; name: string; description: string; icon: string }> {
+export function getSupportedBlockchains(): Array<{ id: 'solana' | 'hyperliquid' | 'polygon' | 'base' | 'rsk' | 'arbitrum'; name: string; description: string; icon: string }> {
   return [
     {
       id: 'solana',
@@ -871,6 +938,12 @@ export function getSupportedBlockchains(): Array<{ id: 'solana' | 'hyperliquid' 
       name: 'Bitcoin',
       description: 'RSK sidechain with ERC-20 tokens & Sovryn DEX',
       icon: '₿',
+    },
+    {
+      id: 'arbitrum',
+      name: 'Arbitrum',
+      description: 'Ethereum L2 with 95% lower fees & Uniswap V3',
+      icon: '🔺',
     },
     {
       id: 'hyperliquid',

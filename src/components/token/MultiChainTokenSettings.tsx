@@ -51,7 +51,7 @@ export default function MultiChainTokenSettings({
     }
   };
 
-  const handleChainChange = (blockchain: 'solana' | 'hyperliquid' | 'polygon' | 'base' | 'rsk') => {
+  const handleChainChange = (blockchain: 'solana' | 'hyperliquid' | 'polygon' | 'base' | 'rsk' | 'arbitrum') => {
     // Reset chain-specific params when switching
     updateTokenParams({
       blockchain,
@@ -60,6 +60,7 @@ export default function MultiChainTokenSettings({
       polygon: blockchain === 'polygon' ? (tokenParams.polygon || {}) : undefined,
       base: blockchain === 'base' ? (tokenParams.base || {}) : undefined,
       rsk: blockchain === 'rsk' ? (tokenParams.rsk || {}) : undefined,
+      arbitrum: blockchain === 'arbitrum' ? (tokenParams.arbitrum || {}) : undefined,
     });
   };
 
@@ -637,6 +638,118 @@ export default function MultiChainTokenSettings({
                 <Typography variant="body2">
                   <strong>Bitcoin Benefits:</strong> Secured by 60% of Bitcoin's hashpower, EVM compatible smart contracts.<br/>
                   <strong>ERC-20 Standard:</strong> Compatible with Sovryn, RSKSwap, and other RSK DEXs. RBTC = Bitcoin 1:1.
+                </Typography>
+              </Alert>
+            </Grid>
+          </Grid>
+        </Paper>
+      );
+    } else if (tokenParams.blockchain === 'arbitrum') {
+      return (
+        <Paper sx={{ p: 3, mt: 3, bgcolor: 'background.default' }}>
+          <Typography variant="h6" gutterBottom>
+            🔺 Arbitrum Settings
+          </Typography>
+          
+          <Grid container spacing={3}>
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                label="Total Supply"
+                type="number"
+                value={tokenParams.arbitrum?.totalSupply || 1000000}
+                onChange={(e) => updateTokenParams({
+                  arbitrum: {
+                    ...tokenParams.arbitrum,
+                    totalSupply: parseInt(e.target.value) || 1000000,
+                  }
+                })}
+                helperText="Total number of tokens to create"
+              />
+            </Grid>
+            
+            <Grid item xs={12} md={6}>
+              <FormControl fullWidth>
+                <InputLabel>Decimals</InputLabel>
+                <Select
+                  value={tokenParams.arbitrum?.decimals || 18}
+                  onChange={(e) => updateTokenParams({
+                    arbitrum: {
+                      ...tokenParams.arbitrum,
+                      decimals: parseInt(e.target.value as string),
+                    }
+                  })}
+                  label="Decimals"
+                >
+                  <MenuItem value={6}>6 (USDC standard)</MenuItem>
+                  <MenuItem value={18}>18 (ETH standard)</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+            
+            <Grid item xs={12}>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={tokenParams.arbitrum?.createLiquidity || false}
+                    onChange={(e) => updateTokenParams({
+                      arbitrum: {
+                        ...tokenParams.arbitrum,
+                        createLiquidity: e.target.checked,
+                      }
+                    })}
+                  />
+                }
+                label="Create Liquidity Pool"
+              />
+            </Grid>
+            
+            {tokenParams.arbitrum?.createLiquidity && (
+              <>
+                <Grid item xs={12} md={6}>
+                  <TextField
+                    fullWidth
+                    label="Liquidity ETH Amount"
+                    type="number"
+                    value={tokenParams.arbitrum?.liquidityEthAmount || 0}
+                    onChange={(e) => updateTokenParams({
+                      arbitrum: {
+                        ...tokenParams.arbitrum,
+                        liquidityEthAmount: parseFloat(e.target.value) || 0,
+                      }
+                    })}
+                    helperText="ETH to add to liquidity pool"
+                    inputProps={{ min: 0, step: 0.001 }}
+                  />
+                </Grid>
+                
+                <Grid item xs={12} md={6}>
+                  <FormControl fullWidth>
+                    <InputLabel>DEX Choice</InputLabel>
+                    <Select
+                      value={tokenParams.arbitrum?.dexChoice || 'uniswap-v3'}
+                      onChange={(e) => updateTokenParams({
+                        arbitrum: {
+                          ...tokenParams.arbitrum,
+                          dexChoice: e.target.value as 'uniswap-v3' | 'camelot' | 'sushiswap',
+                        }
+                      })}
+                      label="DEX Choice"
+                    >
+                      <MenuItem value="uniswap-v3">Uniswap V3</MenuItem>
+                      <MenuItem value="camelot">Camelot (Native Arbitrum DEX)</MenuItem>
+                      <MenuItem value="sushiswap">SushiSwap</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Grid>
+              </>
+            )}
+            
+            <Grid item xs={12}>
+              <Alert severity="info">
+                <Typography variant="body2">
+                  <strong>Arbitrum Benefits:</strong> 95% lower fees than Ethereum, fast finality (~1-2 seconds).<br/>
+                  <strong>ERC-20 Standard:</strong> Compatible with Uniswap V3, Camelot, and other Arbitrum DEXs.
                 </Typography>
               </Alert>
             </Grid>

@@ -17,8 +17,8 @@ import {
 import { getSupportedBlockchains } from '@/utils/blockchain-factory';
 
 interface ChainSelectorProps {
-  selectedChain: 'solana' | 'hyperliquid' | 'polygon' | 'base' | 'rsk';
-  onChainChange: (chain: 'solana' | 'hyperliquid' | 'polygon' | 'base' | 'rsk') => void;
+  selectedChain: 'solana' | 'hyperliquid' | 'polygon' | 'base' | 'rsk' | 'arbitrum';
+  onChainChange: (chain: 'solana' | 'hyperliquid' | 'polygon' | 'base' | 'rsk' | 'arbitrum') => void;
   showCosts?: boolean;
 }
 
@@ -30,7 +30,7 @@ export default function ChainSelector({
   const blockchains = getSupportedBlockchains();
 
   const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    onChainChange(event.target.value as 'solana' | 'hyperliquid' | 'polygon' | 'base' | 'rsk');
+    onChainChange(event.target.value as 'solana' | 'hyperliquid' | 'polygon' | 'base' | 'rsk' | 'arbitrum');
   };
 
   const getChainFeatures = (chainId: string) => {
@@ -88,6 +88,17 @@ export default function ChainSelector({
             baseFee: '0.0001-0.0002 RBTC',
             liquidityFee: '+ liquidity amount',
             currency: 'RBTC'
+          }
+        };
+      case 'arbitrum':
+        return {
+          features: ['ERC-20 Tokens', 'Uniswap V3', 'Camelot DEX', 'Ethereum L2'],
+          pros: ['95% lower fees than Ethereum', 'Fast finality (~1-2 seconds)', 'Growing ecosystem'],
+          cons: ['Requires ETH bridging', 'Newer than mainnet'],
+          costs: {
+            baseFee: '0.002-0.005 ETH',
+            liquidityFee: '+ liquidity amount',
+            currency: 'ETH'
           }
         };
       default:

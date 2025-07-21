@@ -5,6 +5,7 @@ import { HyperLiquidProvider } from './HyperLiquidProvider';
 import { PolygonProvider } from './PolygonProvider';
 import { BaseProvider } from './BaseProvider';
 import { RskProvider } from './RskProvider';
+import { ArbitrumProvider } from './ArbitrumProvider';
 
 interface MultiChainWalletProviderProps {
   children: ReactNode;
@@ -17,7 +18,9 @@ export const MultiChainWalletProvider: FC<MultiChainWalletProviderProps> = ({ ch
         <PolygonProvider>
           <BaseProvider>
             <RskProvider>
-              {children}
+              <ArbitrumProvider>
+                {children}
+              </ArbitrumProvider>
             </RskProvider>
           </BaseProvider>
         </PolygonProvider>
