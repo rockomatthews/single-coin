@@ -13,7 +13,8 @@ import {
   CardContent,
   Avatar,
   IconButton,
-  Tooltip
+  Tooltip,
+  Grid
 } from '@mui/material';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { useHyperLiquid } from './HyperLiquidProvider';
@@ -21,13 +22,14 @@ import { usePolygon } from './PolygonProvider';
 import { useBase } from './BaseProvider';
 import { useRsk } from './RskProvider';
 import { useArbitrum } from './ArbitrumProvider';
+import { useTron } from './TronProvider';
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
 import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
 import LogoutIcon from '@mui/icons-material/Logout';
 
 export default function MultiChainWalletButton() {
   const [showNetworkModal, setShowNetworkModal] = useState(false);
-  const [selectedNetwork, setSelectedNetwork] = useState<'solana' | 'hyperliquid' | 'polygon' | 'base' | 'rsk' | 'arbitrum' | null>(null);
+  const [selectedNetwork, setSelectedNetwork] = useState<'solana' | 'hyperliquid' | 'polygon' | 'base' | 'rsk' | 'arbitrum' | 'tron' | null>(null);
   
   const solanaWallet = useWallet();
   const hyperLiquidWallet = useHyperLiquid();
@@ -35,9 +37,10 @@ export default function MultiChainWalletButton() {
   const baseWallet = useBase();
   const rskWallet = useRsk();
   const arbitrumWallet = useArbitrum();
+  const tronWallet = useTron();
 
-  const isConnected = solanaWallet.connected || hyperLiquidWallet.connected || polygonWallet.connected || baseWallet.connected || rskWallet.connected || arbitrumWallet.isConnected;
-  const connectedNetwork = solanaWallet.connected ? 'solana' : hyperLiquidWallet.connected ? 'hyperliquid' : polygonWallet.connected ? 'polygon' : baseWallet.connected ? 'base' : rskWallet.connected ? 'rsk' : arbitrumWallet.isConnected ? 'arbitrum' : null;
+  const isConnected = solanaWallet.connected || hyperLiquidWallet.connected || polygonWallet.connected || baseWallet.connected || rskWallet.connected || arbitrumWallet.isConnected || tronWallet.isConnected;
+  const connectedNetwork = solanaWallet.connected ? 'solana' : hyperLiquidWallet.connected ? 'hyperliquid' : polygonWallet.connected ? 'polygon' : baseWallet.connected ? 'base' : rskWallet.connected ? 'rsk' : arbitrumWallet.isConnected ? 'arbitrum' : tronWallet.isConnected ? 'tron' : null;
 
   const handleConnectClick = () => {
     if (isConnected) {
@@ -60,13 +63,16 @@ export default function MultiChainWalletButton() {
       if (arbitrumWallet.isConnected) {
         arbitrumWallet.disconnect();
       }
+      if (tronWallet.isConnected) {
+        tronWallet.disconnect();
+      }
     } else {
       // If not connected, show network selection
       setShowNetworkModal(true);
     }
   };
 
-  const handleNetworkSelect = async (network: 'solana' | 'hyperliquid' | 'polygon' | 'base' | 'rsk' | 'arbitrum') => {
+  const handleNetworkSelect = async (network: 'solana' | 'hyperliquid' | 'polygon' | 'base' | 'rsk' | 'arbitrum' | 'tron') => {
     setSelectedNetwork(network);
     setShowNetworkModal(false);
     
@@ -93,6 +99,9 @@ export default function MultiChainWalletButton() {
       } else if (network === 'arbitrum') {
         // Connect to Arbitrum
         await arbitrumWallet.connect();
+      } else if (network === 'tron') {
+        // Connect to TRON
+        await tronWallet.connect();
       }
     } catch (error) {
       console.error(`Failed to connect to ${network}:`, error);
@@ -146,6 +155,14 @@ export default function MultiChainWalletButton() {
         network: 'Arbitrum',
         address: `${arbitrumWallet.account.slice(0, 4)}...${arbitrumWallet.account.slice(-4)}`,
         color: '#28A0F0'
+      };
+    }
+    
+    if (tronWallet.isConnected && tronWallet.account) {
+      return {
+        network: 'TRON',
+        address: `${tronWallet.account.slice(0, 4)}...${tronWallet.account.slice(-4)}`,
+        color: '#FF0013'
       };
     }
     
@@ -234,20 +251,21 @@ export default function MultiChainWalletButton() {
             Select which blockchain network you want to use for creating tokens
           </Typography>
           
-          <Box sx={{ display: 'flex', gap: 2, flexDirection: { xs: 'column', sm: 'row' }, flexWrap: 'wrap' }}>
-            <Card 
-              sx={{ 
-                flex: 1, 
-                cursor: 'pointer',
-                border: '2px solid transparent',
-                '&:hover': { 
-                  border: '2px solid #14F195',
-                  transform: 'translateY(-2px)',
-                  transition: 'all 0.2s'
-                }
-              }}
-              onClick={() => handleNetworkSelect('solana')}
-            >
+          <Grid container spacing={2}>
+            <Grid item xs={12} sm={6} md={4}>
+              <Card 
+                sx={{ 
+                  height: '100%',
+                  cursor: 'pointer',
+                  border: '2px solid transparent',
+                  '&:hover': { 
+                    border: '2px solid #14F195',
+                    transform: 'translateY(-2px)',
+                    transition: 'all 0.2s'
+                  }
+                }}
+                onClick={() => handleNetworkSelect('solana')}
+              >
               <CardContent sx={{ textAlign: 'center', p: 3 }}>
                 <Avatar sx={{ 
                   width: 60, 
@@ -268,21 +286,23 @@ export default function MultiChainWalletButton() {
                   Low fees, fast transactions
                 </Typography>
               </CardContent>
-            </Card>
+              </Card>
+            </Grid>
 
-            <Card 
-              sx={{ 
-                flex: 1, 
-                cursor: 'pointer',
-                border: '2px solid transparent',
-                '&:hover': { 
-                  border: '2px solid #8247E5',
-                  transform: 'translateY(-2px)',
-                  transition: 'all 0.2s'
-                }
-              }}
-              onClick={() => handleNetworkSelect('polygon')}
-            >
+            <Grid item xs={12} sm={6} md={4}>
+              <Card 
+                sx={{ 
+                  height: '100%',
+                  cursor: 'pointer',
+                  border: '2px solid transparent',
+                  '&:hover': { 
+                    border: '2px solid #8247E5',
+                    transform: 'translateY(-2px)',
+                    transition: 'all 0.2s'
+                  }
+                }}
+                onClick={() => handleNetworkSelect('polygon')}
+              >
               <CardContent sx={{ textAlign: 'center', p: 3 }}>
                 <Avatar sx={{ 
                   width: 60, 
@@ -303,21 +323,23 @@ export default function MultiChainWalletButton() {
                   Ultra-low fees (~$0.01)
                 </Typography>
               </CardContent>
-            </Card>
+              </Card>
+            </Grid>
 
-            <Card 
-              sx={{ 
-                flex: 1, 
-                cursor: 'pointer',
-                border: '2px solid transparent',
-                '&:hover': { 
-                  border: '2px solid #0052FF',
-                  transform: 'translateY(-2px)',
-                  transition: 'all 0.2s'
-                }
-              }}
-              onClick={() => handleNetworkSelect('base')}
-            >
+            <Grid item xs={12} sm={6} md={4}>
+              <Card 
+                sx={{ 
+                  height: '100%',
+                  cursor: 'pointer',
+                  border: '2px solid transparent',
+                  '&:hover': { 
+                    border: '2px solid #0052FF',
+                    transform: 'translateY(-2px)',
+                    transition: 'all 0.2s'
+                  }
+                }}
+                onClick={() => handleNetworkSelect('base')}
+              >
               <CardContent sx={{ textAlign: 'center', p: 3 }}>
                 <Avatar sx={{ 
                   width: 60, 
@@ -338,21 +360,23 @@ export default function MultiChainWalletButton() {
                   Coinbase L2 (~$3-5 fees)
                 </Typography>
               </CardContent>
-            </Card>
+              </Card>
+            </Grid>
 
-            <Card 
-              sx={{ 
-                flex: 1, 
-                cursor: 'pointer',
-                border: '2px solid transparent',
-                '&:hover': { 
-                  border: '2px solid #F7931A',
-                  transform: 'translateY(-2px)',
-                  transition: 'all 0.2s'
-                }
-              }}
-              onClick={() => handleNetworkSelect('rsk')}
-            >
+            <Grid item xs={12} sm={6} md={4}>
+              <Card 
+                sx={{ 
+                  height: '100%',
+                  cursor: 'pointer',
+                  border: '2px solid transparent',
+                  '&:hover': { 
+                    border: '2px solid #F7931A',
+                    transform: 'translateY(-2px)',
+                    transition: 'all 0.2s'
+                  }
+                }}
+                onClick={() => handleNetworkSelect('rsk')}
+              >
               <CardContent sx={{ textAlign: 'center', p: 3 }}>
                 <Avatar sx={{ 
                   width: 60, 
@@ -373,21 +397,23 @@ export default function MultiChainWalletButton() {
                   RSK sidechain with Sovryn
                 </Typography>
               </CardContent>
-            </Card>
+              </Card>
+            </Grid>
 
-            <Card 
-              sx={{ 
-                flex: 1, 
-                cursor: 'pointer',
-                border: '2px solid transparent',
-                '&:hover': { 
-                  border: '2px solid #28A0F0',
-                  transform: 'translateY(-2px)',
-                  transition: 'all 0.2s'
-                }
-              }}
-              onClick={() => handleNetworkSelect('arbitrum')}
-            >
+            <Grid item xs={12} sm={6} md={4}>
+              <Card 
+                sx={{ 
+                  height: '100%',
+                  cursor: 'pointer',
+                  border: '2px solid transparent',
+                  '&:hover': { 
+                    border: '2px solid #28A0F0',
+                    transform: 'translateY(-2px)',
+                    transition: 'all 0.2s'
+                  }
+                }}
+                onClick={() => handleNetworkSelect('arbitrum')}
+              >
               <CardContent sx={{ textAlign: 'center', p: 3 }}>
                 <Avatar sx={{ 
                   width: 60, 
@@ -408,21 +434,23 @@ export default function MultiChainWalletButton() {
                   95% cheaper than Ethereum
                 </Typography>
               </CardContent>
-            </Card>
+              </Card>
+            </Grid>
 
-            <Card 
-              sx={{ 
-                flex: 1, 
-                cursor: 'pointer',
-                border: '2px solid transparent',
-                '&:hover': { 
-                  border: '2px solid #00D4AA',
-                  transform: 'translateY(-2px)',
-                  transition: 'all 0.2s'
-                }
-              }}
-              onClick={() => handleNetworkSelect('hyperliquid')}
-            >
+            <Grid item xs={12} sm={6} md={4}>
+              <Card 
+                sx={{ 
+                  height: '100%',
+                  cursor: 'pointer',
+                  border: '2px solid transparent',
+                  '&:hover': { 
+                    border: '2px solid #00D4AA',
+                    transform: 'translateY(-2px)',
+                    transition: 'all 0.2s'
+                  }
+                }}
+                onClick={() => handleNetworkSelect('hyperliquid')}
+              >
               <CardContent sx={{ textAlign: 'center', p: 3 }}>
                 <Avatar sx={{ 
                   width: 60, 
@@ -443,8 +471,46 @@ export default function MultiChainWalletButton() {
                   Advanced DeFi features
                 </Typography>
               </CardContent>
-            </Card>
-          </Box>
+              </Card>
+            </Grid>
+
+            <Grid item xs={12} sm={6} md={4}>
+              <Card 
+                sx={{ 
+                  height: '100%',
+                  cursor: 'pointer',
+                  border: '2px solid transparent',
+                  '&:hover': { 
+                    border: '2px solid #FF0013',
+                    transform: 'translateY(-2px)',
+                    transition: 'all 0.2s'
+                  }
+                }}
+                onClick={() => handleNetworkSelect('tron')}
+              >
+              <CardContent sx={{ textAlign: 'center', p: 3 }}>
+                <Avatar sx={{ 
+                  width: 60, 
+                  height: 60, 
+                  bgcolor: '#FF0013', 
+                  mx: 'auto', 
+                  mb: 2,
+                  fontSize: '1.5rem'
+                }}>
+                  🔴
+                </Avatar>
+                <Typography variant="h6" gutterBottom>
+                  TRON
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Connect with TronLink
+                  <br />
+                  Ultra-cheap (~$0.10 fees)
+                </Typography>
+              </CardContent>
+              </Card>
+            </Grid>
+          </Grid>
         </DialogContent>
         <DialogActions sx={{ p: 2, pt: 0 }}>
           <Button onClick={() => setShowNetworkModal(false)}>

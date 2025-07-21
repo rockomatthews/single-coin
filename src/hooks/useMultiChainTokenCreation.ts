@@ -123,7 +123,9 @@ export function useMultiChainTokenCreation() {
           ? (params.base?.decimals || 18)
           : params.blockchain === 'rsk'
           ? (params.rsk?.decimals || 18)
-          : (params.arbitrum?.decimals || 18), // Arbitrum default 18 decimals
+          : params.blockchain === 'arbitrum'
+          ? (params.arbitrum?.decimals || 18)
+          : (params.tron?.decimals || 6), // TRON default 6 decimals
         supply: params.blockchain === 'solana'
           ? (params.solana?.supply || 1000000000)
           : params.blockchain === 'hyperliquid'
@@ -134,7 +136,9 @@ export function useMultiChainTokenCreation() {
           ? (params.base?.totalSupply || 1000000)
           : params.blockchain === 'rsk'
           ? (params.rsk?.totalSupply || 1000000)
-          : (params.arbitrum?.totalSupply || 1000000), // Arbitrum default 1M tokens
+          : params.blockchain === 'arbitrum'
+          ? (params.arbitrum?.totalSupply || 1000000)
+          : (params.tron?.totalSupply || 1000000), // TRON default 1M tokens
         retentionPercentage: params.retentionPercentage,
         retainedAmount: params.retainedAmount,
         liquidityAmount: params.liquidityAmount,
@@ -143,7 +147,7 @@ export function useMultiChainTokenCreation() {
           ? (process.env.NEXT_PUBLIC_SOLANA_NETWORK || 'devnet')
           : params.blockchain === 'hyperliquid'
           ? (process.env.NEXT_PUBLIC_HYPERLIQUID_NETWORK || 'testnet')
-          : 'mainnet', // Polygon, BASE, RSK, and Arbitrum mainnet
+          : 'mainnet', // Polygon, BASE, RSK, Arbitrum, and TRON mainnet
         chainSpecificData: params.blockchain === 'solana' 
           ? params.solana 
           : params.blockchain === 'hyperliquid'
@@ -154,11 +158,15 @@ export function useMultiChainTokenCreation() {
           ? params.base
           : params.blockchain === 'rsk'
           ? params.rsk
-          : params.arbitrum,
+          : params.blockchain === 'arbitrum'
+          ? params.arbitrum
+          : params.tron,
         tokenStandard: params.blockchain === 'solana' 
           ? 'SPL' 
           : params.blockchain === 'hyperliquid'
           ? (params.hyperliquid?.tokenStandard || 'HIP-1')
+          : params.blockchain === 'tron'
+          ? (params.tron?.tokenStandard || 'TRC-20')
           : 'ERC-20', // Polygon, BASE, RSK, and Arbitrum use ERC-20
         poolTxId: result.poolTxId || undefined,
         explorerUrl: result.explorer_url,

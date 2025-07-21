@@ -51,7 +51,7 @@ export default function MultiChainTokenSettings({
     }
   };
 
-  const handleChainChange = (blockchain: 'solana' | 'hyperliquid' | 'polygon' | 'base' | 'rsk' | 'arbitrum') => {
+  const handleChainChange = (blockchain: 'solana' | 'hyperliquid' | 'polygon' | 'base' | 'rsk' | 'arbitrum' | 'tron') => {
     // Reset chain-specific params when switching
     updateTokenParams({
       blockchain,
@@ -61,6 +61,7 @@ export default function MultiChainTokenSettings({
       base: blockchain === 'base' ? (tokenParams.base || {}) : undefined,
       rsk: blockchain === 'rsk' ? (tokenParams.rsk || {}) : undefined,
       arbitrum: blockchain === 'arbitrum' ? (tokenParams.arbitrum || {}) : undefined,
+      tron: blockchain === 'tron' ? (tokenParams.tron || {}) : undefined,
     });
   };
 
@@ -750,6 +751,152 @@ export default function MultiChainTokenSettings({
                 <Typography variant="body2">
                   <strong>Arbitrum Benefits:</strong> 95% lower fees than Ethereum, fast finality (~1-2 seconds).<br/>
                   <strong>ERC-20 Standard:</strong> Compatible with Uniswap V3, Camelot, and other Arbitrum DEXs.
+                </Typography>
+              </Alert>
+            </Grid>
+          </Grid>
+        </Paper>
+      );
+    } else if (tokenParams.blockchain === 'tron') {
+      return (
+        <Paper sx={{ p: 3, mt: 3, bgcolor: 'background.default' }}>
+          <Typography variant="h6" gutterBottom>
+            🔴 TRON Settings
+          </Typography>
+          
+          <Grid container spacing={3}>
+            <Grid item xs={12} md={6}>
+              <FormControl fullWidth>
+                <InputLabel>Token Standard</InputLabel>
+                <Select
+                  value={tokenParams.tron?.tokenStandard || 'TRC-20'}
+                  onChange={(e) => updateTokenParams({
+                    tron: {
+                      ...tokenParams.tron,
+                      tokenStandard: e.target.value as 'TRC-10' | 'TRC-20',
+                    }
+                  })}
+                  label="Token Standard"
+                >
+                  <MenuItem value="TRC-20">
+                    <Box>
+                      <Typography variant="body2">TRC-20</Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        Full smart contract features (recommended)
+                      </Typography>
+                    </Box>
+                  </MenuItem>
+                  <MenuItem value="TRC-10">
+                    <Box>
+                      <Typography variant="body2">TRC-10</Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        Simple token, lower fees
+                      </Typography>
+                    </Box>
+                  </MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+            
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                label="Total Supply"
+                type="number"
+                value={tokenParams.tron?.totalSupply || 1000000}
+                onChange={(e) => updateTokenParams({
+                  tron: {
+                    ...tokenParams.tron,
+                    totalSupply: parseInt(e.target.value) || 1000000,
+                  }
+                })}
+                helperText="Total number of tokens to create"
+              />
+            </Grid>
+            
+            <Grid item xs={12} md={6}>
+              <FormControl fullWidth>
+                <InputLabel>Decimals</InputLabel>
+                <Select
+                  value={tokenParams.tron?.decimals || 6}
+                  onChange={(e) => updateTokenParams({
+                    tron: {
+                      ...tokenParams.tron,
+                      decimals: parseInt(e.target.value as string),
+                    }
+                  })}
+                  label="Decimals"
+                >
+                  <MenuItem value={0}>0 (Whole numbers only)</MenuItem>
+                  <MenuItem value={6}>6 (USDT/TRX standard)</MenuItem>
+                  <MenuItem value={18}>18 (Ethereum style)</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+            
+            <Grid item xs={12}>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={tokenParams.tron?.createLiquidity || false}
+                    onChange={(e) => updateTokenParams({
+                      tron: {
+                        ...tokenParams.tron,
+                        createLiquidity: e.target.checked,
+                      }
+                    })}
+                  />
+                }
+                label="Create Liquidity Pool"
+              />
+            </Grid>
+            
+            {tokenParams.tron?.createLiquidity && (
+              <>
+                <Grid item xs={12} md={6}>
+                  <TextField
+                    fullWidth
+                    label="Liquidity TRX Amount"
+                    type="number"
+                    value={tokenParams.tron?.liquidityTrxAmount || 0}
+                    onChange={(e) => updateTokenParams({
+                      tron: {
+                        ...tokenParams.tron,
+                        liquidityTrxAmount: parseFloat(e.target.value) || 0,
+                      }
+                    })}
+                    helperText="TRX to add to liquidity pool"
+                    inputProps={{ min: 0, step: 1 }}
+                  />
+                </Grid>
+                
+                <Grid item xs={12} md={6}>
+                  <FormControl fullWidth>
+                    <InputLabel>DEX Choice</InputLabel>
+                    <Select
+                      value={tokenParams.tron?.dexChoice || 'justswap'}
+                      onChange={(e) => updateTokenParams({
+                        tron: {
+                          ...tokenParams.tron,
+                          dexChoice: e.target.value as 'justswap' | 'sunswap' | 'uniswap-tron',
+                        }
+                      })}
+                      label="DEX Choice"
+                    >
+                      <MenuItem value="justswap">JustSwap (Original TRON DEX)</MenuItem>
+                      <MenuItem value="sunswap">SunSwap (Newest features)</MenuItem>
+                      <MenuItem value="uniswap-tron">Uniswap on TRON</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Grid>
+              </>
+            )}
+            
+            <Grid item xs={12}>
+              <Alert severity="info">
+                <Typography variant="body2">
+                  <strong>TRON Benefits:</strong> Ultra-low fees (~$0.10), fast transactions (~3 seconds).<br/>
+                  <strong>TRC-20 Standard:</strong> Compatible with JustSwap, SunSwap, and other TRON DEXs.
                 </Typography>
               </Alert>
             </Grid>

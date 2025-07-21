@@ -4,6 +4,7 @@ import { PolygonTokenParams } from './polygon';
 import { BaseTokenParams } from './base';
 import { RskTokenParams } from './rsk';
 import { ArbitrumTokenParams } from './arbitrum-types';
+import { TronTokenParams } from './tron-types';
 
 // Unified token parameters that support both chains
 export interface UnifiedTokenParams {
@@ -18,7 +19,7 @@ export interface UnifiedTokenParams {
   discord?: string;
   
   // Chain selection
-  blockchain: 'solana' | 'hyperliquid' | 'polygon' | 'base' | 'rsk' | 'arbitrum';
+  blockchain: 'solana' | 'hyperliquid' | 'polygon' | 'base' | 'rsk' | 'arbitrum' | 'tron';
   
   // Distribution settings
   retentionPercentage?: number;
@@ -34,6 +35,7 @@ export interface UnifiedTokenParams {
   base?: Partial<BaseTokenParams>;
   rsk?: Partial<RskTokenParams>;
   arbitrum?: Partial<ArbitrumTokenParams>;
+  tron?: Partial<TronTokenParams>;
 }
 
 // Result type for token creation
@@ -43,7 +45,7 @@ export interface TokenCreationResult {
   poolTxId?: string | null;
   txHash?: string;
   error?: string;
-  blockchain: 'solana' | 'hyperliquid' | 'polygon' | 'base' | 'rsk' | 'arbitrum';
+  blockchain: 'solana' | 'hyperliquid' | 'polygon' | 'base' | 'rsk' | 'arbitrum' | 'tron';
   explorer_url?: string;
 }
 
@@ -61,7 +63,7 @@ export interface CostBreakdown {
 // Abstract blockchain provider interface
 export interface BlockchainProvider {
   name: string;
-  blockchain: 'solana' | 'hyperliquid' | 'polygon' | 'base' | 'rsk' | 'arbitrum';
+  blockchain: 'solana' | 'hyperliquid' | 'polygon' | 'base' | 'rsk' | 'arbitrum' | 'tron';
   
   // Core operations
   createToken(params: UnifiedTokenParams, signer?: any): Promise<TokenCreationResult>;
@@ -892,8 +894,71 @@ class ArbitrumProvider implements BlockchainProvider {
   }
 }
 
+// TRON Provider Implementation
+class TronProvider implements BlockchainProvider {
+  name = 'TRON';
+  blockchain = 'tron' as const;
+  
+  async createToken(params: UnifiedTokenParams, signer?: any): Promise<TokenCreationResult> {
+    try {
+      const { deployTronToken } = await import('./tron');
+      
+      // Deploy token using TRON utils
+      const result = await deployTronToken(params);
+      
+      return {
+        success: result.success,
+        tokenAddress: result.tokenAddress,
+        poolTxId: result.poolTxId,
+        txHash: result.txHash,
+        error: result.error,
+        blockchain: 'tron',
+        explorer_url: result.explorer_url,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+        blockchain: 'tron',
+      };
+    }
+  }
+  
+  async uploadMetadata(params: UnifiedTokenParams): Promise<string> {
+    const { uploadToPinata } = await import('./pinata');
+    
+    const metadata = {
+      name: params.name,
+      symbol: params.symbol,
+      description: params.description || `${params.name} - A meme token on TRON`,
+      image: params.image,
+      external_url: params.website,
+      attributes: [
+        { trait_type: 'Blockchain', value: 'TRON' },
+        { trait_type: 'Token Standard', value: params.tron?.tokenStandard || 'TRC-20' },
+        { trait_type: 'Total Supply', value: (params.tron?.totalSupply || 1000000).toString() },
+        { trait_type: 'Decimals', value: (params.tron?.decimals || 6).toString() },
+      ],
+    };
+    
+    return uploadToPinata(metadata);
+  }
+  
+  calculateCosts(params: UnifiedTokenParams): CostBreakdown {
+    const { calculateTronCosts } = require('./tron');
+    
+    return calculateTronCosts(params);
+  }
+  
+  validateParams(params: UnifiedTokenParams): { isValid: boolean; errors: string[] } {
+    const { validateTronParams } = require('./tron');
+    
+    return validateTronParams(params);
+  }
+}
+
 // Factory function to get the appropriate blockchain provider
-export function getBlockchainProvider(blockchain: 'solana' | 'hyperliquid' | 'polygon' | 'base' | 'rsk' | 'arbitrum'): BlockchainProvider {
+export function getBlockchainProvider(blockchain: 'solana' | 'hyperliquid' | 'polygon' | 'base' | 'rsk' | 'arbitrum' | 'tron'): BlockchainProvider {
   switch (blockchain) {
     case 'solana':
       return new SolanaProvider();
@@ -907,13 +972,15 @@ export function getBlockchainProvider(blockchain: 'solana' | 'hyperliquid' | 'po
       return new RskProvider();
     case 'arbitrum':
       return new ArbitrumProvider();
+    case 'tron':
+      return new TronProvider();
     default:
       throw new Error(`Unsupported blockchain: ${blockchain}`);
   }
 }
 
 // Helper function to get all supported blockchains
-export function getSupportedBlockchains(): Array<{ id: 'solana' | 'hyperliquid' | 'polygon' | 'base' | 'rsk' | 'arbitrum'; name: string; description: string; icon: string }> {
+export function getSupportedBlockchains(): Array<{ id: 'solana' | 'hyperliquid' | 'polygon' | 'base' | 'rsk' | 'arbitrum' | 'tron'; name: string; description: string; icon: string }> {
   return [
     {
       id: 'solana',
@@ -944,6 +1011,12 @@ export function getSupportedBlockchains(): Array<{ id: 'solana' | 'hyperliquid' 
       name: 'Arbitrum',
       description: 'Ethereum L2 with 95% lower fees & Uniswap V3',
       icon: '🔺',
+    },
+    {
+      id: 'tron',
+      name: 'TRON',
+      description: 'Ultra-low fees (~$0.10) with TRC-20 tokens & JustSwap',
+      icon: '🔴',
     },
     {
       id: 'hyperliquid',
