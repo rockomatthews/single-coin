@@ -2,6 +2,7 @@
 import { FC, ReactNode } from 'react';
 import { SolanaProvider } from './SolanaProvider';
 import { HyperLiquidProvider } from './HyperLiquidProvider';
+import { PolygonProvider } from './PolygonProvider';
 
 interface MultiChainWalletProviderProps {
   children: ReactNode;
@@ -11,7 +12,9 @@ export const MultiChainWalletProvider: FC<MultiChainWalletProviderProps> = ({ ch
   return (
     <SolanaProvider>
       <HyperLiquidProvider>
-        {children}
+        <PolygonProvider>
+          {children}
+        </PolygonProvider>
       </HyperLiquidProvider>
     </SolanaProvider>
   );

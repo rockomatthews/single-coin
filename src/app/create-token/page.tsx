@@ -15,6 +15,7 @@ import {
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { useHyperLiquid } from '../../components/HyperLiquidProvider';
+import { usePolygon } from '../../components/PolygonProvider';
 import { LAMPORTS_PER_SOL } from '@solana/web3.js';
 
 import TokenSettings from '../../components/token/TokenSettings';
@@ -54,8 +55,9 @@ export default function CreateTokenPage() {
   const searchParams = useSearchParams();
   const { connected: solanaConnected } = useWallet();
   const { connected: hyperLiquidConnected, address: hyperLiquidAddress, signer: hyperLiquidSigner } = useHyperLiquid();
-  const isConnected = solanaConnected || hyperLiquidConnected;
-  const connectedBlockchain = solanaConnected ? 'solana' : hyperLiquidConnected ? 'hyperliquid' : null;
+  const { connected: polygonConnected, address: polygonAddress, signer: polygonSigner } = usePolygon();
+  const isConnected = solanaConnected || hyperLiquidConnected || polygonConnected;
+  const connectedBlockchain = solanaConnected ? 'solana' : hyperLiquidConnected ? 'hyperliquid' : polygonConnected ? 'polygon' : null;
   
   const solanaCreation = useTokenCreation();
   const multiChainCreation = useMultiChainTokenCreation();
@@ -190,8 +192,43 @@ export default function CreateTokenPage() {
         });
         setActiveStep(steps.length); // Move to success step
       }
+    } else if (connectedBlockchain === 'polygon') {
+      // Use Polygon creation via multi-chain hook
+      const unifiedParams = {
+        name: tokenParams.name,
+        symbol: tokenParams.symbol,
+        description: tokenParams.description,
+        image: tokenParams.image,
+        website: tokenParams.website,
+        twitter: tokenParams.twitter,
+        telegram: tokenParams.telegram,
+        discord: tokenParams.discord,
+        blockchain: 'polygon' as const,
+        retentionPercentage,
+        retainedAmount,
+        liquidityAmount,
+        polygon: {
+          decimals: 18,
+          totalSupply: totalSupply,
+          createLiquidity: false, // Pool creation coming soon
+          liquidityMaticAmount: 0,
+          dexChoice: 'uniswap-v3' as const,
+        },
+      };
+      
+      console.log('🔷 Creating Polygon token with params:', unifiedParams);
+      
+      const result = await multiChainCreation.createToken(unifiedParams, polygonSigner || undefined);
+      
+      if (result && result.success) {
+        setCreationResult({
+          tokenAddress: result.tokenAddress || null,
+          poolTxId: result.poolTxId || null,
+        });
+        setActiveStep(steps.length); // Move to success step
+      }
     }
-  }, [tokenParams, activeCreation.isCreating, connectedBlockchain, solanaCreation, multiChainCreation]);
+  }, [tokenParams, activeCreation.isCreating, connectedBlockchain, solanaCreation, multiChainCreation, polygonSigner]);
   
   // Calculate fee based on parameters using the centralized fee calculation
   const calculateFee = useCallback(() => {

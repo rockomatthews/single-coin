@@ -17,19 +17,21 @@ import {
 } from '@mui/material';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { useHyperLiquid } from './HyperLiquidProvider';
+import { usePolygon } from './PolygonProvider';
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
 import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
 import LogoutIcon from '@mui/icons-material/Logout';
 
 export default function MultiChainWalletButton() {
   const [showNetworkModal, setShowNetworkModal] = useState(false);
-  const [selectedNetwork, setSelectedNetwork] = useState<'solana' | 'hyperliquid' | null>(null);
+  const [selectedNetwork, setSelectedNetwork] = useState<'solana' | 'hyperliquid' | 'polygon' | null>(null);
   
   const solanaWallet = useWallet();
   const hyperLiquidWallet = useHyperLiquid();
+  const polygonWallet = usePolygon();
 
-  const isConnected = solanaWallet.connected || hyperLiquidWallet.connected;
-  const connectedNetwork = solanaWallet.connected ? 'solana' : hyperLiquidWallet.connected ? 'hyperliquid' : null;
+  const isConnected = solanaWallet.connected || hyperLiquidWallet.connected || polygonWallet.connected;
+  const connectedNetwork = solanaWallet.connected ? 'solana' : hyperLiquidWallet.connected ? 'hyperliquid' : polygonWallet.connected ? 'polygon' : null;
 
   const handleConnectClick = () => {
     if (isConnected) {
@@ -40,13 +42,16 @@ export default function MultiChainWalletButton() {
       if (hyperLiquidWallet.connected) {
         hyperLiquidWallet.disconnect();
       }
+      if (polygonWallet.connected) {
+        polygonWallet.disconnect();
+      }
     } else {
       // If not connected, show network selection
       setShowNetworkModal(true);
     }
   };
 
-  const handleNetworkSelect = async (network: 'solana' | 'hyperliquid') => {
+  const handleNetworkSelect = async (network: 'solana' | 'hyperliquid' | 'polygon') => {
     setSelectedNetwork(network);
     setShowNetworkModal(false);
     
@@ -58,9 +63,12 @@ export default function MultiChainWalletButton() {
         if (solanaButton) {
           solanaButton.click();
         }
-      } else {
+      } else if (network === 'hyperliquid') {
         // Connect to HYPER LIQUID
         await hyperLiquidWallet.connect();
+      } else if (network === 'polygon') {
+        // Connect to Polygon
+        await polygonWallet.connect();
       }
     } catch (error) {
       console.error(`Failed to connect to ${network}:`, error);
@@ -82,6 +90,14 @@ export default function MultiChainWalletButton() {
         network: 'HYPER LIQUID',
         address: `${hyperLiquidWallet.address.slice(0, 4)}...${hyperLiquidWallet.address.slice(-4)}`,
         color: '#00D4AA'
+      };
+    }
+    
+    if (polygonWallet.connected && polygonWallet.address) {
+      return {
+        network: 'Polygon',
+        address: `${polygonWallet.address.slice(0, 4)}...${polygonWallet.address.slice(-4)}`,
+        color: '#8247E5'
       };
     }
     
@@ -170,7 +186,7 @@ export default function MultiChainWalletButton() {
             Select which blockchain network you want to use for creating tokens
           </Typography>
           
-          <Box sx={{ display: 'flex', gap: 2, flexDirection: { xs: 'column', sm: 'row' } }}>
+          <Box sx={{ display: 'flex', gap: 2, flexDirection: { xs: 'column', sm: 'row' }, flexWrap: 'wrap' }}>
             <Card 
               sx={{ 
                 flex: 1, 
@@ -202,6 +218,41 @@ export default function MultiChainWalletButton() {
                   Connect with Phantom wallet
                   <br />
                   Low fees, fast transactions
+                </Typography>
+              </CardContent>
+            </Card>
+
+            <Card 
+              sx={{ 
+                flex: 1, 
+                cursor: 'pointer',
+                border: '2px solid transparent',
+                '&:hover': { 
+                  border: '2px solid #8247E5',
+                  transform: 'translateY(-2px)',
+                  transition: 'all 0.2s'
+                }
+              }}
+              onClick={() => handleNetworkSelect('polygon')}
+            >
+              <CardContent sx={{ textAlign: 'center', p: 3 }}>
+                <Avatar sx={{ 
+                  width: 60, 
+                  height: 60, 
+                  bgcolor: '#8247E5', 
+                  mx: 'auto', 
+                  mb: 2,
+                  fontSize: '1.5rem'
+                }}>
+                  🔷
+                </Avatar>
+                <Typography variant="h6" gutterBottom>
+                  Polygon
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Connect with MetaMask
+                  <br />
+                  Ultra-low fees (~$0.01)
                 </Typography>
               </CardContent>
             </Card>
