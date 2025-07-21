@@ -18,7 +18,7 @@ interface TokenLiquidityProps {
     retentionPercentage: number;
     liquiditySolAmount: number;
     createPool: boolean;
-    blockchain?: 'solana' | 'hyperliquid';
+    blockchain?: 'solana' | 'hyperliquid' | 'polygon';
   };
   updateTokenParams: (params: Partial<TokenLiquidityProps['tokenParams']>) => void;
   calculateTotalCost: () => string;

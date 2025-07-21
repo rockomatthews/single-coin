@@ -17,8 +17,8 @@ import {
 import { getSupportedBlockchains } from '@/utils/blockchain-factory';
 
 interface ChainSelectorProps {
-  selectedChain: 'solana' | 'hyperliquid';
-  onChainChange: (chain: 'solana' | 'hyperliquid') => void;
+  selectedChain: 'solana' | 'hyperliquid' | 'polygon';
+  onChainChange: (chain: 'solana' | 'hyperliquid' | 'polygon') => void;
   showCosts?: boolean;
 }
 
@@ -30,7 +30,7 @@ export default function ChainSelector({
   const blockchains = getSupportedBlockchains();
 
   const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    onChainChange(event.target.value as 'solana' | 'hyperliquid');
+    onChainChange(event.target.value as 'solana' | 'hyperliquid' | 'polygon');
   };
 
   const getChainFeatures = (chainId: string) => {
@@ -55,6 +55,17 @@ export default function ChainSelector({
             baseFee: '500-5000 HYPE',
             liquidityFee: '+ optional hyperliquidity',
             currency: 'HYPE'
+          }
+        };
+      case 'polygon':
+        return {
+          features: ['ERC-20 Tokens', 'Uniswap V3', 'MetaMask', 'Ethereum L2'],
+          pros: ['Ultra-low fees (~$0.01)', 'Ethereum compatibility', 'Mature ecosystem'],
+          cons: ['Centralized validators', 'Ethereum dependency'],
+          costs: {
+            baseFee: '0.001-0.01 MATIC',
+            liquidityFee: '+ liquidity amount',
+            currency: 'MATIC'
           }
         };
       default:

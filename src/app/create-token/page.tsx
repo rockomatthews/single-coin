@@ -37,7 +37,7 @@ const DEFAULT_TOKEN_PARAMS = {
   twitter: '',
   telegram: '',
   discord: '',
-  blockchain: 'solana' as 'solana' | 'hyperliquid',
+  blockchain: 'solana' as 'solana' | 'hyperliquid' | 'polygon',
   decimals: 9,
   supply: 1000000000,
   retentionPercentage: 20,

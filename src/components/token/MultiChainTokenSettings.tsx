@@ -51,12 +51,13 @@ export default function MultiChainTokenSettings({
     }
   };
 
-  const handleChainChange = (blockchain: 'solana' | 'hyperliquid') => {
+  const handleChainChange = (blockchain: 'solana' | 'hyperliquid' | 'polygon') => {
     // Reset chain-specific params when switching
     updateTokenParams({
       blockchain,
       solana: blockchain === 'solana' ? (tokenParams.solana || {}) : undefined,
       hyperliquid: blockchain === 'hyperliquid' ? (tokenParams.hyperliquid || {}) : undefined,
+      polygon: blockchain === 'polygon' ? (tokenParams.polygon || {}) : undefined,
     });
   };
 
@@ -298,6 +299,118 @@ export default function MultiChainTokenSettings({
                 <Typography variant="body2">
                   <strong>0 decimals:</strong> Creates a FungibleAsset token with rich metadata display in Phantom wallet<br/>
                   <strong>6-9 decimals:</strong> Creates a standard Fungible token compatible with Raydium pools
+                </Typography>
+              </Alert>
+            </Grid>
+          </Grid>
+        </Paper>
+      );
+    } else if (tokenParams.blockchain === 'polygon') {
+      return (
+        <Paper sx={{ p: 3, mt: 3, bgcolor: 'background.default' }}>
+          <Typography variant="h6" gutterBottom>
+            🔷 Polygon Settings
+          </Typography>
+          
+          <Grid container spacing={3}>
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                label="Total Supply"
+                type="number"
+                value={tokenParams.polygon?.totalSupply || 1000000}
+                onChange={(e) => updateTokenParams({
+                  polygon: {
+                    ...tokenParams.polygon,
+                    totalSupply: parseInt(e.target.value) || 1000000,
+                  }
+                })}
+                helperText="Total number of tokens to create"
+              />
+            </Grid>
+            
+            <Grid item xs={12} md={6}>
+              <FormControl fullWidth>
+                <InputLabel>Decimals</InputLabel>
+                <Select
+                  value={tokenParams.polygon?.decimals || 18}
+                  onChange={(e) => updateTokenParams({
+                    polygon: {
+                      ...tokenParams.polygon,
+                      decimals: parseInt(e.target.value as string),
+                    }
+                  })}
+                  label="Decimals"
+                >
+                  <MenuItem value={6}>6 (USDC standard)</MenuItem>
+                  <MenuItem value={18}>18 (ETH/MATIC standard)</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+            
+            <Grid item xs={12}>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={tokenParams.polygon?.createLiquidity || false}
+                    onChange={(e) => updateTokenParams({
+                      polygon: {
+                        ...tokenParams.polygon,
+                        createLiquidity: e.target.checked,
+                      }
+                    })}
+                  />
+                }
+                label="Create Liquidity Pool (Coming Soon)"
+              />
+            </Grid>
+            
+            {tokenParams.polygon?.createLiquidity && (
+              <>
+                <Grid item xs={12} md={6}>
+                  <TextField
+                    fullWidth
+                    label="Liquidity MATIC Amount"
+                    type="number"
+                    value={tokenParams.polygon?.liquidityMaticAmount || 0}
+                    onChange={(e) => updateTokenParams({
+                      polygon: {
+                        ...tokenParams.polygon,
+                        liquidityMaticAmount: parseFloat(e.target.value) || 0,
+                      }
+                    })}
+                    helperText="MATIC to add to liquidity pool"
+                    inputProps={{ min: 0, step: 0.1 }}
+                  />
+                </Grid>
+                
+                <Grid item xs={12} md={6}>
+                  <FormControl fullWidth>
+                    <InputLabel>DEX Choice</InputLabel>
+                    <Select
+                      value={tokenParams.polygon?.dexChoice || 'uniswap-v3'}
+                      onChange={(e) => updateTokenParams({
+                        polygon: {
+                          ...tokenParams.polygon,
+                          dexChoice: e.target.value as 'uniswap-v3' | 'quickswap' | 'sushiswap',
+                        }
+                      })}
+                      label="DEX Choice"
+                    >
+                      <MenuItem value="uniswap-v3">Uniswap V3</MenuItem>
+                      <MenuItem value="quickswap">QuickSwap</MenuItem>
+                      <MenuItem value="sushiswap">SushiSwap</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Grid>
+              </>
+            )}
+            
+            <Grid item xs={12}>
+              <Alert severity="info">
+                <Typography variant="body2">
+                  <strong>Polygon Benefits:</strong> Ultra-low fees (~$0.01), Ethereum compatibility, and instant finality.<br/>
+                  <strong>ERC-20 Standard:</strong> Compatible with all major DEXs and wallets on Polygon.
                 </Typography>
               </Alert>
             </Grid>

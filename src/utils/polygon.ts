@@ -107,6 +107,51 @@ export async function uploadPolygonMetadata(params: PolygonTokenParams): Promise
 }
 
 /**
+ * Collect platform fee on Polygon
+ */
+export async function collectPolygonPlatformFee(
+  signer: ethers.JsonRpcSigner
+): Promise<{
+  success: boolean;
+  txHash?: string;
+  error?: string;
+}> {
+  try {
+    const platformFee = parseFloat(process.env.NEXT_PUBLIC_POLYGON_PLATFORM_FEE || '0.001');
+    const feeRecipient = process.env.NEXT_PUBLIC_POLYGON_FEE_RECIPIENT_ADDRESS;
+    
+    if (!feeRecipient || feeRecipient === '0xYourPolygonWalletAddress') {
+      console.log('⚠️ No Polygon fee recipient configured, skipping fee collection');
+      return { success: true };
+    }
+    
+    console.log(`💳 Collecting ${platformFee} MATIC platform fee...`);
+    
+    const feeInWei = ethers.parseEther(platformFee.toString());
+    
+    // Send MATIC to fee recipient
+    const tx = await signer.sendTransaction({
+      to: feeRecipient,
+      value: feeInWei,
+    });
+    
+    await tx.wait();
+    
+    console.log(`✅ Platform fee collected: ${tx.hash}`);
+    return {
+      success: true,
+      txHash: tx.hash,
+    };
+  } catch (error) {
+    console.error('❌ Failed to collect platform fee:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown fee collection error',
+    };
+  }
+}
+
+/**
  * Deploy ERC-20 token contract on Polygon
  */
 export async function deployPolygonToken(
@@ -120,7 +165,15 @@ export async function deployPolygonToken(
   error?: string;
 }> {
   try {
-    progressCallback?.(1, 'Preparing token deployment...');
+    progressCallback?.(1, 'Collecting platform fee...');
+    
+    // Collect platform fee first
+    const feeResult = await collectPolygonPlatformFee(signer);
+    if (!feeResult.success) {
+      throw new Error(feeResult.error || 'Failed to collect platform fee');
+    }
+    
+    progressCallback?.(2, 'Preparing token deployment...');
     
     // Create contract factory
     const contractFactory = new ethers.ContractFactory(ERC20_ABI, ERC20_BYTECODE, signer);
@@ -131,7 +184,7 @@ export async function deployPolygonToken(
       params.decimals
     );
     
-    progressCallback?.(2, 'Deploying ERC-20 contract...');
+    progressCallback?.(3, 'Deploying ERC-20 contract...');
     
     // Deploy contract
     const contract = await contractFactory.deploy(
@@ -141,14 +194,14 @@ export async function deployPolygonToken(
       await signer.getAddress()
     );
     
-    progressCallback?.(3, 'Waiting for deployment confirmation...');
+    progressCallback?.(4, 'Waiting for deployment confirmation...');
     
     // Wait for deployment
     await contract.waitForDeployment();
     const tokenAddress = await contract.getAddress();
     const deploymentTx = contract.deploymentTransaction();
     
-    progressCallback?.(4, 'Token deployed successfully!');
+    progressCallback?.(5, 'Token deployed successfully!');
     
     console.log('✅ Polygon token deployed:', {
       address: tokenAddress,
@@ -185,7 +238,7 @@ export function getPolygonCostBreakdown(params: PolygonTokenParams): {
   currency: string;
   breakdown: Record<string, string>;
 } {
-  const platformFee = 0.001; // 0.001 MATIC platform fee
+  const platformFee = parseFloat(process.env.NEXT_PUBLIC_POLYGON_PLATFORM_FEE || '0.001');
   const deploymentFee = POLYGON_CONFIG.estimatedGasCosts.tokenDeployment;
   const liquidityAmount = params.liquidityMaticAmount || 0;
   const poolCreationFee = params.createLiquidity ? POLYGON_CONFIG.estimatedGasCosts.liquidityCreation : 0;

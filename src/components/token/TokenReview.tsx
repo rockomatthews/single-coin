@@ -26,7 +26,7 @@ interface TokenReviewProps {
     retentionPercentage: number;
     createPool: boolean;
     liquiditySolAmount: number;
-    blockchain?: 'solana' | 'hyperliquid';
+    blockchain?: 'solana' | 'hyperliquid' | 'polygon';
     revokeMintAuthority?: boolean;
     revokeFreezeAuthority?: boolean;
     revokeUpdateAuthority?: boolean;

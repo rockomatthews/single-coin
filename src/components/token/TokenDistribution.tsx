@@ -15,7 +15,7 @@ interface TokenDistributionProps {
   tokenParams: {
     supply: number;
     retentionPercentage: number;
-    blockchain?: 'solana' | 'hyperliquid';
+    blockchain?: 'solana' | 'hyperliquid' | 'polygon';
   };
   updateTokenParams: (params: Partial<TokenDistributionProps['tokenParams']>) => void;
   calculateFee: () => string;

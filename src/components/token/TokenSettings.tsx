@@ -32,7 +32,7 @@ interface TokenSettingsProps {
     symbol: string;
     description: string;
     image: string;
-    blockchain?: 'solana' | 'hyperliquid';
+    blockchain?: 'solana' | 'hyperliquid' | 'polygon';
     decimals: number;
     supply: number;
     website?: string;
