@@ -77,6 +77,32 @@ export default function MultiChainWalletButton() {
     setShowNetworkModal(false);
     
     try {
+      // First, disconnect all existing connections to avoid conflicts
+      if (solanaWallet.connected) {
+        solanaWallet.disconnect();
+      }
+      if (hyperLiquidWallet.connected) {
+        hyperLiquidWallet.disconnect();
+      }
+      if (polygonWallet.connected) {
+        polygonWallet.disconnect();
+      }
+      if (baseWallet.connected) {
+        baseWallet.disconnect();
+      }
+      if (rskWallet.connected) {
+        rskWallet.disconnect();
+      }
+      if (arbitrumWallet.isConnected) {
+        arbitrumWallet.disconnect();
+      }
+      if (tronWallet.isConnected) {
+        tronWallet.disconnect();
+      }
+
+      // Small delay to ensure disconnection is complete
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
       if (network === 'solana') {
         // Solana connection is handled by WalletMultiButton
         // We'll trigger it programmatically
