@@ -1,6 +1,8 @@
 import { TokenParams } from './solana';
 import { HyperLiquidTokenParams } from './hyperliquid';
 import { PolygonTokenParams } from './polygon';
+import { BaseTokenParams } from './base';
+import { RskTokenParams } from './rsk';
 
 // Unified token parameters that support both chains
 export interface UnifiedTokenParams {
@@ -15,7 +17,7 @@ export interface UnifiedTokenParams {
   discord?: string;
   
   // Chain selection
-  blockchain: 'solana' | 'hyperliquid' | 'polygon';
+  blockchain: 'solana' | 'hyperliquid' | 'polygon' | 'base' | 'rsk';
   
   // Distribution settings
   retentionPercentage?: number;
@@ -28,6 +30,8 @@ export interface UnifiedTokenParams {
   solana?: Partial<TokenParams>;
   hyperliquid?: Partial<HyperLiquidTokenParams>;
   polygon?: Partial<PolygonTokenParams>;
+  base?: Partial<BaseTokenParams>;
+  rsk?: Partial<RskTokenParams>;
 }
 
 // Result type for token creation
@@ -37,7 +41,7 @@ export interface TokenCreationResult {
   poolTxId?: string | null;
   txHash?: string;
   error?: string;
-  blockchain: 'solana' | 'hyperliquid' | 'polygon';
+  blockchain: 'solana' | 'hyperliquid' | 'polygon' | 'base' | 'rsk';
   explorer_url?: string;
 }
 
@@ -55,7 +59,7 @@ export interface CostBreakdown {
 // Abstract blockchain provider interface
 export interface BlockchainProvider {
   name: string;
-  blockchain: 'solana' | 'hyperliquid' | 'polygon';
+  blockchain: 'solana' | 'hyperliquid' | 'polygon' | 'base' | 'rsk';
   
   // Core operations
   createToken(params: UnifiedTokenParams, signer?: any): Promise<TokenCreationResult>;
@@ -364,13 +368,51 @@ class PolygonProvider implements BlockchainProvider {
         walletSigner,
         polygonParams,
         (step: number, status: string) => {
-          console.log(`Step ${step}/4: ${status}`);
+          console.log(`Step ${step}/5: ${status}`);
         }
       );
+      
+      if (!result.success || !result.tokenAddress) {
+        return {
+          success: result.success,
+          tokenAddress: result.tokenAddress,
+          txHash: result.txHash,
+          error: result.error,
+          blockchain: 'polygon',
+          explorer_url: result.tokenAddress ? `https://polygonscan.com/token/${result.tokenAddress}` : undefined,
+        };
+      }
+      
+      // Create liquidity pool if requested
+      let poolTxId: string | undefined;
+      if (polygonParams.createLiquidity) {
+        try {
+          const { createPolygonLiquidityPool } = await import('./polygon');
+          
+          const poolResult = await createPolygonLiquidityPool(
+            walletSigner,
+            result.tokenAddress,
+            polygonParams,
+            (step: number, status: string) => {
+              console.log(`Pool Step ${step}/7: ${status}`);
+            }
+          );
+          
+          if (poolResult.success) {
+            poolTxId = poolResult.txHash;
+            console.log(`✅ Polygon liquidity pool created: ${poolTxId}`);
+          } else {
+            console.warn(`⚠️ Polygon liquidity pool creation failed: ${poolResult.error}`);
+          }
+        } catch (poolError) {
+          console.warn(`⚠️ Polygon liquidity pool creation error:`, poolError);
+        }
+      }
       
       return {
         success: result.success,
         tokenAddress: result.tokenAddress,
+        poolTxId,
         txHash: result.txHash,
         error: result.error,
         blockchain: 'polygon',
@@ -443,8 +485,350 @@ class PolygonProvider implements BlockchainProvider {
   }
 }
 
+// BASE Provider Implementation  
+class BaseProvider implements BlockchainProvider {
+  name = 'BASE';
+  blockchain = 'base' as const;
+  
+  async createToken(params: UnifiedTokenParams, signer?: any): Promise<TokenCreationResult> {
+    try {
+      const { 
+        deployBaseToken, 
+        uploadBaseMetadata,
+        connectBaseWallet 
+      } = await import('./base');
+      
+      // Convert unified params to BASE-specific params
+      const baseParams: BaseTokenParams = {
+        name: params.name,
+        symbol: params.symbol,
+        description: params.description,
+        image: params.image,
+        blockchain: 'base',
+        decimals: params.base?.decimals || 18,
+        totalSupply: params.base?.totalSupply || 1000000,
+        website: params.website,
+        twitter: params.twitter,
+        telegram: params.telegram,
+        discord: params.discord,
+        retentionPercentage: params.retentionPercentage,
+        retainedAmount: params.retainedAmount,
+        liquidityAmount: params.liquidityAmount,
+        createLiquidity: params.base?.createLiquidity || false,
+        liquidityEthAmount: params.base?.liquidityEthAmount || 0,
+        dexChoice: params.base?.dexChoice || 'uniswap-v3',
+        ...params.base,
+      };
+      
+      // Use provided signer or connect to MetaMask
+      let walletSigner = signer;
+      if (!walletSigner) {
+        const walletConnection = await connectBaseWallet();
+        if (!walletConnection.signer) {
+          throw new Error(walletConnection.error || 'Failed to connect MetaMask wallet');
+        }
+        walletSigner = walletConnection.signer;
+      }
+      
+      // Upload metadata first
+      const metadataUri = await uploadBaseMetadata(baseParams);
+      console.log(`✅ BASE metadata uploaded: ${metadataUri}`);
+      
+      // Deploy token contract
+      const result = await deployBaseToken(
+        walletSigner,
+        baseParams,
+        (step: number, status: string) => {
+          console.log(`Step ${step}/5: ${status}`);
+        }
+      );
+      
+      if (!result.success || !result.tokenAddress) {
+        return {
+          success: result.success,
+          tokenAddress: result.tokenAddress,
+          txHash: result.txHash,
+          error: result.error,
+          blockchain: 'base',
+          explorer_url: result.tokenAddress ? `https://basescan.org/token/${result.tokenAddress}` : undefined,
+        };
+      }
+      
+      // Create liquidity pool if requested
+      let poolTxId: string | undefined;
+      if (baseParams.createLiquidity) {
+        try {
+          const { createBaseLiquidityPool } = await import('./base');
+          
+          const poolResult = await createBaseLiquidityPool(
+            walletSigner,
+            result.tokenAddress,
+            baseParams,
+            (step: number, status: string) => {
+              console.log(`Pool Step ${step}/7: ${status}`);
+            }
+          );
+          
+          if (poolResult.success) {
+            poolTxId = poolResult.txHash;
+            console.log(`✅ BASE liquidity pool created: ${poolTxId}`);
+          } else {
+            console.warn(`⚠️ BASE liquidity pool creation failed: ${poolResult.error}`);
+          }
+        } catch (poolError) {
+          console.warn(`⚠️ BASE liquidity pool creation error:`, poolError);
+        }
+      }
+      
+      return {
+        success: result.success,
+        tokenAddress: result.tokenAddress,
+        poolTxId,
+        txHash: result.txHash,
+        error: result.error,
+        blockchain: 'base',
+        explorer_url: result.tokenAddress ? `https://basescan.org/token/${result.tokenAddress}` : undefined,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+        blockchain: 'base',
+      };
+    }
+  }
+  
+  async uploadMetadata(params: UnifiedTokenParams): Promise<string> {
+    const { uploadBaseMetadata } = await import('./base');
+    
+    const baseParams: BaseTokenParams = {
+      name: params.name,
+      symbol: params.symbol,
+      description: params.description,
+      image: params.image,
+      blockchain: 'base',
+      decimals: params.base?.decimals || 18,
+      totalSupply: params.base?.totalSupply || 1000000,
+      website: params.website,
+      twitter: params.twitter,
+      telegram: params.telegram,
+      discord: params.discord,
+      ...params.base,
+    };
+    
+    return uploadBaseMetadata(baseParams);
+  }
+  
+  calculateCosts(params: UnifiedTokenParams): CostBreakdown {
+    const { getBaseCostBreakdown } = require('./base');
+    
+    const baseParams: BaseTokenParams = {
+      name: params.name,
+      symbol: params.symbol,
+      description: params.description,
+      image: params.image,
+      blockchain: 'base',
+      decimals: params.base?.decimals || 18,
+      totalSupply: params.base?.totalSupply || 1000000,
+      createLiquidity: params.base?.createLiquidity || false,
+      liquidityEthAmount: params.base?.liquidityEthAmount || 0,
+      ...params.base,
+    };
+    
+    return getBaseCostBreakdown(baseParams);
+  }
+  
+  validateParams(params: UnifiedTokenParams): { isValid: boolean; errors: string[] } {
+    const { validateBaseParams } = require('./base');
+    
+    const baseParams: BaseTokenParams = {
+      name: params.name,
+      symbol: params.symbol,
+      description: params.description,
+      image: params.image,
+      blockchain: 'base',
+      decimals: params.base?.decimals || 18,
+      totalSupply: params.base?.totalSupply || 1000000,
+      ...params.base,
+    };
+    
+    return validateBaseParams(baseParams);
+  }
+}
+
+// RSK Provider Implementation (displayed as Bitcoin in UI)
+class RskProvider implements BlockchainProvider {
+  name = 'Bitcoin';
+  blockchain = 'rsk' as const;
+  
+  async createToken(params: UnifiedTokenParams, signer?: any): Promise<TokenCreationResult> {
+    try {
+      const { 
+        deployRskToken, 
+        uploadRskMetadata,
+        connectRskWallet 
+      } = await import('./rsk');
+      
+      // Convert unified params to RSK-specific params
+      const rskParams: RskTokenParams = {
+        name: params.name,
+        symbol: params.symbol,
+        description: params.description,
+        image: params.image,
+        blockchain: 'rsk',
+        decimals: params.rsk?.decimals || 18,
+        totalSupply: params.rsk?.totalSupply || 1000000,
+        website: params.website,
+        twitter: params.twitter,
+        telegram: params.telegram,
+        discord: params.discord,
+        retentionPercentage: params.retentionPercentage,
+        retainedAmount: params.retainedAmount,
+        liquidityAmount: params.liquidityAmount,
+        createLiquidity: params.rsk?.createLiquidity || false,
+        liquidityRbtcAmount: params.rsk?.liquidityRbtcAmount || 0,
+        dexChoice: params.rsk?.dexChoice || 'sovryn',
+        ...params.rsk,
+      };
+      
+      // Use provided signer or connect to MetaMask
+      let walletSigner = signer;
+      if (!walletSigner) {
+        const walletConnection = await connectRskWallet();
+        if (!walletConnection.signer) {
+          throw new Error(walletConnection.error || 'Failed to connect MetaMask wallet');
+        }
+        walletSigner = walletConnection.signer;
+      }
+      
+      // Upload metadata first
+      const metadataUri = await uploadRskMetadata(rskParams);
+      console.log(`✅ RSK metadata uploaded: ${metadataUri}`);
+      
+      // Deploy token contract
+      const result = await deployRskToken(
+        walletSigner,
+        rskParams,
+        (step: number, status: string) => {
+          console.log(`Step ${step}/5: ${status}`);
+        }
+      );
+      
+      if (!result.success || !result.tokenAddress) {
+        return {
+          success: result.success,
+          tokenAddress: result.tokenAddress,
+          txHash: result.txHash,
+          error: result.error,
+          blockchain: 'rsk',
+          explorer_url: result.tokenAddress ? `https://explorer.rsk.co/address/${result.tokenAddress}` : undefined,
+        };
+      }
+      
+      // Create liquidity pool if requested
+      let poolTxId: string | undefined;
+      if (rskParams.createLiquidity) {
+        try {
+          const { createRskLiquidityPool } = await import('./rsk');
+          
+          const poolResult = await createRskLiquidityPool(
+            walletSigner,
+            result.tokenAddress,
+            rskParams,
+            (step: number, status: string) => {
+              console.log(`Pool Step ${step}/5: ${status}`);
+            }
+          );
+          
+          if (poolResult.success) {
+            poolTxId = poolResult.txHash;
+            console.log(`✅ RSK liquidity pool created: ${poolTxId}`);
+          } else {
+            console.warn(`⚠️ RSK liquidity pool creation failed: ${poolResult.error}`);
+          }
+        } catch (poolError) {
+          console.warn(`⚠️ RSK liquidity pool creation error:`, poolError);
+        }
+      }
+      
+      return {
+        success: result.success,
+        tokenAddress: result.tokenAddress,
+        poolTxId,
+        txHash: result.txHash,
+        error: result.error,
+        blockchain: 'rsk',
+        explorer_url: result.tokenAddress ? `https://explorer.rsk.co/address/${result.tokenAddress}` : undefined,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+        blockchain: 'rsk',
+      };
+    }
+  }
+  
+  async uploadMetadata(params: UnifiedTokenParams): Promise<string> {
+    const { uploadRskMetadata } = await import('./rsk');
+    
+    const rskParams: RskTokenParams = {
+      name: params.name,
+      symbol: params.symbol,
+      description: params.description,
+      image: params.image,
+      blockchain: 'rsk',
+      decimals: params.rsk?.decimals || 18,
+      totalSupply: params.rsk?.totalSupply || 1000000,
+      website: params.website,
+      twitter: params.twitter,
+      telegram: params.telegram,
+      discord: params.discord,
+      ...params.rsk,
+    };
+    
+    return uploadRskMetadata(rskParams);
+  }
+  
+  calculateCosts(params: UnifiedTokenParams): CostBreakdown {
+    const { getRskCostBreakdown } = require('./rsk');
+    
+    const rskParams: RskTokenParams = {
+      name: params.name,
+      symbol: params.symbol,
+      description: params.description,
+      image: params.image,
+      blockchain: 'rsk',
+      decimals: params.rsk?.decimals || 18,
+      totalSupply: params.rsk?.totalSupply || 1000000,
+      createLiquidity: params.rsk?.createLiquidity || false,
+      liquidityRbtcAmount: params.rsk?.liquidityRbtcAmount || 0,
+      ...params.rsk,
+    };
+    
+    return getRskCostBreakdown(rskParams);
+  }
+  
+  validateParams(params: UnifiedTokenParams): { isValid: boolean; errors: string[] } {
+    const { validateRskParams } = require('./rsk');
+    
+    const rskParams: RskTokenParams = {
+      name: params.name,
+      symbol: params.symbol,
+      description: params.description,
+      image: params.image,
+      blockchain: 'rsk',
+      decimals: params.rsk?.decimals || 18,
+      totalSupply: params.rsk?.totalSupply || 1000000,
+      ...params.rsk,
+    };
+    
+    return validateRskParams(rskParams);
+  }
+}
+
 // Factory function to get the appropriate blockchain provider
-export function getBlockchainProvider(blockchain: 'solana' | 'hyperliquid' | 'polygon'): BlockchainProvider {
+export function getBlockchainProvider(blockchain: 'solana' | 'hyperliquid' | 'polygon' | 'base' | 'rsk'): BlockchainProvider {
   switch (blockchain) {
     case 'solana':
       return new SolanaProvider();
@@ -452,13 +836,17 @@ export function getBlockchainProvider(blockchain: 'solana' | 'hyperliquid' | 'po
       return new HyperLiquidProvider();
     case 'polygon':
       return new PolygonProvider();
+    case 'base':
+      return new BaseProvider();
+    case 'rsk':
+      return new RskProvider();
     default:
       throw new Error(`Unsupported blockchain: ${blockchain}`);
   }
 }
 
 // Helper function to get all supported blockchains
-export function getSupportedBlockchains(): Array<{ id: 'solana' | 'hyperliquid' | 'polygon'; name: string; description: string; icon: string }> {
+export function getSupportedBlockchains(): Array<{ id: 'solana' | 'hyperliquid' | 'polygon' | 'base' | 'rsk'; name: string; description: string; icon: string }> {
   return [
     {
       id: 'solana',
@@ -467,16 +855,28 @@ export function getSupportedBlockchains(): Array<{ id: 'solana' | 'hyperliquid' 
       icon: '◎',
     },
     {
-      id: 'hyperliquid',
-      name: 'HYPER LIQUID',
-      description: 'Bitcoin L2 with native order book and HYPE token',
-      icon: '₿',
-    },
-    {
       id: 'polygon',
       name: 'Polygon',
       description: 'Ethereum-compatible with ultra-low fees (~$0.01)',
       icon: '🔷',
+    },
+    {
+      id: 'base',
+      name: 'BASE',
+      description: 'Coinbase L2 with Uniswap & Aerodrome DEXs',
+      icon: '🔵',
+    },
+    {
+      id: 'rsk',
+      name: 'Bitcoin',
+      description: 'RSK sidechain with ERC-20 tokens & Sovryn DEX',
+      icon: '₿',
+    },
+    {
+      id: 'hyperliquid',
+      name: 'HYPER LIQUID',
+      description: 'Bitcoin L2 with native order book and HYPE token',
+      icon: 'HL',
     },
   ];
 }

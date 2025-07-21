@@ -51,13 +51,15 @@ export default function MultiChainTokenSettings({
     }
   };
 
-  const handleChainChange = (blockchain: 'solana' | 'hyperliquid' | 'polygon') => {
+  const handleChainChange = (blockchain: 'solana' | 'hyperliquid' | 'polygon' | 'base' | 'rsk') => {
     // Reset chain-specific params when switching
     updateTokenParams({
       blockchain,
       solana: blockchain === 'solana' ? (tokenParams.solana || {}) : undefined,
       hyperliquid: blockchain === 'hyperliquid' ? (tokenParams.hyperliquid || {}) : undefined,
       polygon: blockchain === 'polygon' ? (tokenParams.polygon || {}) : undefined,
+      base: blockchain === 'base' ? (tokenParams.base || {}) : undefined,
+      rsk: blockchain === 'rsk' ? (tokenParams.rsk || {}) : undefined,
     });
   };
 
@@ -361,7 +363,7 @@ export default function MultiChainTokenSettings({
                     })}
                   />
                 }
-                label="Create Liquidity Pool (Coming Soon)"
+                label="Create Liquidity Pool"
               />
             </Grid>
             
@@ -411,6 +413,230 @@ export default function MultiChainTokenSettings({
                 <Typography variant="body2">
                   <strong>Polygon Benefits:</strong> Ultra-low fees (~$0.01), Ethereum compatibility, and instant finality.<br/>
                   <strong>ERC-20 Standard:</strong> Compatible with all major DEXs and wallets on Polygon.
+                </Typography>
+              </Alert>
+            </Grid>
+          </Grid>
+        </Paper>
+      );
+    } else if (tokenParams.blockchain === 'base') {
+      return (
+        <Paper sx={{ p: 3, mt: 3, bgcolor: 'background.default' }}>
+          <Typography variant="h6" gutterBottom>
+            🔵 BASE Settings
+          </Typography>
+          
+          <Grid container spacing={3}>
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                label="Total Supply"
+                type="number"
+                value={tokenParams.base?.totalSupply || 1000000}
+                onChange={(e) => updateTokenParams({
+                  base: {
+                    ...tokenParams.base,
+                    totalSupply: parseInt(e.target.value) || 1000000,
+                  }
+                })}
+                helperText="Total number of tokens to create"
+              />
+            </Grid>
+            
+            <Grid item xs={12} md={6}>
+              <FormControl fullWidth>
+                <InputLabel>Decimals</InputLabel>
+                <Select
+                  value={tokenParams.base?.decimals || 18}
+                  onChange={(e) => updateTokenParams({
+                    base: {
+                      ...tokenParams.base,
+                      decimals: parseInt(e.target.value as string),
+                    }
+                  })}
+                  label="Decimals"
+                >
+                  <MenuItem value={6}>6 (USDC standard)</MenuItem>
+                  <MenuItem value={18}>18 (ETH standard)</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+            
+            <Grid item xs={12}>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={tokenParams.base?.createLiquidity || false}
+                    onChange={(e) => updateTokenParams({
+                      base: {
+                        ...tokenParams.base,
+                        createLiquidity: e.target.checked,
+                      }
+                    })}
+                  />
+                }
+                label="Create Liquidity Pool"
+              />
+            </Grid>
+            
+            {tokenParams.base?.createLiquidity && (
+              <>
+                <Grid item xs={12} md={6}>
+                  <TextField
+                    fullWidth
+                    label="Liquidity ETH Amount"
+                    type="number"
+                    value={tokenParams.base?.liquidityEthAmount || 0}
+                    onChange={(e) => updateTokenParams({
+                      base: {
+                        ...tokenParams.base,
+                        liquidityEthAmount: parseFloat(e.target.value) || 0,
+                      }
+                    })}
+                    helperText="ETH to add to liquidity pool"
+                    inputProps={{ min: 0, step: 0.01 }}
+                  />
+                </Grid>
+                
+                <Grid item xs={12} md={6}>
+                  <FormControl fullWidth>
+                    <InputLabel>DEX Choice</InputLabel>
+                    <Select
+                      value={tokenParams.base?.dexChoice || 'uniswap-v3'}
+                      onChange={(e) => updateTokenParams({
+                        base: {
+                          ...tokenParams.base,
+                          dexChoice: e.target.value as 'uniswap-v3' | 'aerodrome' | 'sushiswap',
+                        }
+                      })}
+                      label="DEX Choice"
+                    >
+                      <MenuItem value="uniswap-v3">Uniswap V3</MenuItem>
+                      <MenuItem value="aerodrome">Aerodrome (Native BASE DEX)</MenuItem>
+                      <MenuItem value="sushiswap">SushiSwap</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Grid>
+              </>
+            )}
+            
+            <Grid item xs={12}>
+              <Alert severity="info">
+                <Typography variant="body2">
+                  <strong>BASE Benefits:</strong> Coinbase backing, low fees (~$3-5), and growing ecosystem.<br/>
+                  <strong>ERC-20 Standard:</strong> Compatible with Uniswap V3, Aerodrome, and other BASE DEXs.
+                </Typography>
+              </Alert>
+            </Grid>
+          </Grid>
+        </Paper>
+      );
+    } else if (tokenParams.blockchain === 'rsk') {
+      return (
+        <Paper sx={{ p: 3, mt: 3, bgcolor: 'background.default' }}>
+          <Typography variant="h6" gutterBottom>
+            ₿ Bitcoin Settings
+          </Typography>
+          
+          <Grid container spacing={3}>
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                label="Total Supply"
+                type="number"
+                value={tokenParams.rsk?.totalSupply || 1000000}
+                onChange={(e) => updateTokenParams({
+                  rsk: {
+                    ...tokenParams.rsk,
+                    totalSupply: parseInt(e.target.value) || 1000000,
+                  }
+                })}
+                helperText="Total number of tokens to create"
+              />
+            </Grid>
+            
+            <Grid item xs={12} md={6}>
+              <FormControl fullWidth>
+                <InputLabel>Decimals</InputLabel>
+                <Select
+                  value={tokenParams.rsk?.decimals || 18}
+                  onChange={(e) => updateTokenParams({
+                    rsk: {
+                      ...tokenParams.rsk,
+                      decimals: parseInt(e.target.value as string),
+                    }
+                  })}
+                  label="Decimals"
+                >
+                  <MenuItem value={6}>6 (USDC standard)</MenuItem>
+                  <MenuItem value={18}>18 (RBTC standard)</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+            
+            <Grid item xs={12}>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={tokenParams.rsk?.createLiquidity || false}
+                    onChange={(e) => updateTokenParams({
+                      rsk: {
+                        ...tokenParams.rsk,
+                        createLiquidity: e.target.checked,
+                      }
+                    })}
+                  />
+                }
+                label="Create Liquidity Pool"
+              />
+            </Grid>
+            
+            {tokenParams.rsk?.createLiquidity && (
+              <>
+                <Grid item xs={12} md={6}>
+                  <TextField
+                    fullWidth
+                    label="Liquidity RBTC Amount"
+                    type="number"
+                    value={tokenParams.rsk?.liquidityRbtcAmount || 0}
+                    onChange={(e) => updateTokenParams({
+                      rsk: {
+                        ...tokenParams.rsk,
+                        liquidityRbtcAmount: parseFloat(e.target.value) || 0,
+                      }
+                    })}
+                    helperText="RBTC to add to liquidity pool"
+                    inputProps={{ min: 0, step: 0.0001 }}
+                  />
+                </Grid>
+                
+                <Grid item xs={12} md={6}>
+                  <FormControl fullWidth>
+                    <InputLabel>DEX Choice</InputLabel>
+                    <Select
+                      value={tokenParams.rsk?.dexChoice || 'sovryn'}
+                      onChange={(e) => updateTokenParams({
+                        rsk: {
+                          ...tokenParams.rsk,
+                          dexChoice: e.target.value as 'sovryn' | 'rskswap' | 'tropykus',
+                        }
+                      })}
+                      label="DEX Choice"
+                    >
+                      <MenuItem value="sovryn">Sovryn (Leading Bitcoin DEX)</MenuItem>
+                      <MenuItem value="rskswap">RSKSwap</MenuItem>
+                      <MenuItem value="tropykus">Tropykus</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Grid>
+              </>
+            )}
+            
+            <Grid item xs={12}>
+              <Alert severity="info">
+                <Typography variant="body2">
+                  <strong>Bitcoin Benefits:</strong> Secured by 60% of Bitcoin's hashpower, EVM compatible smart contracts.<br/>
+                  <strong>ERC-20 Standard:</strong> Compatible with Sovryn, RSKSwap, and other RSK DEXs. RBTC = Bitcoin 1:1.
                 </Typography>
               </Alert>
             </Grid>

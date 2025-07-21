@@ -17,8 +17,8 @@ import {
 import { getSupportedBlockchains } from '@/utils/blockchain-factory';
 
 interface ChainSelectorProps {
-  selectedChain: 'solana' | 'hyperliquid' | 'polygon';
-  onChainChange: (chain: 'solana' | 'hyperliquid' | 'polygon') => void;
+  selectedChain: 'solana' | 'hyperliquid' | 'polygon' | 'base' | 'rsk';
+  onChainChange: (chain: 'solana' | 'hyperliquid' | 'polygon' | 'base' | 'rsk') => void;
   showCosts?: boolean;
 }
 
@@ -30,7 +30,7 @@ export default function ChainSelector({
   const blockchains = getSupportedBlockchains();
 
   const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    onChainChange(event.target.value as 'solana' | 'hyperliquid' | 'polygon');
+    onChainChange(event.target.value as 'solana' | 'hyperliquid' | 'polygon' | 'base' | 'rsk');
   };
 
   const getChainFeatures = (chainId: string) => {
@@ -66,6 +66,28 @@ export default function ChainSelector({
             baseFee: '0.001-0.01 MATIC',
             liquidityFee: '+ liquidity amount',
             currency: 'MATIC'
+          }
+        };
+      case 'base':
+        return {
+          features: ['ERC-20 Tokens', 'Uniswap V3', 'Aerodrome', 'Coinbase L2'],
+          pros: ['Low fees (~$3-5)', 'Coinbase backing', 'Growing ecosystem'],
+          cons: ['Newer network', 'Higher fees than Polygon'],
+          costs: {
+            baseFee: '0.001-0.002 ETH',
+            liquidityFee: '+ liquidity amount',
+            currency: 'ETH'
+          }
+        };
+      case 'rsk':
+        return {
+          features: ['ERC-20 Tokens', 'Sovryn DEX', 'RSKSwap', 'Bitcoin Security'],
+          pros: ['Bitcoin-secured (~60% hashpower)', 'EVM compatible', 'Smart contracts on Bitcoin'],
+          cons: ['Smaller ecosystem', 'Bridge dependency'],
+          costs: {
+            baseFee: '0.0001-0.0002 RBTC',
+            liquidityFee: '+ liquidity amount',
+            currency: 'RBTC'
           }
         };
       default:

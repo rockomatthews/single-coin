@@ -18,20 +18,24 @@ import {
 import { useWallet } from '@solana/wallet-adapter-react';
 import { useHyperLiquid } from './HyperLiquidProvider';
 import { usePolygon } from './PolygonProvider';
+import { useBase } from './BaseProvider';
+import { useRsk } from './RskProvider';
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
 import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
 import LogoutIcon from '@mui/icons-material/Logout';
 
 export default function MultiChainWalletButton() {
   const [showNetworkModal, setShowNetworkModal] = useState(false);
-  const [selectedNetwork, setSelectedNetwork] = useState<'solana' | 'hyperliquid' | 'polygon' | null>(null);
+  const [selectedNetwork, setSelectedNetwork] = useState<'solana' | 'hyperliquid' | 'polygon' | 'base' | 'rsk' | null>(null);
   
   const solanaWallet = useWallet();
   const hyperLiquidWallet = useHyperLiquid();
   const polygonWallet = usePolygon();
+  const baseWallet = useBase();
+  const rskWallet = useRsk();
 
-  const isConnected = solanaWallet.connected || hyperLiquidWallet.connected || polygonWallet.connected;
-  const connectedNetwork = solanaWallet.connected ? 'solana' : hyperLiquidWallet.connected ? 'hyperliquid' : polygonWallet.connected ? 'polygon' : null;
+  const isConnected = solanaWallet.connected || hyperLiquidWallet.connected || polygonWallet.connected || baseWallet.connected || rskWallet.connected;
+  const connectedNetwork = solanaWallet.connected ? 'solana' : hyperLiquidWallet.connected ? 'hyperliquid' : polygonWallet.connected ? 'polygon' : baseWallet.connected ? 'base' : rskWallet.connected ? 'rsk' : null;
 
   const handleConnectClick = () => {
     if (isConnected) {
@@ -45,13 +49,19 @@ export default function MultiChainWalletButton() {
       if (polygonWallet.connected) {
         polygonWallet.disconnect();
       }
+      if (baseWallet.connected) {
+        baseWallet.disconnect();
+      }
+      if (rskWallet.connected) {
+        rskWallet.disconnect();
+      }
     } else {
       // If not connected, show network selection
       setShowNetworkModal(true);
     }
   };
 
-  const handleNetworkSelect = async (network: 'solana' | 'hyperliquid' | 'polygon') => {
+  const handleNetworkSelect = async (network: 'solana' | 'hyperliquid' | 'polygon' | 'base' | 'rsk') => {
     setSelectedNetwork(network);
     setShowNetworkModal(false);
     
@@ -69,6 +79,12 @@ export default function MultiChainWalletButton() {
       } else if (network === 'polygon') {
         // Connect to Polygon
         await polygonWallet.connect();
+      } else if (network === 'base') {
+        // Connect to BASE
+        await baseWallet.connect();
+      } else if (network === 'rsk') {
+        // Connect to Bitcoin (RSK)
+        await rskWallet.connect();
       }
     } catch (error) {
       console.error(`Failed to connect to ${network}:`, error);
@@ -98,6 +114,22 @@ export default function MultiChainWalletButton() {
         network: 'Polygon',
         address: `${polygonWallet.address.slice(0, 4)}...${polygonWallet.address.slice(-4)}`,
         color: '#8247E5'
+      };
+    }
+    
+    if (baseWallet.connected && baseWallet.address) {
+      return {
+        network: 'BASE',
+        address: `${baseWallet.address.slice(0, 4)}...${baseWallet.address.slice(-4)}`,
+        color: '#0052FF'
+      };
+    }
+    
+    if (rskWallet.connected && rskWallet.address) {
+      return {
+        network: 'Bitcoin',
+        address: `${rskWallet.address.slice(0, 4)}...${rskWallet.address.slice(-4)}`,
+        color: '#F7931A'
       };
     }
     
@@ -253,6 +285,76 @@ export default function MultiChainWalletButton() {
                   Connect with MetaMask
                   <br />
                   Ultra-low fees (~$0.01)
+                </Typography>
+              </CardContent>
+            </Card>
+
+            <Card 
+              sx={{ 
+                flex: 1, 
+                cursor: 'pointer',
+                border: '2px solid transparent',
+                '&:hover': { 
+                  border: '2px solid #0052FF',
+                  transform: 'translateY(-2px)',
+                  transition: 'all 0.2s'
+                }
+              }}
+              onClick={() => handleNetworkSelect('base')}
+            >
+              <CardContent sx={{ textAlign: 'center', p: 3 }}>
+                <Avatar sx={{ 
+                  width: 60, 
+                  height: 60, 
+                  bgcolor: '#0052FF', 
+                  mx: 'auto', 
+                  mb: 2,
+                  fontSize: '1.5rem'
+                }}>
+                  🔵
+                </Avatar>
+                <Typography variant="h6" gutterBottom>
+                  BASE
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Connect with MetaMask
+                  <br />
+                  Coinbase L2 (~$3-5 fees)
+                </Typography>
+              </CardContent>
+            </Card>
+
+            <Card 
+              sx={{ 
+                flex: 1, 
+                cursor: 'pointer',
+                border: '2px solid transparent',
+                '&:hover': { 
+                  border: '2px solid #F7931A',
+                  transform: 'translateY(-2px)',
+                  transition: 'all 0.2s'
+                }
+              }}
+              onClick={() => handleNetworkSelect('rsk')}
+            >
+              <CardContent sx={{ textAlign: 'center', p: 3 }}>
+                <Avatar sx={{ 
+                  width: 60, 
+                  height: 60, 
+                  bgcolor: '#F7931A', 
+                  mx: 'auto', 
+                  mb: 2,
+                  fontSize: '1.5rem'
+                }}>
+                  ₿
+                </Avatar>
+                <Typography variant="h6" gutterBottom>
+                  Bitcoin
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Connect with MetaMask
+                  <br />
+                  RSK sidechain with Sovryn
                 </Typography>
               </CardContent>
             </Card>
