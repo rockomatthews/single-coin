@@ -46,8 +46,50 @@ export default function TokenReview({
   calculateTotalCost,
   walletInfo,
 }: TokenReviewProps) {
+  const getCurrency = () => {
+    switch (tokenParams.blockchain) {
+      case 'hyperliquid': return 'HYPE';
+      case 'polygon': return 'MATIC';
+      case 'base': return 'ETH';
+      case 'bitcoin': return 'BTC';
+      case 'arbitrum': return 'ETH';
+      case 'tron': return 'TRX';
+      case 'solana':
+      default: return 'SOL';
+    }
+  };
+  
+  const getDEXName = () => {
+    switch (tokenParams.blockchain) {
+      case 'solana': return 'Raydium';
+      case 'polygon': return 'Uniswap V3';
+      case 'base': return 'Aerodrome';
+      case 'arbitrum': return 'Camelot';
+      case 'tron': return 'JustSwap';
+      case 'bitcoin': return 'No DEX (BRC-20)';
+      case 'hyperliquid': return 'Native Orderbook';
+      default: return 'DEX';
+    }
+  };
+  
+  const getTokenStandard = () => {
+    switch (tokenParams.blockchain) {
+      case 'solana': return 'SPL Token';
+      case 'polygon': return 'ERC-20 (Polygon)';
+      case 'base': return 'ERC-20 (BASE)';
+      case 'arbitrum': return 'ERC-20 (Arbitrum)';
+      case 'bitcoin': return 'BRC-20 Inscription';
+      case 'tron': return 'TRC-20';
+      case 'hyperliquid': return 'HIP-1';
+      default: return 'Token';
+    }
+  };
+  
+  const currency = getCurrency();
+  const dexName = getDEXName();
+  const tokenStandard = getTokenStandard();
   const isHyperLiquid = tokenParams.blockchain === 'hyperliquid';
-  const currency = isHyperLiquid ? 'HYPE' : 'SOL';
+  const isBitcoin = tokenParams.blockchain === 'bitcoin';
   
   // Debug logging
   console.log('TokenReview - tokenParams.blockchain:', tokenParams.blockchain);
