@@ -119,15 +119,30 @@ export async function collectPolygonPlatformFee(
   try {
     const platformFee = parseFloat(process.env.NEXT_PUBLIC_POLYGON_PLATFORM_FEE || '0.001');
     const feeRecipient = process.env.NEXT_PUBLIC_POLYGON_FEE_RECIPIENT_ADDRESS;
+    const userAddress = await signer.getAddress();
     
     if (!feeRecipient || feeRecipient === '0xYourPolygonWalletAddress') {
       console.log('⚠️ No Polygon fee recipient configured, skipping fee collection');
       return { success: true };
     }
     
+    // Check if fee recipient is the same as user (avoid self-transfer)
+    if (feeRecipient.toLowerCase() === userAddress.toLowerCase()) {
+      console.log('⚠️ Fee recipient is same as user, skipping fee collection');
+      return { success: true };
+    }
+    
     console.log(`💳 Collecting ${platformFee} MATIC platform fee...`);
     
     const feeInWei = ethers.parseEther(platformFee.toString());
+    
+    // Check if user has sufficient balance
+    const balance = await signer.provider.getBalance(userAddress);
+    const requiredAmount = feeInWei + ethers.parseEther('0.01'); // Fee + gas buffer
+    
+    if (balance < requiredAmount) {
+      throw new Error(`Insufficient MATIC balance. Need at least ${ethers.formatEther(requiredAmount)} MATIC, but have ${ethers.formatEther(balance)} MATIC`);
+    }
     
     // Send MATIC to fee recipient
     const tx = await signer.sendTransaction({

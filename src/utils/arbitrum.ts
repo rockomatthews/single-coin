@@ -260,17 +260,30 @@ export async function deployArbitrumToken(params: UnifiedTokenParams): Promise<T
     const feeRecipient = process.env.NEXT_PUBLIC_ARBITRUM_FEE_RECIPIENT_ADDRESS;
     
     if (feeRecipient && platformFee > 0) {
-      console.log('💰 Collecting platform fee...');
-      try {
-        const feeTx = await signer.sendTransaction({
-          to: feeRecipient,
-          value: ethers.parseEther(platformFee.toString()),
-        });
-        await feeTx.wait();
-        console.log('✅ Platform fee collected:', feeTx.hash);
-      } catch (feeError) {
-        console.warn('⚠️ Platform fee collection failed:', feeError);
-        // Don't fail deployment for fee collection issues
+      // Check if fee recipient is the same as user (avoid self-transfer)
+      if (feeRecipient.toLowerCase() === userAddress.toLowerCase()) {
+        console.log('⚠️ Fee recipient is same as user, skipping fee collection');
+      } else {
+        console.log('💰 Collecting platform fee...');
+        try {
+          // Check if user has sufficient balance
+          const balance = await signer.provider.getBalance(userAddress);
+          const requiredAmount = ethers.parseEther(platformFee.toString()) + ethers.parseEther('0.005'); // Fee + gas buffer
+          
+          if (balance < requiredAmount) {
+            console.warn(`⚠️ Insufficient ETH balance for platform fee. Need ${ethers.formatEther(requiredAmount)} ETH, have ${ethers.formatEther(balance)} ETH`);
+          } else {
+            const feeTx = await signer.sendTransaction({
+              to: feeRecipient,
+              value: ethers.parseEther(platformFee.toString()),
+            });
+            await feeTx.wait();
+            console.log('✅ Platform fee collected:', feeTx.hash);
+          }
+        } catch (feeError) {
+          console.warn('⚠️ Platform fee collection failed:', feeError);
+          // Don't fail deployment for fee collection issues
+        }
       }
     }
 

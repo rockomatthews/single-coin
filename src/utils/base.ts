@@ -119,15 +119,30 @@ export async function collectBasePlatformFee(
   try {
     const platformFee = parseFloat(process.env.NEXT_PUBLIC_BASE_PLATFORM_FEE || '0.001');
     const feeRecipient = process.env.NEXT_PUBLIC_BASE_FEE_RECIPIENT_ADDRESS;
+    const userAddress = await signer.getAddress();
     
     if (!feeRecipient || feeRecipient === '0xYourBaseWalletAddress') {
       console.log('⚠️ No BASE fee recipient configured, skipping fee collection');
       return { success: true };
     }
     
+    // Check if fee recipient is the same as user (avoid self-transfer)
+    if (feeRecipient.toLowerCase() === userAddress.toLowerCase()) {
+      console.log('⚠️ Fee recipient is same as user, skipping fee collection');
+      return { success: true };
+    }
+    
     console.log(`💳 Collecting ${platformFee} ETH platform fee on BASE...`);
     
     const feeInWei = ethers.parseEther(platformFee.toString());
+    
+    // Check if user has sufficient balance
+    const balance = await signer.provider.getBalance(userAddress);
+    const requiredAmount = feeInWei + ethers.parseEther('0.005'); // Fee + gas buffer
+    
+    if (balance < requiredAmount) {
+      throw new Error(`Insufficient ETH balance. Need at least ${ethers.formatEther(requiredAmount)} ETH, but have ${ethers.formatEther(balance)} ETH`);
+    }
     
     // Send ETH to fee recipient
     const tx = await signer.sendTransaction({
