@@ -51,7 +51,7 @@ export default function MultiChainTokenSettings({
     }
   };
 
-  const handleChainChange = (blockchain: 'solana' | 'hyperliquid' | 'polygon' | 'base' | 'rsk' | 'arbitrum' | 'tron') => {
+  const handleChainChange = (blockchain: 'solana' | 'hyperliquid' | 'polygon' | 'base' | 'bitcoin' | 'arbitrum' | 'tron') => {
     // Reset chain-specific params when switching
     updateTokenParams({
       blockchain,
@@ -59,7 +59,7 @@ export default function MultiChainTokenSettings({
       hyperliquid: blockchain === 'hyperliquid' ? (tokenParams.hyperliquid || {}) : undefined,
       polygon: blockchain === 'polygon' ? (tokenParams.polygon || {}) : undefined,
       base: blockchain === 'base' ? (tokenParams.base || {}) : undefined,
-      rsk: blockchain === 'rsk' ? (tokenParams.rsk || {}) : undefined,
+      bitcoin: blockchain === 'bitcoin' ? (tokenParams.bitcoin || {}) : undefined,
       arbitrum: blockchain === 'arbitrum' ? (tokenParams.arbitrum || {}) : undefined,
       tron: blockchain === 'tron' ? (tokenParams.tron || {}) : undefined,
     });
@@ -533,112 +533,88 @@ export default function MultiChainTokenSettings({
           </Grid>
         </Paper>
       );
-    } else if (tokenParams.blockchain === 'rsk') {
+    } else if (tokenParams.blockchain === 'bitcoin') {
       return (
         <Paper sx={{ p: 3, mt: 3, bgcolor: 'background.default' }}>
           <Typography variant="h6" gutterBottom>
-            ₿ Bitcoin Settings
+            ₿ Bitcoin BRC-20 Settings
           </Typography>
           
           <Grid container spacing={3}>
             <Grid item xs={12} md={6}>
               <TextField
                 fullWidth
-                label="Total Supply"
-                type="number"
-                value={tokenParams.rsk?.totalSupply || 1000000}
+                label="Ticker (4 characters)"
+                value={tokenParams.bitcoin?.tick || tokenParams.symbol.slice(0, 4).toUpperCase()}
                 onChange={(e) => updateTokenParams({
-                  rsk: {
-                    ...tokenParams.rsk,
-                    totalSupply: parseInt(e.target.value) || 1000000,
+                  bitcoin: {
+                    ...tokenParams.bitcoin,
+                    tick: e.target.value.toUpperCase().slice(0, 4),
                   }
                 })}
-                helperText="Total number of tokens to create"
+                helperText="Exactly 4 characters (like PEPE, ORDI)"
+                inputProps={{ maxLength: 4 }}
               />
             </Grid>
             
             <Grid item xs={12} md={6}>
-              <FormControl fullWidth>
-                <InputLabel>Decimals</InputLabel>
-                <Select
-                  value={tokenParams.rsk?.decimals || 18}
-                  onChange={(e) => updateTokenParams({
-                    rsk: {
-                      ...tokenParams.rsk,
-                      decimals: parseInt(e.target.value as string),
-                    }
-                  })}
-                  label="Decimals"
-                >
-                  <MenuItem value={6}>6 (USDC standard)</MenuItem>
-                  <MenuItem value={18}>18 (RBTC standard)</MenuItem>
-                </Select>
-              </FormControl>
-            </Grid>
-            
-            <Grid item xs={12}>
-              <FormControlLabel
-                control={
-                  <Switch
-                    checked={tokenParams.rsk?.createLiquidity || false}
-                    onChange={(e) => updateTokenParams({
-                      rsk: {
-                        ...tokenParams.rsk,
-                        createLiquidity: e.target.checked,
-                      }
-                    })}
-                  />
-                }
-                label="Create Liquidity Pool"
+              <TextField
+                fullWidth
+                label="Max Supply"
+                type="number"
+                value={tokenParams.bitcoin?.max || 21000000}
+                onChange={(e) => updateTokenParams({
+                  bitcoin: {
+                    ...tokenParams.bitcoin,
+                    max: parseInt(e.target.value) || 21000000,
+                  }
+                })}
+                helperText="Total maximum supply (like Bitcoin's 21M)"
               />
             </Grid>
             
-            {tokenParams.rsk?.createLiquidity && (
-              <>
-                <Grid item xs={12} md={6}>
-                  <TextField
-                    fullWidth
-                    label="Liquidity RBTC Amount"
-                    type="number"
-                    value={tokenParams.rsk?.liquidityRbtcAmount || 0}
-                    onChange={(e) => updateTokenParams({
-                      rsk: {
-                        ...tokenParams.rsk,
-                        liquidityRbtcAmount: parseFloat(e.target.value) || 0,
-                      }
-                    })}
-                    helperText="RBTC to add to liquidity pool"
-                    inputProps={{ min: 0, step: 0.0001 }}
-                  />
-                </Grid>
-                
-                <Grid item xs={12} md={6}>
-                  <FormControl fullWidth>
-                    <InputLabel>DEX Choice</InputLabel>
-                    <Select
-                      value={tokenParams.rsk?.dexChoice || 'sovryn'}
-                      onChange={(e) => updateTokenParams({
-                        rsk: {
-                          ...tokenParams.rsk,
-                          dexChoice: e.target.value as 'sovryn' | 'rskswap' | 'tropykus',
-                        }
-                      })}
-                      label="DEX Choice"
-                    >
-                      <MenuItem value="sovryn">Sovryn (Leading Bitcoin DEX)</MenuItem>
-                      <MenuItem value="rskswap">RSKSwap</MenuItem>
-                      <MenuItem value="tropykus">Tropykus</MenuItem>
-                    </Select>
-                  </FormControl>
-                </Grid>
-              </>
-            )}
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                label="Mint Limit"
+                type="number"
+                value={tokenParams.bitcoin?.lim || 1000}
+                onChange={(e) => updateTokenParams({
+                  bitcoin: {
+                    ...tokenParams.bitcoin,
+                    lim: parseInt(e.target.value) || 1000,
+                  }
+                })}
+                helperText="Maximum tokens per mint transaction"
+              />
+            </Grid>
+            
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                label="Decimals"
+                value="0"
+                disabled
+                helperText="BRC-20 tokens always have 0 decimals"
+              />
+            </Grid>
+            
+            <Grid item xs={12}>
+              <Alert severity="warning">
+                <Typography variant="body2">
+                  <strong>BRC-20 Notice:</strong> BRC-20 tokens are Bitcoin inscriptions, not smart contracts. 
+                  They don't have traditional liquidity pools. Trading happens through specialized marketplaces.
+                </Typography>
+              </Alert>
+            </Grid>
             
             <Grid item xs={12}>
               <Alert severity="info">
                 <Typography variant="body2">
-                  <strong>Bitcoin Benefits:</strong> Secured by 60% of Bitcoin's hashpower, EVM compatible smart contracts.<br/>
-                  <strong>ERC-20 Standard:</strong> Compatible with Sovryn, RSKSwap, and other RSK DEXs. RBTC = Bitcoin 1:1.
+                  <strong>Bitcoin Benefits:</strong> True Bitcoin network, immutable inscriptions, proven store of value.<br/>
+                  <strong>BRC-20 Standard:</strong> Compatible with Unisat, OKX, and other Bitcoin inscription wallets.
+                  <br/>
+                  <strong>Examples:</strong> ORDI (first BRC-20), PEPE, MEME tokens on Bitcoin.
                 </Typography>
               </Alert>
             </Grid>

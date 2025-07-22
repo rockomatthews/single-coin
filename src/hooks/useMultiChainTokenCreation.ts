@@ -121,8 +121,8 @@ export function useMultiChainTokenCreation() {
           ? (params.polygon?.decimals || 18)
           : params.blockchain === 'base'
           ? (params.base?.decimals || 18)
-          : params.blockchain === 'rsk'
-          ? (params.rsk?.decimals || 18)
+          : params.blockchain === 'bitcoin'
+          ? 0 // BRC-20 tokens have 0 decimals
           : params.blockchain === 'arbitrum'
           ? (params.arbitrum?.decimals || 18)
           : (params.tron?.decimals || 6), // TRON default 6 decimals
@@ -134,8 +134,8 @@ export function useMultiChainTokenCreation() {
           ? (params.polygon?.totalSupply || 1000000)
           : params.blockchain === 'base'
           ? (params.base?.totalSupply || 1000000)
-          : params.blockchain === 'rsk'
-          ? (params.rsk?.totalSupply || 1000000)
+          : params.blockchain === 'bitcoin'
+          ? (params.bitcoin?.max || 21000000) // BRC-20 max supply
           : params.blockchain === 'arbitrum'
           ? (params.arbitrum?.totalSupply || 1000000)
           : (params.tron?.totalSupply || 1000000), // TRON default 1M tokens
@@ -147,7 +147,7 @@ export function useMultiChainTokenCreation() {
           ? (process.env.NEXT_PUBLIC_SOLANA_NETWORK || 'devnet')
           : params.blockchain === 'hyperliquid'
           ? (process.env.NEXT_PUBLIC_HYPERLIQUID_NETWORK || 'testnet')
-          : 'mainnet', // Polygon, BASE, RSK, Arbitrum, and TRON mainnet
+          : 'mainnet', // Polygon, BASE, Bitcoin, Arbitrum, and TRON mainnet
         chainSpecificData: params.blockchain === 'solana' 
           ? params.solana 
           : params.blockchain === 'hyperliquid'
@@ -156,8 +156,8 @@ export function useMultiChainTokenCreation() {
           ? params.polygon
           : params.blockchain === 'base'
           ? params.base
-          : params.blockchain === 'rsk'
-          ? params.rsk
+          : params.blockchain === 'bitcoin'
+          ? params.bitcoin
           : params.blockchain === 'arbitrum'
           ? params.arbitrum
           : params.tron,
@@ -167,7 +167,9 @@ export function useMultiChainTokenCreation() {
           ? (params.hyperliquid?.tokenStandard || 'HIP-1')
           : params.blockchain === 'tron'
           ? (params.tron?.tokenStandard || 'TRC-20')
-          : 'ERC-20', // Polygon, BASE, RSK, and Arbitrum use ERC-20
+          : params.blockchain === 'bitcoin'
+          ? 'BRC-20'
+          : 'ERC-20', // Polygon, BASE, and Arbitrum use ERC-20
         poolTxId: result.poolTxId || undefined,
         explorerUrl: result.explorer_url,
       });

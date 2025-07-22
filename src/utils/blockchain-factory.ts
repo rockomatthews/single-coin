@@ -2,7 +2,7 @@ import { TokenParams } from './solana';
 import { HyperLiquidTokenParams } from './hyperliquid';
 import { PolygonTokenParams } from './polygon';
 import { BaseTokenParams } from './base';
-import { RskTokenParams } from './rsk';
+import { Brc20TokenParams } from './brc20';
 import { ArbitrumTokenParams } from './arbitrum-types';
 import { TronTokenParams } from './tron-types';
 
@@ -19,7 +19,7 @@ export interface UnifiedTokenParams {
   discord?: string;
   
   // Chain selection
-  blockchain: 'solana' | 'hyperliquid' | 'polygon' | 'base' | 'rsk' | 'arbitrum' | 'tron';
+  blockchain: 'solana' | 'hyperliquid' | 'polygon' | 'base' | 'bitcoin' | 'arbitrum' | 'tron';
   
   // Distribution settings
   retentionPercentage?: number;
@@ -33,7 +33,7 @@ export interface UnifiedTokenParams {
   hyperliquid?: Partial<HyperLiquidTokenParams>;
   polygon?: Partial<PolygonTokenParams>;
   base?: Partial<BaseTokenParams>;
-  rsk?: Partial<RskTokenParams>;
+  bitcoin?: Partial<Brc20TokenParams>;
   arbitrum?: Partial<ArbitrumTokenParams>;
   tron?: Partial<TronTokenParams>;
 }
@@ -45,7 +45,7 @@ export interface TokenCreationResult {
   poolTxId?: string | null;
   txHash?: string;
   error?: string;
-  blockchain: 'solana' | 'hyperliquid' | 'polygon' | 'base' | 'rsk' | 'arbitrum' | 'tron';
+  blockchain: 'solana' | 'hyperliquid' | 'polygon' | 'base' | 'bitcoin' | 'arbitrum' | 'tron';
   explorer_url?: string;
 }
 
@@ -63,7 +63,7 @@ export interface CostBreakdown {
 // Abstract blockchain provider interface
 export interface BlockchainProvider {
   name: string;
-  blockchain: 'solana' | 'hyperliquid' | 'polygon' | 'base' | 'rsk' | 'arbitrum' | 'tron';
+  blockchain: 'solana' | 'hyperliquid' | 'polygon' | 'base' | 'bitcoin' | 'arbitrum' | 'tron';
   
   // Core operations
   createToken(params: UnifiedTokenParams, signer?: any): Promise<TokenCreationResult>;
@@ -660,28 +660,28 @@ class BaseProvider implements BlockchainProvider {
   }
 }
 
-// RSK Provider Implementation (displayed as Bitcoin in UI)
-class RskProvider implements BlockchainProvider {
+// BRC-20 Provider Implementation (Bitcoin inscriptions like PEPE, ORDI)
+class Brc20Provider implements BlockchainProvider {
   name = 'Bitcoin';
-  blockchain = 'rsk' as const;
+  blockchain = 'bitcoin' as const;
   
   async createToken(params: UnifiedTokenParams, signer?: any): Promise<TokenCreationResult> {
     try {
       const { 
-        deployRskToken, 
-        uploadRskMetadata,
-        connectRskWallet 
-      } = await import('./rsk');
+        deployBrc20Token, 
+        uploadBrc20Metadata 
+      } = await import('./brc20');
       
-      // Convert unified params to RSK-specific params
-      const rskParams: RskTokenParams = {
+      // Convert unified params to BRC-20 specific params
+      const brc20Params: Brc20TokenParams = {
         name: params.name,
         symbol: params.symbol,
         description: params.description,
         image: params.image,
-        blockchain: 'rsk',
-        decimals: params.rsk?.decimals || 18,
-        totalSupply: params.rsk?.totalSupply || 1000000,
+        blockchain: 'bitcoin',
+        tick: params.bitcoin?.tick || params.symbol.slice(0, 4).toUpperCase(),
+        max: params.bitcoin?.max || 21000000,
+        lim: params.bitcoin?.lim || 1000,
         website: params.website,
         twitter: params.twitter,
         telegram: params.telegram,
@@ -689,145 +689,99 @@ class RskProvider implements BlockchainProvider {
         retentionPercentage: params.retentionPercentage,
         retainedAmount: params.retainedAmount,
         liquidityAmount: params.liquidityAmount,
-        createLiquidity: params.rsk?.createLiquidity || false,
-        liquidityRbtcAmount: params.rsk?.liquidityRbtcAmount || 0,
-        dexChoice: params.rsk?.dexChoice || 'sovryn',
-        ...params.rsk,
+        ...params.bitcoin,
       };
       
-      // Use provided signer or connect to MetaMask
-      let walletSigner = signer;
-      if (!walletSigner) {
-        const walletConnection = await connectRskWallet();
-        if (!walletConnection.signer) {
-          throw new Error(walletConnection.error || 'Failed to connect MetaMask wallet');
-        }
-        walletSigner = walletConnection.signer;
-      }
+      // Use provided wallet address (Bitcoin wallets work differently)
+      const walletAddress = signer || 'bc1qBitcoinWalletAddress';
       
       // Upload metadata first
-      const metadataUri = await uploadRskMetadata(rskParams);
-      console.log(`✅ RSK metadata uploaded: ${metadataUri}`);
+      const metadataUri = await uploadBrc20Metadata(brc20Params);
+      console.log(`✅ BRC-20 metadata uploaded: ${metadataUri}`);
       
-      // Deploy token contract
-      const result = await deployRskToken(
-        walletSigner,
-        rskParams,
+      // Deploy BRC-20 token through inscription
+      const result = await deployBrc20Token(
+        brc20Params,
+        walletAddress,
         (step: number, status: string) => {
           console.log(`Step ${step}/5: ${status}`);
         }
       );
       
-      if (!result.success || !result.tokenAddress) {
-        return {
-          success: result.success,
-          tokenAddress: result.tokenAddress,
-          txHash: result.txHash,
-          error: result.error,
-          blockchain: 'rsk',
-          explorer_url: result.tokenAddress ? `https://explorer.rsk.co/address/${result.tokenAddress}` : undefined,
-        };
-      }
-      
-      // Create liquidity pool if requested
-      let poolTxId: string | undefined;
-      if (rskParams.createLiquidity) {
-        try {
-          const { createRskLiquidityPool } = await import('./rsk');
-          
-          const poolResult = await createRskLiquidityPool(
-            walletSigner,
-            result.tokenAddress,
-            rskParams,
-            (step: number, status: string) => {
-              console.log(`Pool Step ${step}/5: ${status}`);
-            }
-          );
-          
-          if (poolResult.success) {
-            poolTxId = poolResult.txHash;
-            console.log(`✅ RSK liquidity pool created: ${poolTxId}`);
-          } else {
-            console.warn(`⚠️ RSK liquidity pool creation failed: ${poolResult.error}`);
-          }
-        } catch (poolError) {
-          console.warn(`⚠️ RSK liquidity pool creation error:`, poolError);
-        }
-      }
-      
       return {
         success: result.success,
-        tokenAddress: result.tokenAddress,
-        poolTxId,
-        txHash: result.txHash,
+        tokenAddress: result.tokenAddress || result.inscriptionId,
+        txHash: result.txId,
         error: result.error,
-        blockchain: 'rsk',
-        explorer_url: result.tokenAddress ? `https://explorer.rsk.co/address/${result.tokenAddress}` : undefined,
+        blockchain: 'bitcoin',
+        explorer_url: result.inscriptionId ? `https://ordinals.com/inscription/${result.inscriptionId}` : undefined,
+        poolTxId: undefined, // BRC-20 doesn't have traditional liquidity pools
       };
     } catch (error) {
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error',
-        blockchain: 'rsk',
+        blockchain: 'bitcoin',
       };
     }
   }
   
   async uploadMetadata(params: UnifiedTokenParams): Promise<string> {
-    const { uploadRskMetadata } = await import('./rsk');
+    const { uploadBrc20Metadata } = await import('./brc20');
     
-    const rskParams: RskTokenParams = {
+    const brc20Params: Brc20TokenParams = {
       name: params.name,
       symbol: params.symbol,
       description: params.description,
       image: params.image,
-      blockchain: 'rsk',
-      decimals: params.rsk?.decimals || 18,
-      totalSupply: params.rsk?.totalSupply || 1000000,
+      blockchain: 'bitcoin',
+      tick: params.bitcoin?.tick || params.symbol.slice(0, 4).toUpperCase(),
+      max: params.bitcoin?.max || 21000000,
+      lim: params.bitcoin?.lim || 1000,
       website: params.website,
       twitter: params.twitter,
       telegram: params.telegram,
       discord: params.discord,
-      ...params.rsk,
+      ...params.bitcoin,
     };
     
-    return uploadRskMetadata(rskParams);
+    return uploadBrc20Metadata(brc20Params);
   }
   
   calculateCosts(params: UnifiedTokenParams): CostBreakdown {
-    const { getRskCostBreakdown } = require('./rsk');
+    const { getBrc20CostBreakdown } = require('./brc20');
     
-    const rskParams: RskTokenParams = {
+    const brc20Params: Brc20TokenParams = {
       name: params.name,
       symbol: params.symbol,
       description: params.description,
       image: params.image,
-      blockchain: 'rsk',
-      decimals: params.rsk?.decimals || 18,
-      totalSupply: params.rsk?.totalSupply || 1000000,
-      createLiquidity: params.rsk?.createLiquidity || false,
-      liquidityRbtcAmount: params.rsk?.liquidityRbtcAmount || 0,
-      ...params.rsk,
+      blockchain: 'bitcoin',
+      tick: params.bitcoin?.tick || params.symbol.slice(0, 4).toUpperCase(),
+      max: params.bitcoin?.max || 21000000,
+      lim: params.bitcoin?.lim || 1000,
+      ...params.bitcoin,
     };
     
-    return getRskCostBreakdown(rskParams);
+    return getBrc20CostBreakdown(brc20Params);
   }
   
   validateParams(params: UnifiedTokenParams): { isValid: boolean; errors: string[] } {
-    const { validateRskParams } = require('./rsk');
+    const { validateBrc20Params } = require('./brc20');
     
-    const rskParams: RskTokenParams = {
+    const brc20Params: Brc20TokenParams = {
       name: params.name,
       symbol: params.symbol,
       description: params.description,
       image: params.image,
-      blockchain: 'rsk',
-      decimals: params.rsk?.decimals || 18,
-      totalSupply: params.rsk?.totalSupply || 1000000,
-      ...params.rsk,
+      blockchain: 'bitcoin',
+      tick: params.bitcoin?.tick || params.symbol.slice(0, 4).toUpperCase(),
+      max: params.bitcoin?.max || 21000000,
+      lim: params.bitcoin?.lim || 1000,
+      ...params.bitcoin,
     };
     
-    return validateRskParams(rskParams);
+    return validateBrc20Params(brc20Params);
   }
 }
 
@@ -958,7 +912,7 @@ class TronProvider implements BlockchainProvider {
 }
 
 // Factory function to get the appropriate blockchain provider
-export function getBlockchainProvider(blockchain: 'solana' | 'hyperliquid' | 'polygon' | 'base' | 'rsk' | 'arbitrum' | 'tron'): BlockchainProvider {
+export function getBlockchainProvider(blockchain: 'solana' | 'hyperliquid' | 'polygon' | 'base' | 'bitcoin' | 'arbitrum' | 'tron'): BlockchainProvider {
   switch (blockchain) {
     case 'solana':
       return new SolanaProvider();
@@ -968,8 +922,8 @@ export function getBlockchainProvider(blockchain: 'solana' | 'hyperliquid' | 'po
       return new PolygonProvider();
     case 'base':
       return new BaseProvider();
-    case 'rsk':
-      return new RskProvider();
+    case 'bitcoin':
+      return new Brc20Provider();
     case 'arbitrum':
       return new ArbitrumProvider();
     case 'tron':
@@ -980,7 +934,7 @@ export function getBlockchainProvider(blockchain: 'solana' | 'hyperliquid' | 'po
 }
 
 // Helper function to get all supported blockchains
-export function getSupportedBlockchains(): Array<{ id: 'solana' | 'hyperliquid' | 'polygon' | 'base' | 'rsk' | 'arbitrum' | 'tron'; name: string; description: string; icon: string }> {
+export function getSupportedBlockchains(): Array<{ id: 'solana' | 'hyperliquid' | 'polygon' | 'base' | 'bitcoin' | 'arbitrum' | 'tron'; name: string; description: string; icon: string }> {
   return [
     {
       id: 'solana',
@@ -1001,9 +955,9 @@ export function getSupportedBlockchains(): Array<{ id: 'solana' | 'hyperliquid' 
       icon: '🔵',
     },
     {
-      id: 'rsk',
+      id: 'bitcoin',
       name: 'Bitcoin',
-      description: 'RSK sidechain with ERC-20 tokens & Sovryn DEX',
+      description: 'BRC-20 inscriptions like PEPE & ORDI with Unisat wallet',
       icon: '₿',
     },
     {

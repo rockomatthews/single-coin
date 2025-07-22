@@ -20,7 +20,7 @@ import { useWallet } from '@solana/wallet-adapter-react';
 import { useHyperLiquid } from './HyperLiquidProvider';
 import { usePolygon } from './PolygonProvider';
 import { useBase } from './BaseProvider';
-import { useRsk } from './RskProvider';
+import { useBrc20 } from './Brc20Provider';
 import { useArbitrum } from './ArbitrumProvider';
 import { useTron } from './TronProvider';
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
@@ -29,18 +29,18 @@ import LogoutIcon from '@mui/icons-material/Logout';
 
 export default function MultiChainWalletButton() {
   const [showNetworkModal, setShowNetworkModal] = useState(false);
-  const [selectedNetwork, setSelectedNetwork] = useState<'solana' | 'hyperliquid' | 'polygon' | 'base' | 'rsk' | 'arbitrum' | 'tron' | null>(null);
+  const [selectedNetwork, setSelectedNetwork] = useState<'solana' | 'hyperliquid' | 'polygon' | 'base' | 'bitcoin' | 'arbitrum' | 'tron' | null>(null);
   
   const solanaWallet = useWallet();
   const hyperLiquidWallet = useHyperLiquid();
   const polygonWallet = usePolygon();
   const baseWallet = useBase();
-  const rskWallet = useRsk();
+  const bitcoinWallet = useBrc20();
   const arbitrumWallet = useArbitrum();
   const tronWallet = useTron();
 
-  const isConnected = solanaWallet.connected || hyperLiquidWallet.connected || polygonWallet.connected || baseWallet.connected || rskWallet.connected || arbitrumWallet.isConnected || tronWallet.isConnected;
-  const connectedNetwork = solanaWallet.connected ? 'solana' : hyperLiquidWallet.connected ? 'hyperliquid' : polygonWallet.connected ? 'polygon' : baseWallet.connected ? 'base' : rskWallet.connected ? 'rsk' : arbitrumWallet.isConnected ? 'arbitrum' : tronWallet.isConnected ? 'tron' : null;
+  const isConnected = solanaWallet.connected || hyperLiquidWallet.connected || polygonWallet.connected || baseWallet.connected || bitcoinWallet.connected || arbitrumWallet.isConnected || tronWallet.isConnected;
+  const connectedNetwork = solanaWallet.connected ? 'solana' : hyperLiquidWallet.connected ? 'hyperliquid' : polygonWallet.connected ? 'polygon' : baseWallet.connected ? 'base' : bitcoinWallet.connected ? 'bitcoin' : arbitrumWallet.isConnected ? 'arbitrum' : tronWallet.isConnected ? 'tron' : null;
 
   const handleConnectClick = () => {
     if (isConnected) {
@@ -57,8 +57,8 @@ export default function MultiChainWalletButton() {
       if (baseWallet.connected) {
         baseWallet.disconnect();
       }
-      if (rskWallet.connected) {
-        rskWallet.disconnect();
+      if (bitcoinWallet.connected) {
+        bitcoinWallet.disconnect();
       }
       if (arbitrumWallet.isConnected) {
         arbitrumWallet.disconnect();
@@ -72,7 +72,7 @@ export default function MultiChainWalletButton() {
     }
   };
 
-  const handleNetworkSelect = async (network: 'solana' | 'hyperliquid' | 'polygon' | 'base' | 'rsk' | 'arbitrum' | 'tron') => {
+  const handleNetworkSelect = async (network: 'solana' | 'hyperliquid' | 'polygon' | 'base' | 'bitcoin' | 'arbitrum' | 'tron') => {
     setSelectedNetwork(network);
     setShowNetworkModal(false);
     
@@ -90,8 +90,8 @@ export default function MultiChainWalletButton() {
       if (baseWallet.connected) {
         baseWallet.disconnect();
       }
-      if (rskWallet.connected) {
-        rskWallet.disconnect();
+      if (bitcoinWallet.connected) {
+        bitcoinWallet.disconnect();
       }
       if (arbitrumWallet.isConnected) {
         arbitrumWallet.disconnect();
@@ -119,9 +119,9 @@ export default function MultiChainWalletButton() {
       } else if (network === 'base') {
         // Connect to BASE
         await baseWallet.connect();
-      } else if (network === 'rsk') {
-        // Connect to Bitcoin (RSK)
-        await rskWallet.connect();
+      } else if (network === 'bitcoin') {
+        // Connect to Bitcoin (BRC-20)
+        await bitcoinWallet.connect();
       } else if (network === 'arbitrum') {
         // Connect to Arbitrum
         await arbitrumWallet.connect();
@@ -168,10 +168,10 @@ export default function MultiChainWalletButton() {
       };
     }
     
-    if (rskWallet.connected && rskWallet.address) {
+    if (bitcoinWallet.connected && bitcoinWallet.address) {
       return {
         network: 'Bitcoin',
-        address: `${rskWallet.address.slice(0, 4)}...${rskWallet.address.slice(-4)}`,
+        address: `${bitcoinWallet.address.slice(0, 4)}...${bitcoinWallet.address.slice(-4)}`,
         color: '#F7931A'
       };
     }
@@ -401,7 +401,7 @@ export default function MultiChainWalletButton() {
                     transition: 'all 0.2s'
                   }
                 }}
-                onClick={() => handleNetworkSelect('rsk')}
+                onClick={() => handleNetworkSelect('bitcoin')}
               >
               <CardContent sx={{ textAlign: 'center', p: 3 }}>
                 <Avatar sx={{ 
@@ -418,9 +418,9 @@ export default function MultiChainWalletButton() {
                   Bitcoin
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
-                  Connect with MetaMask
+                  Connect with Unisat wallet
                   <br />
-                  RSK sidechain with Sovryn
+                  BRC-20 inscriptions like PEPE
                 </Typography>
               </CardContent>
               </Card>

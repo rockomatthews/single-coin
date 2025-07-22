@@ -4,7 +4,7 @@ import { SolanaProvider } from './SolanaProvider';
 import { HyperLiquidProvider } from './HyperLiquidProvider';
 import { PolygonProvider } from './PolygonProvider';
 import { BaseProvider } from './BaseProvider';
-import { RskProvider } from './RskProvider';
+import { Brc20Provider } from './Brc20Provider';
 import { ArbitrumProvider } from './ArbitrumProvider';
 import { TronProvider } from './TronProvider';
 
@@ -18,13 +18,13 @@ export const MultiChainWalletProvider: FC<MultiChainWalletProviderProps> = ({ ch
       <HyperLiquidProvider>
         <PolygonProvider>
           <BaseProvider>
-            <RskProvider>
+            <Brc20Provider>
               <ArbitrumProvider>
                 <TronProvider>
                   {children}
                 </TronProvider>
               </ArbitrumProvider>
-            </RskProvider>
+            </Brc20Provider>
           </BaseProvider>
         </PolygonProvider>
       </HyperLiquidProvider>

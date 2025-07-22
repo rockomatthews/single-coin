@@ -129,4 +129,9 @@ export function getIpfsGatewayUrl(ipfsUriOrHash: string): string {
     : ipfsUriOrHash;
     
   return `${gateway}${hash}`;
-} 
+}
+
+/**
+ * Alias for uploadToPinata for backward compatibility
+ */
+export const uploadMetadata = uploadToPinata; 

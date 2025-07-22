@@ -17,8 +17,8 @@ import {
 import { getSupportedBlockchains } from '@/utils/blockchain-factory';
 
 interface ChainSelectorProps {
-  selectedChain: 'solana' | 'hyperliquid' | 'polygon' | 'base' | 'rsk' | 'arbitrum' | 'tron';
-  onChainChange: (chain: 'solana' | 'hyperliquid' | 'polygon' | 'base' | 'rsk' | 'arbitrum' | 'tron') => void;
+  selectedChain: 'solana' | 'hyperliquid' | 'polygon' | 'base' | 'bitcoin' | 'arbitrum' | 'tron';
+  onChainChange: (chain: 'solana' | 'hyperliquid' | 'polygon' | 'base' | 'bitcoin' | 'arbitrum' | 'tron') => void;
   showCosts?: boolean;
 }
 
@@ -30,7 +30,7 @@ export default function ChainSelector({
   const blockchains = getSupportedBlockchains();
 
   const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    onChainChange(event.target.value as 'solana' | 'hyperliquid' | 'polygon' | 'base' | 'rsk' | 'arbitrum' | 'tron');
+    onChainChange(event.target.value as 'solana' | 'hyperliquid' | 'polygon' | 'base' | 'bitcoin' | 'arbitrum' | 'tron');
   };
 
   const getChainFeatures = (chainId: string) => {
@@ -79,15 +79,15 @@ export default function ChainSelector({
             currency: 'ETH'
           }
         };
-      case 'rsk':
+      case 'bitcoin':
         return {
-          features: ['ERC-20 Tokens', 'Sovryn DEX', 'RSKSwap', 'Bitcoin Security'],
-          pros: ['Bitcoin-secured (~60% hashpower)', 'EVM compatible', 'Smart contracts on Bitcoin'],
-          cons: ['Smaller ecosystem', 'Bridge dependency'],
+          features: ['BRC-20 Inscriptions', 'Ordinals Protocol', 'Unisat Wallet', 'Bitcoin Native'],
+          pros: ['True Bitcoin network', 'Immutable inscriptions', 'PEPE & ORDI style tokens'],
+          cons: ['Higher fees', 'Limited smart contracts', 'Wallet compatibility'],
           costs: {
-            baseFee: '0.0001-0.0002 RBTC',
-            liquidityFee: '+ liquidity amount',
-            currency: 'RBTC'
+            baseFee: '0.0001-0.0005 BTC',
+            liquidityFee: 'Manual trading',
+            currency: 'BTC'
           }
         };
       case 'arbitrum':

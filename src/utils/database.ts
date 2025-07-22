@@ -25,7 +25,7 @@ export interface UserToken {
   created_at: Date;
   
   // Multi-chain extensions
-  blockchain: 'solana' | 'hyperliquid' | 'polygon' | 'base' | 'rsk' | 'arbitrum' | 'tron';
+  blockchain: 'solana' | 'hyperliquid' | 'polygon' | 'base' | 'bitcoin' | 'arbitrum' | 'tron';
   network?: string; // mainnet, testnet, devnet
   chain_specific_data?: any; // JSON field for chain-specific metadata
   token_standard?: string; // SPL, HIP-1, HIP-2
@@ -53,7 +53,7 @@ export interface MultiChainTokenData {
   metadataUri?: string;
   
   // Multi-chain specific
-  blockchain: 'solana' | 'hyperliquid' | 'polygon' | 'base' | 'rsk' | 'arbitrum' | 'tron';
+  blockchain: 'solana' | 'hyperliquid' | 'polygon' | 'base' | 'bitcoin' | 'arbitrum' | 'tron';
   network?: string;
   chainSpecificData?: any;
   tokenStandard?: string;
