@@ -16,6 +16,10 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { useHyperLiquid } from '../../components/HyperLiquidProvider';
 import { usePolygon } from '../../components/PolygonProvider';
+import { useBase } from '../../components/BaseProvider';
+import { useBrc20 } from '../../components/Brc20Provider';
+import { useArbitrum } from '../../components/ArbitrumProvider';
+import { useTron } from '../../components/TronProvider';
 import { LAMPORTS_PER_SOL } from '@solana/web3.js';
 
 import TokenSettings from '../../components/token/TokenSettings';
@@ -38,7 +42,7 @@ const DEFAULT_TOKEN_PARAMS = {
   twitter: '',
   telegram: '',
   discord: '',
-  blockchain: 'solana' as 'solana' | 'hyperliquid' | 'polygon',
+  blockchain: 'solana' as 'solana' | 'hyperliquid' | 'polygon' | 'base' | 'bitcoin' | 'arbitrum' | 'tron',
   decimals: 9,
   supply: 1000000000,
   retentionPercentage: 20,
@@ -56,11 +60,45 @@ export default function CreateTokenPage() {
   const { connected: solanaConnected } = useWallet();
   const { connected: hyperLiquidConnected, address: hyperLiquidAddress, signer: hyperLiquidSigner } = useHyperLiquid();
   const { connected: polygonConnected, address: polygonAddress, signer: polygonSigner } = usePolygon();
-  const isConnected = solanaConnected || hyperLiquidConnected || polygonConnected;
-  const connectedBlockchain = solanaConnected ? 'solana' : hyperLiquidConnected ? 'hyperliquid' : polygonConnected ? 'polygon' : null;
+  const { connected: baseConnected, address: baseAddress, signer: baseSigner } = useBase();
+  const { connected: bitcoinConnected, address: bitcoinAddress } = useBrc20();
+  const { isConnected: arbitrumConnected, account: arbitrumAddress, signer: arbitrumSigner } = useArbitrum();
+  const { isConnected: tronConnected, account: tronAddress } = useTron();
+  
+  const isConnected = solanaConnected || hyperLiquidConnected || polygonConnected || baseConnected || bitcoinConnected || arbitrumConnected || tronConnected;
+  const connectedBlockchain = solanaConnected ? 'solana' 
+    : hyperLiquidConnected ? 'hyperliquid' 
+    : polygonConnected ? 'polygon' 
+    : baseConnected ? 'base'
+    : bitcoinConnected ? 'bitcoin'
+    : arbitrumConnected ? 'arbitrum'
+    : tronConnected ? 'tron' 
+    : null;
   
   const solanaCreation = useTokenCreation();
   const multiChainCreation = useMultiChainTokenCreation();
+  
+  // Helper function to get wallet and network info
+  const getWalletInfo = () => {
+    if (solanaConnected) {
+      return { wallet: 'Phantom', network: 'Solana', blockchain: 'solana' };
+    } else if (hyperLiquidConnected) {
+      return { wallet: 'MetaMask', network: 'HYPER LIQUID', blockchain: 'hyperliquid' };
+    } else if (polygonConnected) {
+      return { wallet: 'MetaMask', network: 'Polygon', blockchain: 'polygon' };
+    } else if (baseConnected) {
+      return { wallet: 'MetaMask', network: 'BASE', blockchain: 'base' };
+    } else if (bitcoinConnected) {
+      return { wallet: 'Unisat', network: 'Bitcoin', blockchain: 'bitcoin' };
+    } else if (arbitrumConnected) {
+      return { wallet: 'MetaMask', network: 'Arbitrum', blockchain: 'arbitrum' };
+    } else if (tronConnected) {
+      return { wallet: 'TronLink', network: 'TRON', blockchain: 'tron' };
+    }
+    return { wallet: '', network: '', blockchain: null };
+  };
+  
+  const walletInfo = getWalletInfo();
   
   // Use the appropriate hook based on connected blockchain
   const activeCreation = connectedBlockchain === 'solana' ? solanaCreation : multiChainCreation;
@@ -270,25 +308,29 @@ export default function CreateTokenPage() {
       case 0:
         return <TokenSettings 
           tokenParams={tokenParams} 
-          updateTokenParams={updateTokenParams} 
+          updateTokenParams={updateTokenParams}
+          walletInfo={walletInfo}
         />;
       case 1:
         return <TokenDistribution 
           tokenParams={{...tokenParams, blockchain: connectedBlockchain || tokenParams.blockchain}} 
           updateTokenParams={updateTokenParams}
           calculateFee={calculateFee}
+          walletInfo={walletInfo}
         />;
       case 2:
         return <TokenLiquidity 
           tokenParams={{...tokenParams, blockchain: connectedBlockchain || tokenParams.blockchain}} 
           updateTokenParams={updateTokenParams}
           calculateTotalCost={calculateTotalCost}
+          walletInfo={walletInfo}
         />;
       case 3:
         return <TokenReview 
           tokenParams={{...tokenParams, blockchain: connectedBlockchain || tokenParams.blockchain}}
           calculateFee={calculateFee}
           calculateTotalCost={calculateTotalCost}
+          walletInfo={walletInfo}
         />;
       case 4:
         return <TokenSuccess tokenAddress={
@@ -333,7 +375,7 @@ export default function CreateTokenPage() {
             Connect Your Wallet
           </Typography>
           <Typography variant="body1" sx={{ mb: 3 }}>
-            Please connect your wallet to create a token. Choose between Solana (Phantom) or HYPER LIQUID (MetaMask) networks.
+            Please connect your wallet to create a token. Choose between Solana (Phantom), HYPER LIQUID (MetaMask), Polygon (MetaMask), BASE (MetaMask), Bitcoin (Unisat), Arbitrum (MetaMask), or TRON (TronLink) networks.
           </Typography>
           <Button
             variant="contained"
@@ -429,7 +471,7 @@ export default function CreateTokenPage() {
                 startIcon={activeCreation.isCreating ? <CircularProgress size={20} color="inherit" /> : null}
               >
                 {activeStep === steps.length - 1 
-                  ? (activeCreation.isCreating ? 'Creating...' : `Create ${connectedBlockchain?.toUpperCase()} Token`)
+                  ? (activeCreation.isCreating ? 'Creating...' : `Create ${walletInfo.network} Token`)
                   : 'Next'}
               </Button>
             )}

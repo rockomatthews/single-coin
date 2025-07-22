@@ -15,24 +15,43 @@ interface TokenDistributionProps {
   tokenParams: {
     supply: number;
     retentionPercentage: number;
-    blockchain?: 'solana' | 'hyperliquid' | 'polygon';
+    blockchain?: 'solana' | 'hyperliquid' | 'polygon' | 'base' | 'bitcoin' | 'arbitrum' | 'tron';
   };
   updateTokenParams: (params: Partial<TokenDistributionProps['tokenParams']>) => void;
   calculateFee: () => string;
+  walletInfo?: {
+    wallet: string;
+    network: string;
+    blockchain: string | null;
+  };
 }
 
 export default function TokenDistribution({
   tokenParams,
   updateTokenParams,
   calculateFee,
+  walletInfo,
 }: TokenDistributionProps) {
   // Handle retention slider change
   const handleRetentionChange = (_: Event, value: number | number[]) => {
     updateTokenParams({ retentionPercentage: value as number });
   };
 
+  const getCurrency = () => {
+    switch (tokenParams.blockchain) {
+      case 'hyperliquid': return 'HYPE';
+      case 'polygon': return 'MATIC';
+      case 'base': return 'ETH';
+      case 'bitcoin': return 'BTC';
+      case 'arbitrum': return 'ETH';
+      case 'tron': return 'TRX';
+      case 'solana':
+      default: return 'SOL';
+    }
+  };
+  
+  const currency = getCurrency();
   const isHyperLiquid = tokenParams.blockchain === 'hyperliquid';
-  const currency = isHyperLiquid ? 'HYPE' : 'SOL';
 
   return (
     <Box>

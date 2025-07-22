@@ -32,7 +32,7 @@ interface TokenSettingsProps {
     symbol: string;
     description: string;
     image: string;
-    blockchain?: 'solana' | 'hyperliquid' | 'polygon';
+    blockchain?: 'solana' | 'hyperliquid' | 'polygon' | 'base' | 'bitcoin' | 'arbitrum' | 'tron';
     decimals: number;
     supply: number;
     website?: string;
@@ -45,11 +45,17 @@ interface TokenSettingsProps {
     revokeMintAuthority?: boolean;
   };
   updateTokenParams: (params: Partial<TokenSettingsProps['tokenParams']>) => void;
+  walletInfo?: {
+    wallet: string;
+    network: string;
+    blockchain: string | null;
+  };
 }
 
 export default function TokenSettings({
   tokenParams,
   updateTokenParams,
+  walletInfo,
 }: TokenSettingsProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -106,6 +112,14 @@ export default function TokenSettings({
 
   return (
     <Box>
+      {/* Connected Network Display */}
+      {walletInfo?.network && (
+        <Alert severity="success" sx={{ mb: 3 }}>
+          <Typography variant="body2">
+            <strong>Connected Network:</strong> {walletInfo.network} via {walletInfo.wallet} wallet
+          </Typography>
+        </Alert>
+      )}
       <Typography variant="h6" gutterBottom>
         Basic Token Information
       </Typography>
@@ -268,15 +282,15 @@ export default function TokenSettings({
               label="Decimals"
               onChange={handleSelectChange}
             >
-              <MenuItem value={9}>9 - Standard Fungible (Recommended - Full Raydium compatibility)</MenuItem>
+              <MenuItem value={9}>9 - Standard Fungible (Recommended - Full DEX compatibility)</MenuItem>
               <MenuItem value={6}>6 - Standard Fungible</MenuItem>
               <MenuItem value={0}>0 - FungibleAsset (Rich metadata display, no auto-pools)</MenuItem>
               <MenuItem value={12}>12 - High precision</MenuItem>
             </Select>
             <FormHelperText>
-              <strong>9 decimals (Recommended):</strong> Full Raydium pool compatibility + good metadata display. 
+              <strong>9 decimals (Recommended):</strong> Full DEX pool compatibility + good metadata display. 
               <br />
-              <strong>0 decimals:</strong> Rich metadata in Phantom but no automatic Raydium pools.
+              <strong>0 decimals:</strong> Rich metadata in {walletInfo?.wallet || 'wallet'} but no automatic liquidity pools.
             </FormHelperText>
           </FormControl>
         </Grid>
@@ -358,7 +372,7 @@ export default function TokenSettings({
             <Alert severity="info" sx={{ mb: 3 }}>
               <Typography variant="body2">
                 <strong>Enhanced Security Options:</strong> These features permanently secure your token by revoking dangerous authorities. 
-                Once enabled, these actions cannot be reversed. These features show up in Phantom wallet and build trust with holders.
+                Once enabled, these actions cannot be reversed. These features show up in {walletInfo?.wallet || 'wallet'} and build trust with holders.
               </Typography>
             </Alert>
 
@@ -385,7 +399,7 @@ export default function TokenSettings({
                           Make Unmintable (Recommended)
                         </Typography>
                         <Typography variant="body2" color="text.secondary">
-                          Permanently prevents creating new tokens. Shows "✅ Mint Revoked" in Phantom wallet.
+                          Permanently prevents creating new tokens. Shows "✅ Mint Revoked" in {walletInfo?.wallet || 'wallet'}.
                         </Typography>
                       </Box>
                     </Box>
@@ -415,7 +429,7 @@ export default function TokenSettings({
                           Make Information Immutable (Recommended)
                         </Typography>
                         <Typography variant="body2" color="text.secondary">
-                          Prevents changing token name, symbol, or image. Shows "✅ Update Authority Revoked" in Phantom.
+                          Prevents changing token name, symbol, or image. Shows "✅ Update Authority Revoked" in {walletInfo?.wallet || 'wallet'}.
                         </Typography>
                       </Box>
                     </Box>
@@ -445,7 +459,7 @@ export default function TokenSettings({
                           Revoke Freeze Authority (Recommended)
                         </Typography>
                         <Typography variant="body2" color="text.secondary">
-                          Prevents freezing token accounts. Shows "✅ Freeze Authority Revoked" in Phantom wallet.
+                          Prevents freezing token accounts. Shows "✅ Freeze Authority Revoked" in {walletInfo?.wallet || 'wallet'}.
                         </Typography>
                       </Box>
                     </Box>
@@ -458,7 +472,7 @@ export default function TokenSettings({
               <Alert severity="success" sx={{ mt: 2 }}>
                 <Typography variant="body2">
                   <strong>✨ Trust Enhanced!</strong> Your selected security features will make your token more trustworthy. 
-                  These show up as green checkmarks in Phantom wallet and on token scanners.
+                  These show up as green checkmarks in {walletInfo?.wallet || 'wallet'} and on token scanners.
                 </Typography>
               </Alert>
             )}

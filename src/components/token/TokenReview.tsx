@@ -26,19 +26,25 @@ interface TokenReviewProps {
     retentionPercentage: number;
     createPool: boolean;
     liquiditySolAmount: number;
-    blockchain?: 'solana' | 'hyperliquid' | 'polygon';
+    blockchain?: 'solana' | 'hyperliquid' | 'polygon' | 'base' | 'bitcoin' | 'arbitrum' | 'tron';
     revokeMintAuthority?: boolean;
     revokeFreezeAuthority?: boolean;
     revokeUpdateAuthority?: boolean;
   };
   calculateFee: () => string;
   calculateTotalCost: () => string;
+  walletInfo?: {
+    wallet: string;
+    network: string;
+    blockchain: string | null;
+  };
 }
 
 export default function TokenReview({
   tokenParams,
   calculateFee,
   calculateTotalCost,
+  walletInfo,
 }: TokenReviewProps) {
   const isHyperLiquid = tokenParams.blockchain === 'hyperliquid';
   const currency = isHyperLiquid ? 'HYPE' : 'SOL';

@@ -18,16 +18,22 @@ interface TokenLiquidityProps {
     retentionPercentage: number;
     liquiditySolAmount: number;
     createPool: boolean;
-    blockchain?: 'solana' | 'hyperliquid' | 'polygon';
+    blockchain?: 'solana' | 'hyperliquid' | 'polygon' | 'base' | 'bitcoin' | 'arbitrum' | 'tron';
   };
   updateTokenParams: (params: Partial<TokenLiquidityProps['tokenParams']>) => void;
   calculateTotalCost: () => string;
+  walletInfo?: {
+    wallet: string;
+    network: string;
+    blockchain: string | null;
+  };
 }
 
 export default function TokenLiquidity({
   tokenParams,
   updateTokenParams,
   calculateTotalCost,
+  walletInfo,
 }: TokenLiquidityProps) {
   const isHyperLiquid = tokenParams.blockchain === 'hyperliquid';
   const currency = isHyperLiquid ? 'HYPE' : 'SOL';
