@@ -197,7 +197,7 @@ export default function TokenReview({
                     </Typography>
                   )}
                   <Typography variant="body2" sx={{ mt: 1, fontStyle: 'italic', color: 'text.secondary' }}>
-                    These security features will show as green checkmarks in Phantom wallet and build trust with holders.
+                    These security features will show as green checkmarks in {walletInfo?.wallet || 'wallet'} and build trust with holders.
                   </Typography>
                 </Box>
               ) : (
@@ -227,16 +227,18 @@ export default function TokenReview({
                 <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                   <Typography variant="subtitle2">Your Liquidity:</Typography>
                   <Typography variant="subtitle2">
-                    {tokenParams.liquiditySolAmount.toFixed(4)} SOL
+                    {tokenParams.liquiditySolAmount.toFixed(4)} {currency}
                   </Typography>
                 </Box>
                 
-                <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <Typography variant="subtitle2">Raydium Pool Fees:</Typography>
-                  <Typography variant="subtitle2">
-                    0.154 SOL
-                  </Typography>
-                </Box>
+                {!isBitcoin && (
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <Typography variant="subtitle2">{dexName} Pool Fees:</Typography>
+                    <Typography variant="subtitle2">
+                      {currency === 'SOL' ? '0.154' : currency === 'MATIC' ? '0.01' : currency === 'ETH' ? '0.001' : currency === 'TRX' ? '50' : '0.01'} {currency}
+                    </Typography>
+                  </Box>
+                )}
               </>
             )}
             
@@ -260,7 +262,7 @@ export default function TokenReview({
       </Paper>
 
       <Alert severity="info" sx={{ mb: 2 }}>
-        You will need to approve a transaction to create this token. Make sure all the details are correct before proceeding.
+        You will need to approve a transaction in {walletInfo?.wallet || 'your wallet'} to create this token. Make sure all the details are correct before proceeding.
       </Alert>
       
       {tokenParams.retentionPercentage > 80 && (

@@ -12,12 +12,17 @@ import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
 import { formatMarketCap, formatPrice } from '@/utils/tokenPrices';
 
 // Blockchain indicator component
-const BlockchainBadge = ({ blockchain }: { blockchain?: 'solana' | 'hyperliquid' }) => {
+const BlockchainBadge = ({ blockchain }: { blockchain?: 'solana' | 'hyperliquid' | 'polygon' | 'base' | 'bitcoin' | 'arbitrum' | 'tron' }) => {
   if (!blockchain) return null;
   
   const config = {
-    solana: { icon: '◎', color: '#9945FF', label: 'SOL' },
-    hyperliquid: { icon: '₿', color: '#FF6B00', label: 'HL' }
+    solana: { icon: '◎', color: '#14F195', label: 'SOL' },
+    hyperliquid: { icon: 'HL', color: '#00D4AA', label: 'HL' },
+    polygon: { icon: '🔷', color: '#8247E5', label: 'MATIC' },
+    base: { icon: '🔵', color: '#0052FF', label: 'BASE' },
+    bitcoin: { icon: '₿', color: '#F7931A', label: 'BTC' },
+    arbitrum: { icon: '🔺', color: '#28A0F0', label: 'ARB' },
+    tron: { icon: '🔴', color: '#FF0013', label: 'TRX' }
   };
   
   const { icon, color, label } = config[blockchain];
@@ -62,7 +67,7 @@ interface Token {
   marketCap?: number; // New field for market cap
   price?: number;     // New field for token price
   created_at?: string; // Added for sorting by date
-  blockchain?: 'solana' | 'hyperliquid'; // Multi-chain support
+  blockchain?: 'solana' | 'hyperliquid' | 'polygon' | 'base' | 'bitcoin' | 'arbitrum' | 'tron'; // Multi-chain support
   network?: string;
   token_standard?: string;
   explorer_url?: string;
@@ -123,7 +128,8 @@ export default function Home() {
       const price = Math.random() * 0.001;
       const supply = Math.floor(Math.random() * 1000000000) + 1000000;
       const marketCap = price * supply;
-      const blockchain: 'solana' | 'hyperliquid' = i % 3 === 0 ? 'hyperliquid' : 'solana'; // Mix of blockchains
+      const blockchains: ('solana' | 'hyperliquid' | 'polygon' | 'base' | 'bitcoin' | 'arbitrum' | 'tron')[] = ['solana', 'hyperliquid', 'polygon', 'base', 'bitcoin', 'arbitrum', 'tron'];
+      const blockchain = blockchains[i % blockchains.length]; // Mix of all blockchains
       
       return {
         token_address: blockchain === 'hyperliquid' ? `HL_${i}` : `placeholder-${i}`,
@@ -134,7 +140,7 @@ export default function Home() {
         price,
         marketCap,
         blockchain,
-        token_standard: blockchain === 'hyperliquid' ? 'HIP-1' : 'SPL',
+        token_standard: blockchain === 'hyperliquid' ? 'HIP-1' : blockchain === 'polygon' || blockchain === 'base' || blockchain === 'arbitrum' ? 'ERC-20' : blockchain === 'bitcoin' ? 'BRC-20' : blockchain === 'tron' ? 'TRC-20' : 'SPL',
         created_at: new Date(Date.now() - i * 86400000).toISOString() // Decreasing dates
       };
     });
@@ -156,9 +162,96 @@ export default function Home() {
             alignItems: 'center',
             textAlign: 'center'
           }}>
-            <Typography variant="body2" component="h2" color="text.secondary" paragraph sx={{ mb: 1.5 }}>
-              Create DEX-tradable tokens with liquidity pools in just one step. Now supporting <strong>Solana</strong> and <strong>HYPER LIQUID</strong> networks.
+            <Typography variant="body2" component="h2" color="text.secondary" paragraph sx={{ mb: 1 }}>
+              Create DEX-tradable tokens with liquidity pools in just one step. Now supporting 7 major blockchain networks:
             </Typography>
+            
+            {/* Chain logos row */}
+            <Box sx={{ 
+              display: 'flex', 
+              justifyContent: 'center', 
+              alignItems: 'center',
+              gap: { xs: 1, sm: 1.5 },
+              mb: 2,
+              flexWrap: 'wrap'
+            }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                <Image
+                  src="/images/chain-logos/Solana.png"
+                  alt="Solana"
+                  width={24}
+                  height={24}
+                  style={{ borderRadius: '50%' }}
+                />
+                <Typography variant="caption" sx={{ fontSize: '0.75rem', fontWeight: 'bold' }}>Solana</Typography>
+              </Box>
+              
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                <Image
+                  src="/images/chain-logos/Polygon.png"
+                  alt="Polygon"
+                  width={24}
+                  height={24}
+                  style={{ borderRadius: '50%' }}
+                />
+                <Typography variant="caption" sx={{ fontSize: '0.75rem', fontWeight: 'bold' }}>Polygon</Typography>
+              </Box>
+              
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                <Image
+                  src="/images/chain-logos/Base.png"
+                  alt="BASE"
+                  width={24}
+                  height={24}
+                  style={{ borderRadius: '50%' }}
+                />
+                <Typography variant="caption" sx={{ fontSize: '0.75rem', fontWeight: 'bold' }}>BASE</Typography>
+              </Box>
+              
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                <Image
+                  src="/images/chain-logos/Arbitrum.png"
+                  alt="Arbitrum"
+                  width={24}
+                  height={24}
+                  style={{ borderRadius: '50%' }}
+                />
+                <Typography variant="caption" sx={{ fontSize: '0.75rem', fontWeight: 'bold' }}>Arbitrum</Typography>
+              </Box>
+              
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                <Image
+                  src="/images/chain-logos/Bitcoin.png"
+                  alt="Bitcoin"
+                  width={24}
+                  height={24}
+                  style={{ borderRadius: '50%' }}
+                />
+                <Typography variant="caption" sx={{ fontSize: '0.75rem', fontWeight: 'bold' }}>Bitcoin</Typography>
+              </Box>
+              
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                <Image
+                  src="/images/chain-logos/Tron.png"
+                  alt="TRON"
+                  width={24}
+                  height={24}
+                  style={{ borderRadius: '50%' }}
+                />
+                <Typography variant="caption" sx={{ fontSize: '0.75rem', fontWeight: 'bold' }}>TRON</Typography>
+              </Box>
+              
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                <Image
+                  src="/images/chain-logos/HyperLiquid.png"
+                  alt="HYPER LIQUID"
+                  width={24}
+                  height={24}
+                  style={{ borderRadius: '50%' }}
+                />
+                <Typography variant="caption" sx={{ fontSize: '0.75rem', fontWeight: 'bold' }}>HYPER LIQUID</Typography>
+              </Box>
+            </Box>
             <Box sx={{ 
               display: 'flex', 
               gap: 1.5, 

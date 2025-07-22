@@ -35,8 +35,36 @@ export default function TokenLiquidity({
   calculateTotalCost,
   walletInfo,
 }: TokenLiquidityProps) {
+  const getCurrency = () => {
+    switch (tokenParams.blockchain) {
+      case 'hyperliquid': return 'HYPE';
+      case 'polygon': return 'MATIC';
+      case 'base': return 'ETH';
+      case 'bitcoin': return 'BTC';
+      case 'arbitrum': return 'ETH';
+      case 'tron': return 'TRX';
+      case 'solana':
+      default: return 'SOL';
+    }
+  };
+  
+  const getDEXName = () => {
+    switch (tokenParams.blockchain) {
+      case 'solana': return 'Raydium';
+      case 'polygon': return 'Uniswap V3';
+      case 'base': return 'Aerodrome';
+      case 'arbitrum': return 'Camelot';
+      case 'tron': return 'JustSwap';
+      case 'bitcoin': return 'No DEX (BRC-20 Inscriptions)';
+      case 'hyperliquid': return 'Native Orderbook';
+      default: return 'DEX';
+    }
+  };
+  
+  const currency = getCurrency();
+  const dexName = getDEXName();
   const isHyperLiquid = tokenParams.blockchain === 'hyperliquid';
-  const currency = isHyperLiquid ? 'HYPE' : 'SOL';
+  const isBitcoin = tokenParams.blockchain === 'bitcoin';
 
   // Handle liquidity amount slider change
   const handleLiquidityAmountChange = (_: Event, value: number | number[]) => {
@@ -56,10 +84,10 @@ export default function TokenLiquidity({
     return (
       <Box>
         <Typography variant="h6" gutterBottom>
-          ⚡ HYPER LIQUID ORDERBOOK TRADING
+          ⚡ {walletInfo?.network || 'HYPER LIQUID'} ORDERBOOK TRADING
         </Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-          Enable your token for trading on HYPER LIQUID's native orderbook with professional market making features.
+          Enable your token for trading on {walletInfo?.network || 'HYPER LIQUID'}'s native orderbook with professional market making features.
         </Typography>
 
         <Alert severity="success" sx={{ mb: 3 }}>
@@ -67,7 +95,7 @@ export default function TokenLiquidity({
             🚀 NATIVE ORDERBOOK TRADING
           </Typography>
           <Typography variant="body2" sx={{ mb: 1 }}>
-            Your token will be tradeable on HYPER LIQUID's advanced trading infrastructure:
+            Your token will be tradeable on {walletInfo?.network || 'HYPER LIQUID'}'s advanced trading infrastructure:
           </Typography>
           <Box component="ul" sx={{ margin: 0, paddingLeft: 2 }}>
             <li>✅ <strong>Native Orderbook</strong> - Professional trading experience</li>
@@ -86,7 +114,7 @@ export default function TokenLiquidity({
                 color="primary"
               />
             }
-            label="Enable trading on HYPER LIQUID (Recommended)"
+            label={`Enable trading on ${walletInfo?.network || 'HYPER LIQUID'} (Recommended)`}
             sx={{ mb: 2 }}
           />
 
@@ -100,15 +128,15 @@ export default function TokenLiquidity({
                 </Typography>
                 <Typography variant="body2">
                   • Trading tokens: {liquidityTokens.toLocaleString()} tokens ({100 - tokenParams.retentionPercentage}%)<br/>
-                  • Token standard: HIP-1 (HYPER LIQUID native)<br/>
-                  • Orderbook: Native HYPER LIQUID exchange<br/>
+                  • Token standard: HIP-1 ({walletInfo?.network || 'HYPER LIQUID'} native)<br/>
+                  • Orderbook: Native {walletInfo?.network || 'HYPER LIQUID'} exchange<br/>
                   • Market making: Available with initial orders<br/>
                   • <strong>Total cost: {calculateTotalCost()} HYPE</strong>
                 </Typography>
               </Alert>
 
               <Typography variant="body2" color="text.secondary">
-                HYPER LIQUID uses native orderbook trading instead of AMM pools. Your tokens will be immediately available for professional trading.
+                {walletInfo?.network || 'HYPER LIQUID'} uses native orderbook trading instead of AMM pools. Your tokens will be immediately available for professional trading.
               </Typography>
             </>
           )}
@@ -116,7 +144,7 @@ export default function TokenLiquidity({
           {!tokenParams.createPool && (
             <Alert severity="warning" sx={{ mt: 2 }}>
               <Typography variant="body2">
-                Without enabling trading, your tokens won't be available on the HYPER LIQUID exchange. You can enable trading later.
+                Without enabling trading, your tokens won't be available on the {walletInfo?.network || 'HYPER LIQUID'} exchange. You can enable trading later.
               </Typography>
             </Alert>
           )}
@@ -124,7 +152,7 @@ export default function TokenLiquidity({
 
         <Paper variant="outlined" sx={{ p: 2 }}>
           <Typography variant="subtitle2" fontWeight="bold" gutterBottom>
-            Total Cost: {calculateTotalCost()} HYPE
+            Total Cost: {calculateTotalCost()} {currency}
           </Typography>
           <Typography variant="body2" color="text.secondary">
             Includes token deployment and trading setup costs
@@ -134,14 +162,52 @@ export default function TokenLiquidity({
     );
   }
 
-  // Original Solana UI
+  // Bitcoin special case
+  if (isBitcoin) {
+    return (
+      <Box>
+        <Typography variant="h6" gutterBottom>
+          ⛏️ BITCOIN BRC-20 INSCRIPTION
+        </Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+          Create a <strong>BRC-20 inscription</strong> on the Bitcoin blockchain. BRC-20 tokens are traded on specialized marketplaces and require manual inscription processes.
+        </Typography>
+
+        <Alert severity="warning" sx={{ mb: 3 }}>
+          <Typography variant="subtitle2" fontWeight="bold" gutterBottom>
+            ⚠️ NO TRADITIONAL LIQUIDITY POOLS
+          </Typography>
+          <Typography variant="body2" sx={{ mb: 1 }}>
+            Bitcoin BRC-20 tokens work differently from other blockchains:
+          </Typography>
+          <Box component="ul" sx={{ margin: 0, paddingLeft: 2 }}>
+            <li>⚠️ <strong>No DEX pools</strong> - Traded on specialized marketplaces</li>
+            <li>⚠️ <strong>Manual inscriptions</strong> - Each transfer requires inscription</li>
+            <li>⚠️ <strong>Higher fees</strong> - Bitcoin network transaction costs</li>
+            <li>⚠️ <strong>Limited liquidity</strong> - Depends on marketplace adoption</li>
+          </Box>
+        </Alert>
+
+        <Paper variant="outlined" sx={{ p: 2 }}>
+          <Typography variant="subtitle2" fontWeight="bold" gutterBottom>
+            Total Cost: {calculateTotalCost()} {currency}
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            Includes inscription fees and Bitcoin network costs
+          </Typography>
+        </Paper>
+      </Box>
+    );
+  }
+
+  // Multi-chain DEX UI
   return (
     <Box>
       <Typography variant="h6" gutterBottom>
-        🏊 LIVE RAYDIUM POOL CREATION
+        🏊 LIVE {dexName.toUpperCase()} POOL CREATION
       </Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-        Create a <strong>REAL Raydium CPMM pool</strong> that makes your tokens <strong>instantly tradeable</strong> on all major Solana DEXes including Jupiter, DexScreener, and Birdeye.
+        Create a <strong>REAL {dexName} pool</strong> that makes your tokens <strong>instantly tradeable</strong> on {walletInfo?.network || tokenParams.blockchain} DEXes and aggregators.
       </Typography>
 
       <Alert severity="success" sx={{ mb: 3 }}>
@@ -149,13 +215,49 @@ export default function TokenLiquidity({
           ✨ REAL DEX INTEGRATION - IMMEDIATE TRADING!
         </Typography>
         <Typography variant="body2" sx={{ mb: 1 }}>
-          Your token will be <strong>INSTANTLY TRADEABLE</strong> on all major Solana DEXes:
+          Your token will be <strong>INSTANTLY TRADEABLE</strong> on major {walletInfo?.network || tokenParams.blockchain} DEXes:
         </Typography>
         <Box component="ul" sx={{ margin: 0, paddingLeft: 2 }}>
-          <li>✅ <strong>Raydium</strong> - Native CPMM pool creation</li>
-          <li>✅ <strong>Jupiter</strong> - Automatic aggregation</li>
-          <li>✅ <strong>DexScreener</strong> - Live price charts</li>
-          <li>✅ <strong>Birdeye</strong> - Analytics dashboard</li>
+          {tokenParams.blockchain === 'solana' && (
+            <>
+              <li>✅ <strong>Raydium</strong> - Native CPMM pool creation</li>
+              <li>✅ <strong>Jupiter</strong> - Automatic aggregation</li>
+              <li>✅ <strong>DexScreener</strong> - Live price charts</li>
+              <li>✅ <strong>Birdeye</strong> - Analytics dashboard</li>
+            </>
+          )}
+          {tokenParams.blockchain === 'polygon' && (
+            <>
+              <li>✅ <strong>Uniswap V3</strong> - Concentrated liquidity pools</li>
+              <li>✅ <strong>1inch</strong> - DEX aggregation</li>
+              <li>✅ <strong>DexScreener</strong> - Live price charts</li>
+              <li>✅ <strong>CoinGecko</strong> - Price tracking</li>
+            </>
+          )}
+          {tokenParams.blockchain === 'base' && (
+            <>
+              <li>✅ <strong>Aerodrome</strong> - Native BASE DEX</li>
+              <li>✅ <strong>Uniswap V3</strong> - Multi-chain support</li>
+              <li>✅ <strong>DexScreener</strong> - Live price charts</li>
+              <li>✅ <strong>1inch</strong> - DEX aggregation</li>
+            </>
+          )}
+          {tokenParams.blockchain === 'arbitrum' && (
+            <>
+              <li>✅ <strong>Camelot</strong> - Native Arbitrum DEX</li>
+              <li>✅ <strong>Uniswap V3</strong> - Multi-chain support</li>
+              <li>✅ <strong>DexScreener</strong> - Live price charts</li>
+              <li>✅ <strong>1inch</strong> - DEX aggregation</li>
+            </>
+          )}
+          {tokenParams.blockchain === 'tron' && (
+            <>
+              <li>✅ <strong>JustSwap</strong> - Native TRON DEX</li>
+              <li>✅ <strong>SunSwap</strong> - Alternative TRON DEX</li>
+              <li>✅ <strong>DexScreener</strong> - Live price charts</li>
+              <li>✅ <strong>CoinMarketCap</strong> - Price tracking</li>
+            </>
+          )}
         </Box>
         <Typography variant="body2" fontWeight="bold" sx={{ mt: 1 }}>
           🚀 No manual steps required - trading starts immediately!
@@ -171,7 +273,7 @@ export default function TokenLiquidity({
               color="primary"
             />
           }
-          label="Create LIVE Raydium pool (Recommended)"
+          label={`Create LIVE ${dexName} pool (Recommended)`}
           sx={{ mb: 2 }}
         />
 
@@ -180,7 +282,7 @@ export default function TokenLiquidity({
             <Divider sx={{ my: 2 }} />
             
             <Typography gutterBottom>
-              SOL amount for initial liquidity: <strong>{tokenParams.liquiditySolAmount.toFixed(2)} SOL</strong>
+              {currency} amount for initial liquidity: <strong>{tokenParams.liquiditySolAmount.toFixed(2)} {currency}</strong>
             </Typography>
 
             <Box sx={{ px: 2, mb: 3 }}>
@@ -207,17 +309,17 @@ export default function TokenLiquidity({
                 🏊 Pool Details:
               </Typography>
               <Typography variant="body2">
-                • Initial price: {(tokenParams.liquiditySolAmount / liquidityTokens).toFixed(8)} SOL per token<br/>
-                • Market cap: ${((tokenParams.liquiditySolAmount / liquidityTokens) * tokenParams.supply * 200).toFixed(0)} (assuming $200 SOL)<br/>
-                • Your liquidity: {tokenParams.liquiditySolAmount.toFixed(4)} SOL + {liquidityTokens.toLocaleString()} tokens<br/>
+                • Initial price: {(tokenParams.liquiditySolAmount / liquidityTokens).toFixed(8)} {currency} per token<br/>
+                • Market cap: ${((tokenParams.liquiditySolAmount / liquidityTokens) * tokenParams.supply * (currency === 'SOL' ? 200 : currency === 'MATIC' ? 1 : currency === 'ETH' ? 3000 : currency === 'TRX' ? 0.1 : 200)).toFixed(0)} (estimated)<br/>
+                • Your liquidity: {tokenParams.liquiditySolAmount.toFixed(4)} {currency} + {liquidityTokens.toLocaleString()} tokens<br/>
                 • Platform fee: Retention-based (varies by % kept)<br/>
-                • Raydium pool fees: 0.154 SOL (protocol costs)<br/>
-                • <strong>Total cost: {calculateTotalCost()} SOL</strong>
+                • {dexName} pool fees: {currency === 'SOL' ? '0.154' : currency === 'MATIC' ? '0.01' : currency === 'ETH' ? '0.001' : currency === 'TRX' ? '50' : '0.01'} {currency} (protocol costs)<br/>
+                • <strong>Total cost: {calculateTotalCost()} {currency}</strong>
               </Typography>
             </Alert>
 
             <Typography variant="body2" color="text.secondary">
-              Platform fee is based on token retention percentage, not liquidity amount. Pool creation uses YOUR SOL for liquidity, platform only keeps the fee.
+              Platform fee is based on token retention percentage, not liquidity amount. Pool creation uses YOUR {currency} for liquidity, platform only keeps the fee.
             </Typography>
           </>
         )}
@@ -233,7 +335,7 @@ export default function TokenLiquidity({
 
       <Paper variant="outlined" sx={{ p: 2 }}>
         <Typography variant="subtitle2" fontWeight="bold" gutterBottom>
-          Total Cost: {calculateTotalCost()} SOL
+          Total Cost: {calculateTotalCost()} {currency}
         </Typography>
         <Typography variant="body2" color="text.secondary">
           Includes token creation fee + liquidity pool amount

@@ -16,6 +16,7 @@ import {
   Tooltip,
   Grid
 } from '@mui/material';
+import Image from 'next/image';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { useHyperLiquid } from './HyperLiquidProvider';
 import { usePolygon } from './PolygonProvider';
@@ -293,16 +294,23 @@ export default function MultiChainWalletButton() {
                 onClick={() => handleNetworkSelect('solana')}
               >
               <CardContent sx={{ textAlign: 'center', p: 3 }}>
-                <Avatar sx={{ 
+                <Box sx={{ 
                   width: 60, 
                   height: 60, 
-                  bgcolor: '#14F195', 
                   mx: 'auto', 
                   mb: 2,
-                  fontSize: '1.5rem'
+                  position: 'relative',
+                  borderRadius: '50%',
+                  overflow: 'hidden',
+                  border: '2px solid #14F195'
                 }}>
-                  ◎
-                </Avatar>
+                  <Image
+                    src="/images/chain-logos/Solana.png"
+                    alt="Solana"
+                    fill
+                    style={{ objectFit: 'cover' }}
+                  />
+                </Box>
                 <Typography variant="h6" gutterBottom>
                   Solana
                 </Typography>
@@ -330,16 +338,23 @@ export default function MultiChainWalletButton() {
                 onClick={() => handleNetworkSelect('polygon')}
               >
               <CardContent sx={{ textAlign: 'center', p: 3 }}>
-                <Avatar sx={{ 
+                <Box sx={{ 
                   width: 60, 
                   height: 60, 
-                  bgcolor: '#8247E5', 
                   mx: 'auto', 
                   mb: 2,
-                  fontSize: '1.5rem'
+                  position: 'relative',
+                  borderRadius: '50%',
+                  overflow: 'hidden',
+                  border: '2px solid #8247E5'
                 }}>
-                  🔷
-                </Avatar>
+                  <Image
+                    src="/images/chain-logos/Polygon.png"
+                    alt="Polygon"
+                    fill
+                    style={{ objectFit: 'cover' }}
+                  />
+                </Box>
                 <Typography variant="h6" gutterBottom>
                   Polygon
                 </Typography>
@@ -367,16 +382,23 @@ export default function MultiChainWalletButton() {
                 onClick={() => handleNetworkSelect('base')}
               >
               <CardContent sx={{ textAlign: 'center', p: 3 }}>
-                <Avatar sx={{ 
+                <Box sx={{ 
                   width: 60, 
                   height: 60, 
-                  bgcolor: '#0052FF', 
                   mx: 'auto', 
                   mb: 2,
-                  fontSize: '1.5rem'
+                  position: 'relative',
+                  borderRadius: '50%',
+                  overflow: 'hidden',
+                  border: '2px solid #0052FF'
                 }}>
-                  🔵
-                </Avatar>
+                  <Image
+                    src="/images/chain-logos/Base.png"
+                    alt="BASE"
+                    fill
+                    style={{ objectFit: 'cover' }}
+                  />
+                </Box>
                 <Typography variant="h6" gutterBottom>
                   BASE
                 </Typography>
@@ -404,16 +426,23 @@ export default function MultiChainWalletButton() {
                 onClick={() => handleNetworkSelect('bitcoin')}
               >
               <CardContent sx={{ textAlign: 'center', p: 3 }}>
-                <Avatar sx={{ 
+                <Box sx={{ 
                   width: 60, 
                   height: 60, 
-                  bgcolor: '#F7931A', 
                   mx: 'auto', 
                   mb: 2,
-                  fontSize: '1.5rem'
+                  position: 'relative',
+                  borderRadius: '50%',
+                  overflow: 'hidden',
+                  border: '2px solid #F7931A'
                 }}>
-                  ₿
-                </Avatar>
+                  <Image
+                    src="/images/chain-logos/Bitcoin.png"
+                    alt="Bitcoin"
+                    fill
+                    style={{ objectFit: 'cover' }}
+                  />
+                </Box>
                 <Typography variant="h6" gutterBottom>
                   Bitcoin
                 </Typography>
@@ -441,16 +470,23 @@ export default function MultiChainWalletButton() {
                 onClick={() => handleNetworkSelect('arbitrum')}
               >
               <CardContent sx={{ textAlign: 'center', p: 3 }}>
-                <Avatar sx={{ 
+                <Box sx={{ 
                   width: 60, 
                   height: 60, 
-                  bgcolor: '#28A0F0', 
                   mx: 'auto', 
                   mb: 2,
-                  fontSize: '1.5rem'
+                  position: 'relative',
+                  borderRadius: '50%',
+                  overflow: 'hidden',
+                  border: '2px solid #28A0F0'
                 }}>
-                  🔺
-                </Avatar>
+                  <Image
+                    src="/images/chain-logos/Arbitrum.png"
+                    alt="Arbitrum"
+                    fill
+                    style={{ objectFit: 'cover' }}
+                  />
+                </Box>
                 <Typography variant="h6" gutterBottom>
                   Arbitrum
                 </Typography>
@@ -478,16 +514,23 @@ export default function MultiChainWalletButton() {
                 onClick={() => handleNetworkSelect('hyperliquid')}
               >
               <CardContent sx={{ textAlign: 'center', p: 3 }}>
-                <Avatar sx={{ 
+                <Box sx={{ 
                   width: 60, 
                   height: 60, 
-                  bgcolor: '#00D4AA', 
                   mx: 'auto', 
                   mb: 2,
-                  fontSize: '1.2rem'
+                  position: 'relative',
+                  borderRadius: '50%',
+                  overflow: 'hidden',
+                  border: '2px solid #00D4AA'
                 }}>
-                  HL
-                </Avatar>
+                  <Image
+                    src="/images/chain-logos/HyperLiquid.png"
+                    alt="HYPER LIQUID"
+                    fill
+                    style={{ objectFit: 'cover' }}
+                  />
+                </Box>
                 <Typography variant="h6" gutterBottom>
                   HYPER LIQUID
                 </Typography>
@@ -515,16 +558,23 @@ export default function MultiChainWalletButton() {
                 onClick={() => handleNetworkSelect('tron')}
               >
               <CardContent sx={{ textAlign: 'center', p: 3 }}>
-                <Avatar sx={{ 
+                <Box sx={{ 
                   width: 60, 
                   height: 60, 
-                  bgcolor: '#FF0013', 
                   mx: 'auto', 
                   mb: 2,
-                  fontSize: '1.5rem'
+                  position: 'relative',
+                  borderRadius: '50%',
+                  overflow: 'hidden',
+                  border: '2px solid #FF0013'
                 }}>
-                  🔴
-                </Avatar>
+                  <Image
+                    src="/images/chain-logos/Tron.png"
+                    alt="TRON"
+                    fill
+                    style={{ objectFit: 'cover' }}
+                  />
+                </Box>
                 <Typography variant="h6" gutterBottom>
                   TRON
                 </Typography>
