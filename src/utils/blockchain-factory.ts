@@ -2,6 +2,7 @@ import { TokenParams } from './solana';
 import { HyperLiquidTokenParams } from './hyperliquid';
 import { PolygonTokenParams } from './polygon';
 import { BaseTokenParams } from './base';
+import { BnbTokenParams } from './bnb';
 import { Brc20TokenParams } from './brc20';
 import { ArbitrumTokenParams } from './arbitrum-types';
 import { TronTokenParams } from './tron-types';
@@ -19,7 +20,7 @@ export interface UnifiedTokenParams {
   discord?: string;
   
   // Chain selection
-  blockchain: 'solana' | 'hyperliquid' | 'polygon' | 'base' | 'bitcoin' | 'arbitrum' | 'tron';
+  blockchain: 'solana' | 'hyperliquid' | 'polygon' | 'base' | 'bnb' | 'bitcoin' | 'arbitrum' | 'tron';
   
   // Distribution settings
   retentionPercentage?: number;
@@ -33,6 +34,7 @@ export interface UnifiedTokenParams {
   hyperliquid?: Partial<HyperLiquidTokenParams>;
   polygon?: Partial<PolygonTokenParams>;
   base?: Partial<BaseTokenParams>;
+  bnb?: Partial<BnbTokenParams>;
   bitcoin?: Partial<Brc20TokenParams>;
   arbitrum?: Partial<ArbitrumTokenParams>;
   tron?: Partial<TronTokenParams>;
@@ -45,7 +47,7 @@ export interface TokenCreationResult {
   poolTxId?: string | null;
   txHash?: string;
   error?: string;
-  blockchain: 'solana' | 'hyperliquid' | 'polygon' | 'base' | 'bitcoin' | 'arbitrum' | 'tron';
+  blockchain: 'solana' | 'hyperliquid' | 'polygon' | 'base' | 'bnb' | 'bitcoin' | 'arbitrum' | 'tron';
   explorer_url?: string;
 }
 
@@ -63,7 +65,7 @@ export interface CostBreakdown {
 // Abstract blockchain provider interface
 export interface BlockchainProvider {
   name: string;
-  blockchain: 'solana' | 'hyperliquid' | 'polygon' | 'base' | 'bitcoin' | 'arbitrum' | 'tron';
+  blockchain: 'solana' | 'hyperliquid' | 'polygon' | 'base' | 'bnb' | 'bitcoin' | 'arbitrum' | 'tron';
   
   // Core operations
   createToken(params: UnifiedTokenParams, signer?: any): Promise<TokenCreationResult>;
@@ -660,6 +662,177 @@ class BaseProvider implements BlockchainProvider {
   }
 }
 
+// BNB Chain Provider Implementation  
+class BnbProvider implements BlockchainProvider {
+  name = 'BNB Chain';
+  blockchain = 'bnb' as const;
+  
+  async createToken(params: UnifiedTokenParams, signer?: any): Promise<TokenCreationResult> {
+    try {
+      const { 
+        deployBnbToken, 
+        uploadBnbMetadata,
+        connectBnbWallet 
+      } = await import('./bnb');
+      
+      // Convert unified params to BNB Chain-specific params
+      const bnbParams: BnbTokenParams = {
+        name: params.name,
+        symbol: params.symbol,
+        description: params.description,
+        image: params.image,
+        blockchain: 'bnb',
+        decimals: params.bnb?.decimals || 18,
+        totalSupply: params.bnb?.totalSupply || 1000000,
+        website: params.website,
+        twitter: params.twitter,
+        telegram: params.telegram,
+        discord: params.discord,
+        retentionPercentage: params.retentionPercentage,
+        retainedAmount: params.retainedAmount,
+        liquidityAmount: params.liquidityAmount,
+        createLiquidity: params.bnb?.createLiquidity || false,
+        liquidityBnbAmount: params.bnb?.liquidityBnbAmount || 0,
+        dexChoice: params.bnb?.dexChoice || 'pancakeswap-v2',
+        ...params.bnb,
+      };
+      
+      // Use provided signer or connect to MetaMask
+      let walletSigner = signer;
+      if (!walletSigner) {
+        const walletConnection = await connectBnbWallet();
+        if (!walletConnection.signer) {
+          throw new Error(walletConnection.error || 'Failed to connect MetaMask wallet');
+        }
+        walletSigner = walletConnection.signer;
+      }
+      
+      // Upload metadata first
+      const metadataUri = await uploadBnbMetadata(bnbParams);
+      console.log(`✅ BNB Chain metadata uploaded: ${metadataUri}`);
+      
+      // Deploy token contract
+      const result = await deployBnbToken(
+        walletSigner,
+        bnbParams,
+        (step: number, status: string) => {
+          console.log(`Step ${step}/5: ${status}`);
+        }
+      );
+      
+      if (!result.success || !result.tokenAddress) {
+        return {
+          success: result.success,
+          tokenAddress: result.tokenAddress,
+          txHash: result.txHash,
+          error: result.error,
+          blockchain: 'bnb',
+          explorer_url: result.tokenAddress ? `https://bscscan.com/token/${result.tokenAddress}` : undefined,
+        };
+      }
+      
+      // Create liquidity pool if requested
+      let poolTxId: string | undefined;
+      if (bnbParams.createLiquidity) {
+        try {
+          const { createBnbLiquidityPool } = await import('./bnb');
+          
+          const poolResult = await createBnbLiquidityPool(
+            walletSigner,
+            result.tokenAddress,
+            bnbParams,
+            (step: number, status: string) => {
+              console.log(`Pool Step ${step}/7: ${status}`);
+            }
+          );
+          
+          if (poolResult.success) {
+            poolTxId = poolResult.txHash;
+            console.log(`✅ BNB Chain liquidity pool created: ${poolTxId}`);
+          } else {
+            console.warn(`⚠️ BNB Chain liquidity pool creation failed: ${poolResult.error}`);
+          }
+        } catch (poolError) {
+          console.warn(`⚠️ BNB Chain liquidity pool creation error:`, poolError);
+        }
+      }
+      
+      return {
+        success: result.success,
+        tokenAddress: result.tokenAddress,
+        poolTxId,
+        txHash: result.txHash,
+        error: result.error,
+        blockchain: 'bnb',
+        explorer_url: result.tokenAddress ? `https://bscscan.com/token/${result.tokenAddress}` : undefined,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+        blockchain: 'bnb',
+      };
+    }
+  }
+  
+  async uploadMetadata(params: UnifiedTokenParams): Promise<string> {
+    const { uploadBnbMetadata } = await import('./bnb');
+    
+    const bnbParams: BnbTokenParams = {
+      name: params.name,
+      symbol: params.symbol,
+      description: params.description,
+      image: params.image,
+      blockchain: 'bnb',
+      decimals: params.bnb?.decimals || 18,
+      totalSupply: params.bnb?.totalSupply || 1000000,
+      website: params.website,
+      twitter: params.twitter,
+      telegram: params.telegram,
+      discord: params.discord,
+      ...params.bnb,
+    };
+    
+    return uploadBnbMetadata(bnbParams);
+  }
+  
+  calculateCosts(params: UnifiedTokenParams): CostBreakdown {
+    const { getBnbCostBreakdown } = require('./bnb');
+    
+    const bnbParams: BnbTokenParams = {
+      name: params.name,
+      symbol: params.symbol,
+      description: params.description,
+      image: params.image,
+      blockchain: 'bnb',
+      decimals: params.bnb?.decimals || 18,
+      totalSupply: params.bnb?.totalSupply || 1000000,
+      createLiquidity: params.bnb?.createLiquidity || false,
+      liquidityBnbAmount: params.bnb?.liquidityBnbAmount || 0,
+      ...params.bnb,
+    };
+    
+    return getBnbCostBreakdown(bnbParams);
+  }
+  
+  validateParams(params: UnifiedTokenParams): { isValid: boolean; errors: string[] } {
+    const { validateBnbParams } = require('./bnb');
+    
+    const bnbParams: BnbTokenParams = {
+      name: params.name,
+      symbol: params.symbol,
+      description: params.description,
+      image: params.image,
+      blockchain: 'bnb',
+      decimals: params.bnb?.decimals || 18,
+      totalSupply: params.bnb?.totalSupply || 1000000,
+      ...params.bnb,
+    };
+    
+    return validateBnbParams(bnbParams);
+  }
+}
+
 // BRC-20 Provider Implementation (Bitcoin inscriptions like PEPE, ORDI)
 class Brc20Provider implements BlockchainProvider {
   name = 'Bitcoin';
@@ -912,7 +1085,7 @@ class TronProvider implements BlockchainProvider {
 }
 
 // Factory function to get the appropriate blockchain provider
-export function getBlockchainProvider(blockchain: 'solana' | 'hyperliquid' | 'polygon' | 'base' | 'bitcoin' | 'arbitrum' | 'tron'): BlockchainProvider {
+export function getBlockchainProvider(blockchain: 'solana' | 'hyperliquid' | 'polygon' | 'base' | 'bnb' | 'bitcoin' | 'arbitrum' | 'tron'): BlockchainProvider {
   switch (blockchain) {
     case 'solana':
       return new SolanaProvider();
@@ -922,6 +1095,8 @@ export function getBlockchainProvider(blockchain: 'solana' | 'hyperliquid' | 'po
       return new PolygonProvider();
     case 'base':
       return new BaseProvider();
+    case 'bnb':
+      return new BnbProvider();
     case 'bitcoin':
       return new Brc20Provider();
     case 'arbitrum':
@@ -934,7 +1109,7 @@ export function getBlockchainProvider(blockchain: 'solana' | 'hyperliquid' | 'po
 }
 
 // Helper function to get all supported blockchains
-export function getSupportedBlockchains(): Array<{ id: 'solana' | 'hyperliquid' | 'polygon' | 'base' | 'bitcoin' | 'arbitrum' | 'tron'; name: string; description: string; icon: string }> {
+export function getSupportedBlockchains(): Array<{ id: 'solana' | 'hyperliquid' | 'polygon' | 'base' | 'bnb' | 'bitcoin' | 'arbitrum' | 'tron'; name: string; description: string; icon: string }> {
   return [
     {
       id: 'solana',
@@ -953,6 +1128,12 @@ export function getSupportedBlockchains(): Array<{ id: 'solana' | 'hyperliquid' 
       name: 'BASE',
       description: 'Coinbase L2 with Uniswap & Aerodrome DEXs',
       icon: '🔵',
+    },
+    {
+      id: 'bnb',
+      name: 'BNB Chain',
+      description: 'Popular for memes with PancakeSwap & Biswap DEXs (~$0.50 fees)',
+      icon: '🟡',
     },
     {
       id: 'bitcoin',

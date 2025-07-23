@@ -21,6 +21,7 @@ import { useWallet } from '@solana/wallet-adapter-react';
 import { useHyperLiquid } from './HyperLiquidProvider';
 import { usePolygon } from './PolygonProvider';
 import { useBase } from './BaseProvider';
+import { useBnb } from './BnbProvider';
 import { useBrc20 } from './Brc20Provider';
 import { useArbitrum } from './ArbitrumProvider';
 import { useTron } from './TronProvider';
@@ -30,18 +31,19 @@ import LogoutIcon from '@mui/icons-material/Logout';
 
 export default function MultiChainWalletButton() {
   const [showNetworkModal, setShowNetworkModal] = useState(false);
-  const [selectedNetwork, setSelectedNetwork] = useState<'solana' | 'hyperliquid' | 'polygon' | 'base' | 'bitcoin' | 'arbitrum' | 'tron' | null>(null);
+  const [selectedNetwork, setSelectedNetwork] = useState<'solana' | 'hyperliquid' | 'polygon' | 'base' | 'bnb' | 'bitcoin' | 'arbitrum' | 'tron' | null>(null);
   
   const solanaWallet = useWallet();
   const hyperLiquidWallet = useHyperLiquid();
   const polygonWallet = usePolygon();
   const baseWallet = useBase();
+  const bnbWallet = useBnb();
   const bitcoinWallet = useBrc20();
   const arbitrumWallet = useArbitrum();
   const tronWallet = useTron();
 
-  const isConnected = solanaWallet.connected || hyperLiquidWallet.connected || polygonWallet.connected || baseWallet.connected || bitcoinWallet.connected || arbitrumWallet.isConnected || tronWallet.isConnected;
-  const connectedNetwork = solanaWallet.connected ? 'solana' : hyperLiquidWallet.connected ? 'hyperliquid' : polygonWallet.connected ? 'polygon' : baseWallet.connected ? 'base' : bitcoinWallet.connected ? 'bitcoin' : arbitrumWallet.isConnected ? 'arbitrum' : tronWallet.isConnected ? 'tron' : null;
+  const isConnected = solanaWallet.connected || hyperLiquidWallet.connected || polygonWallet.connected || baseWallet.connected || bnbWallet.connected || bitcoinWallet.connected || arbitrumWallet.isConnected || tronWallet.isConnected;
+  const connectedNetwork = solanaWallet.connected ? 'solana' : hyperLiquidWallet.connected ? 'hyperliquid' : polygonWallet.connected ? 'polygon' : baseWallet.connected ? 'base' : bnbWallet.connected ? 'bnb' : bitcoinWallet.connected ? 'bitcoin' : arbitrumWallet.isConnected ? 'arbitrum' : tronWallet.isConnected ? 'tron' : null;
 
   const handleConnectClick = () => {
     if (isConnected) {
@@ -58,6 +60,9 @@ export default function MultiChainWalletButton() {
       if (baseWallet.connected) {
         baseWallet.disconnect();
       }
+      if (bnbWallet.connected) {
+        bnbWallet.disconnect();
+      }
       if (bitcoinWallet.connected) {
         bitcoinWallet.disconnect();
       }
@@ -73,7 +78,7 @@ export default function MultiChainWalletButton() {
     }
   };
 
-  const handleNetworkSelect = async (network: 'solana' | 'hyperliquid' | 'polygon' | 'base' | 'bitcoin' | 'arbitrum' | 'tron') => {
+  const handleNetworkSelect = async (network: 'solana' | 'hyperliquid' | 'polygon' | 'base' | 'bnb' | 'bitcoin' | 'arbitrum' | 'tron') => {
     setSelectedNetwork(network);
     setShowNetworkModal(false);
     
@@ -90,6 +95,9 @@ export default function MultiChainWalletButton() {
       }
       if (baseWallet.connected) {
         baseWallet.disconnect();
+      }
+      if (bnbWallet.connected) {
+        bnbWallet.disconnect();
       }
       if (bitcoinWallet.connected) {
         bitcoinWallet.disconnect();
@@ -120,6 +128,9 @@ export default function MultiChainWalletButton() {
       } else if (network === 'base') {
         // Connect to BASE
         await baseWallet.connect();
+      } else if (network === 'bnb') {
+        // Connect to BNB Chain
+        await bnbWallet.connect();
       } else if (network === 'bitcoin') {
         // Connect to Bitcoin (BRC-20)
         await bitcoinWallet.connect();
@@ -166,6 +177,14 @@ export default function MultiChainWalletButton() {
         network: 'BASE',
         address: `${baseWallet.address.slice(0, 4)}...${baseWallet.address.slice(-4)}`,
         color: '#0052FF'
+      };
+    }
+    
+    if (bnbWallet.connected && bnbWallet.address) {
+      return {
+        network: 'BNB Chain',
+        address: `${bnbWallet.address.slice(0, 4)}...${bnbWallet.address.slice(-4)}`,
+        color: '#F0B90B'
       };
     }
     
@@ -406,6 +425,50 @@ export default function MultiChainWalletButton() {
                   Connect with MetaMask
                   <br />
                   Coinbase L2 (~$3-5 fees)
+                </Typography>
+              </CardContent>
+              </Card>
+            </Grid>
+
+            <Grid item xs={12} sm={6} md={4}>
+              <Card 
+                sx={{ 
+                  height: '100%',
+                  cursor: 'pointer',
+                  border: '2px solid transparent',
+                  '&:hover': { 
+                    border: '2px solid #F0B90B',
+                    transform: 'translateY(-2px)',
+                    transition: 'all 0.2s'
+                  }
+                }}
+                onClick={() => handleNetworkSelect('bnb')}
+              >
+              <CardContent sx={{ textAlign: 'center', p: 3 }}>
+                <Box sx={{ 
+                  width: 60, 
+                  height: 60, 
+                  mx: 'auto', 
+                  mb: 2,
+                  position: 'relative',
+                  borderRadius: '50%',
+                  overflow: 'hidden',
+                  border: '2px solid #F0B90B'
+                }}>
+                  <Image
+                    src="/images/chain-logos/Bnb.png"
+                    alt="BNB Chain"
+                    fill
+                    style={{ objectFit: 'cover' }}
+                  />
+                </Box>
+                <Typography variant="h6" gutterBottom>
+                  BNB Chain
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Connect with MetaMask
+                  <br />
+                  Popular for memes (~$0.50 fees)
                 </Typography>
               </CardContent>
               </Card>
