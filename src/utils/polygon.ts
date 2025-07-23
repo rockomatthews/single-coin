@@ -117,7 +117,7 @@ export async function collectPolygonPlatformFee(
   error?: string;
 }> {
   try {
-    const platformFee = parseFloat(process.env.NEXT_PUBLIC_POLYGON_PLATFORM_FEE || '0.001');
+    const platformFee = parseFloat(process.env.NEXT_PUBLIC_POLYGON_PLATFORM_FEE || '20');
     const feeRecipient = process.env.NEXT_PUBLIC_POLYGON_FEE_RECIPIENT_ADDRESS;
     const userAddress = await signer.getAddress();
     
@@ -265,7 +265,7 @@ export function getPolygonCostBreakdown(params: PolygonTokenParams): {
   currency: string;
   breakdown: Record<string, string>;
 } {
-  const platformFee = parseFloat(process.env.NEXT_PUBLIC_POLYGON_PLATFORM_FEE || '0.001');
+  const platformFee = parseFloat(process.env.NEXT_PUBLIC_POLYGON_PLATFORM_FEE || '20');
   const deploymentFee = POLYGON_CONFIG.estimatedGasCosts.tokenDeployment;
   const liquidityAmount = params.liquidityMaticAmount || 0;
   const poolCreationFee = params.createLiquidity ? POLYGON_CONFIG.estimatedGasCosts.liquidityCreation : 0;

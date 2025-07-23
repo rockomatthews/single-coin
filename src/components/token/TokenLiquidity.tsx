@@ -336,10 +336,16 @@ export default function TokenLiquidity({
               <Slider
                 value={liquidityAmount}
                 onChange={handleLiquidityAmountChange}
-                step={0.1}
-                min={0.1}
-                max={100}
-                marks={[
+                step={currency === 'MATIC' ? 1 : 0.1}
+                min={currency === 'MATIC' ? 1 : 0.1}
+                max={currency === 'MATIC' ? 500 : 100}
+                marks={currency === 'MATIC' ? [
+                  { value: 1, label: '1' },
+                  { value: 10, label: '10' },
+                  { value: 50, label: '50' },
+                  { value: 100, label: '100' },
+                  { value: 500, label: '500' },
+                ] : [
                   { value: 0.1, label: '0.1' },
                   { value: 1, label: '1' },
                   { value: 10, label: '10' },

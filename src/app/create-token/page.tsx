@@ -49,7 +49,7 @@ const DEFAULT_TOKEN_PARAMS = {
   liquiditySolAmount: 0.5, // Legacy field for Solana
   createPool: true,
   // Chain-specific liquidity amounts
-  polygon: { liquidityMaticAmount: 0.5 },
+  polygon: { liquidityMaticAmount: 10 },
   base: { liquidityEthAmount: 0.001 },
   arbitrum: { liquidityEthAmount: 0.001 },
   tron: { liquidityTrxAmount: 100 },
