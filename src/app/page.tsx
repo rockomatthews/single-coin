@@ -12,7 +12,7 @@ import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
 import { formatMarketCap, formatPrice } from '@/utils/tokenPrices';
 
 // Blockchain indicator component
-const BlockchainBadge = ({ blockchain }: { blockchain?: 'solana' | 'hyperliquid' | 'polygon' | 'base' | 'bitcoin' | 'arbitrum' | 'tron' }) => {
+const BlockchainBadge = ({ blockchain }: { blockchain?: 'solana' | 'hyperliquid' | 'polygon' | 'base' | 'bnb' | 'bitcoin' | 'arbitrum' | 'tron' }) => {
   if (!blockchain) return null;
   
   const config = {
@@ -67,7 +67,7 @@ interface Token {
   marketCap?: number; // New field for market cap
   price?: number;     // New field for token price
   created_at?: string; // Added for sorting by date
-  blockchain?: 'solana' | 'hyperliquid' | 'polygon' | 'base' | 'bitcoin' | 'arbitrum' | 'tron'; // Multi-chain support
+  blockchain?: 'solana' | 'hyperliquid' | 'polygon' | 'base' | 'bnb' | 'bitcoin' | 'arbitrum' | 'tron'; // Multi-chain support
   network?: string;
   token_standard?: string;
   explorer_url?: string;
@@ -128,7 +128,7 @@ export default function Home() {
       const price = Math.random() * 0.001;
       const supply = Math.floor(Math.random() * 1000000000) + 1000000;
       const marketCap = price * supply;
-      const blockchains: ('solana' | 'hyperliquid' | 'polygon' | 'base' | 'bitcoin' | 'arbitrum' | 'tron')[] = ['solana', 'hyperliquid', 'polygon', 'base', 'bitcoin', 'arbitrum', 'tron'];
+      const blockchains: ('solana' | 'hyperliquid' | 'polygon' | 'base' | 'bnb' | 'bitcoin' | 'arbitrum' | 'tron')[] = ['solana', 'hyperliquid', 'polygon', 'base', 'bnb', 'bitcoin', 'arbitrum', 'tron'];
       const blockchain = blockchains[i % blockchains.length]; // Mix of all blockchains
       
       return {

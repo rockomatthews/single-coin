@@ -17,8 +17,8 @@ import {
 import { getSupportedBlockchains } from '@/utils/blockchain-factory';
 
 interface ChainSelectorProps {
-  selectedChain: 'solana' | 'hyperliquid' | 'polygon' | 'base' | 'bitcoin' | 'arbitrum' | 'tron';
-  onChainChange: (chain: 'solana' | 'hyperliquid' | 'polygon' | 'base' | 'bitcoin' | 'arbitrum' | 'tron') => void;
+  selectedChain: 'solana' | 'hyperliquid' | 'polygon' | 'base' | 'bnb' | 'bitcoin' | 'arbitrum' | 'tron';
+  onChainChange: (chain: 'solana' | 'hyperliquid' | 'polygon' | 'base' | 'bnb' | 'bitcoin' | 'arbitrum' | 'tron') => void;
   showCosts?: boolean;
 }
 
@@ -30,7 +30,7 @@ export default function ChainSelector({
   const blockchains = getSupportedBlockchains();
 
   const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    onChainChange(event.target.value as 'solana' | 'hyperliquid' | 'polygon' | 'base' | 'bitcoin' | 'arbitrum' | 'tron');
+    onChainChange(event.target.value as 'solana' | 'hyperliquid' | 'polygon' | 'base' | 'bnb' | 'bitcoin' | 'arbitrum' | 'tron');
   };
 
   const getChainFeatures = (chainId: string) => {
@@ -99,6 +99,17 @@ export default function ChainSelector({
             baseFee: '0.002-0.005 ETH',
             liquidityFee: '+ liquidity amount',
             currency: 'ETH'
+          }
+        };
+      case 'bnb':
+        return {
+          features: ['ERC-20 Tokens', 'PancakeSwap V2/V3', 'Biswap', 'MetaMask'],
+          pros: ['Popular for memes', 'Low fees (~$0.50)', 'Large user base', 'Strong DEX ecosystem'],
+          cons: ['Centralized validators', 'BSC vs BNB naming confusion'],
+          costs: {
+            baseFee: '0.02 BNB',
+            liquidityFee: '+ liquidity amount',
+            currency: 'BNB'
           }
         };
       case 'tron':

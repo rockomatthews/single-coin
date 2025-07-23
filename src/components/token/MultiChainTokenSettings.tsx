@@ -51,7 +51,7 @@ export default function MultiChainTokenSettings({
     }
   };
 
-  const handleChainChange = (blockchain: 'solana' | 'hyperliquid' | 'polygon' | 'base' | 'bitcoin' | 'arbitrum' | 'tron') => {
+  const handleChainChange = (blockchain: 'solana' | 'hyperliquid' | 'polygon' | 'base' | 'bnb' | 'bitcoin' | 'arbitrum' | 'tron') => {
     // Reset chain-specific params when switching
     updateTokenParams({
       blockchain,

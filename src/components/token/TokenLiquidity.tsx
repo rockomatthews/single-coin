@@ -18,7 +18,7 @@ interface TokenLiquidityProps {
     retentionPercentage: number;
     liquiditySolAmount: number; // Legacy field for Solana
     createPool: boolean;
-    blockchain?: 'solana' | 'hyperliquid' | 'polygon' | 'base' | 'bitcoin' | 'arbitrum' | 'tron';
+    blockchain?: 'solana' | 'hyperliquid' | 'polygon' | 'base' | 'bnb' | 'bitcoin' | 'arbitrum' | 'tron';
     // Chain-specific liquidity amounts
     polygon?: { liquidityMaticAmount?: number; };
     base?: { liquidityEthAmount?: number; };
