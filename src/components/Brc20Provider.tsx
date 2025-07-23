@@ -64,9 +64,10 @@ export function Brc20Provider({ children }: Brc20ProviderProps) {
     
     setIsSupported(hasUnisat || hasXverse || hasOkx || hasHiro);
     
-    if (hasUnisat) {
-      checkUnisatConnection();
-    }
+    // Remove auto-connection - user should explicitly select Bitcoin
+    // if (hasUnisat) {
+    //   checkUnisatConnection();
+    // }
   };
 
   const checkUnisatConnection = async () => {
