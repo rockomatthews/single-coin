@@ -164,7 +164,7 @@ export default function Home() {
             textAlign: 'center'
           }}>
             <Typography variant="body2" component="h2" color="text.secondary" paragraph sx={{ mb: 1 }}>
-              Create DEX-tradable tokens with liquidity pools in just one step. Now supporting 7 major blockchain networks:
+              Create DEX-tradable tokens with liquidity pools in just one step. Now supporting 8 major blockchain networks:
             </Typography>
             
             {/* Chain logos row */}
@@ -207,6 +207,17 @@ export default function Home() {
                   style={{ borderRadius: '50%' }}
                 />
                 <Typography variant="caption" sx={{ fontSize: '0.75rem', fontWeight: 'bold' }}>BASE</Typography>
+              </Box>
+              
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                <Image
+                  src="/images/chain-logos/Bnb.png"
+                  alt="BNB Chain"
+                  width={24}
+                  height={24}
+                  style={{ borderRadius: '50%' }}
+                />
+                <Typography variant="caption" sx={{ fontSize: '0.75rem', fontWeight: 'bold' }}>BNB Chain</Typography>
               </Box>
               
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
