@@ -20,6 +20,7 @@ const BlockchainBadge = ({ blockchain }: { blockchain?: 'solana' | 'hyperliquid'
     hyperliquid: { icon: 'HL', color: '#00D4AA', label: 'HL' },
     polygon: { icon: '🔷', color: '#8247E5', label: 'MATIC' },
     base: { icon: '🔵', color: '#0052FF', label: 'BASE' },
+    bnb: { icon: '🟡', color: '#F0B90B', label: 'BNB' },
     bitcoin: { icon: '₿', color: '#F7931A', label: 'BTC' },
     arbitrum: { icon: '🔺', color: '#28A0F0', label: 'ARB' },
     tron: { icon: '🔴', color: '#FF0013', label: 'TRX' }
