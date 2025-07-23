@@ -17,6 +17,7 @@ import { useWallet } from '@solana/wallet-adapter-react';
 import { useHyperLiquid } from '../../components/HyperLiquidProvider';
 import { usePolygon } from '../../components/PolygonProvider';
 import { useBase } from '../../components/BaseProvider';
+import { useBnb } from '../../components/BnbProvider';
 import { useBrc20 } from '../../components/Brc20Provider';
 import { useArbitrum } from '../../components/ArbitrumProvider';
 import { useTron } from '../../components/TronProvider';
@@ -29,7 +30,7 @@ import TokenReview from '../../components/token/TokenReview';
 import TokenSuccess from '../../components/token/TokenSuccess';
 import { useTokenCreation } from '../../hooks/useTokenCreation';
 import { useMultiChainTokenCreation } from '../../hooks/useMultiChainTokenCreation';
-import { calculateFee as calculatePlatformFee } from '../../utils/solana';
+import { calculateFee as calculateSolanaFee } from '../../utils/solana';
 
 const steps = ['Token Settings', 'Token Distribution', 'Add Liquidity', 'Review'];
 
@@ -68,15 +69,17 @@ export default function CreateTokenPage() {
   const { connected: hyperLiquidConnected, address: hyperLiquidAddress, signer: hyperLiquidSigner } = useHyperLiquid();
   const { connected: polygonConnected, address: polygonAddress, signer: polygonSigner } = usePolygon();
   const { connected: baseConnected, address: baseAddress, signer: baseSigner } = useBase();
+  const { connected: bnbConnected, address: bnbAddress, signer: bnbSigner } = useBnb();
   const { connected: bitcoinConnected, address: bitcoinAddress } = useBrc20();
   const { isConnected: arbitrumConnected, account: arbitrumAddress, signer: arbitrumSigner } = useArbitrum();
   const { isConnected: tronConnected, account: tronAddress } = useTron();
   
-  const isConnected = solanaConnected || hyperLiquidConnected || polygonConnected || baseConnected || bitcoinConnected || arbitrumConnected || tronConnected;
+  const isConnected = solanaConnected || hyperLiquidConnected || polygonConnected || baseConnected || bnbConnected || bitcoinConnected || arbitrumConnected || tronConnected;
   const connectedBlockchain = solanaConnected ? 'solana' 
     : hyperLiquidConnected ? 'hyperliquid' 
     : polygonConnected ? 'polygon' 
     : baseConnected ? 'base'
+    : bnbConnected ? 'bnb'
     : bitcoinConnected ? 'bitcoin'
     : arbitrumConnected ? 'arbitrum'
     : tronConnected ? 'tron' 
@@ -278,14 +281,50 @@ export default function CreateTokenPage() {
   // Calculate fee based on parameters using the centralized fee calculation
   const calculateFee = useCallback(() => {
     const retentionPercentage = tokenParams.retentionPercentage || 20;
-    if (connectedBlockchain === 'hyperliquid') {
-      // HYPER LIQUID has retention-based fee structure (much more affordable)
-      const baseFee = 0.1; // Base 0.1 HYPE (very low)
-      const retentionMultiplier = Math.pow(retentionPercentage / 100, 2); // Quadratic scaling
-      const fee = baseFee + (retentionMultiplier * 0.4); // Max fee ~0.5 HYPE at 100% retention
-      return fee.toFixed(4);
+    
+    switch (connectedBlockchain) {
+      case 'hyperliquid':
+        // HYPER LIQUID has retention-based fee structure (much more affordable)
+        const baseFee = 0.1; // Base 0.1 HYPE (very low)
+        const retentionMultiplier = Math.pow(retentionPercentage / 100, 2); // Quadratic scaling
+        const fee = baseFee + (retentionMultiplier * 0.4); // Max fee ~0.5 HYPE at 100% retention
+        return fee.toFixed(4);
+      
+      case 'polygon':
+        // Polygon uses environment variable for platform fee
+        const polygonFee = parseFloat(process.env.NEXT_PUBLIC_POLYGON_PLATFORM_FEE || '20');
+        return polygonFee.toFixed(4);
+      
+      case 'base':
+        // Base uses environment variable for platform fee  
+        const baseFee2 = parseFloat(process.env.NEXT_PUBLIC_BASE_PLATFORM_FEE || '0.005');
+        return baseFee2.toFixed(4);
+      
+      case 'bnb':
+        // BNB uses environment variable for platform fee
+        const bnbFee = parseFloat(process.env.NEXT_PUBLIC_BNB_PLATFORM_FEE || '0.02');
+        return bnbFee.toFixed(4);
+      
+      case 'arbitrum':
+        // Arbitrum uses environment variable for platform fee
+        const arbitrumFee = parseFloat(process.env.NEXT_PUBLIC_ARBITRUM_PLATFORM_FEE || '0.005');
+        return arbitrumFee.toFixed(4);
+      
+      case 'tron':
+        // TRON uses environment variable for platform fee
+        const tronFee = parseFloat(process.env.NEXT_PUBLIC_TRON_PLATFORM_FEE || '100');
+        return tronFee.toFixed(4);
+      
+      case 'bitcoin':
+        // Bitcoin uses environment variable for platform fee
+        const bitcoinFee = parseFloat(process.env.NEXT_PUBLIC_BITCOIN_PLATFORM_FEE || '0.0002');
+        return bitcoinFee.toFixed(8);
+      
+      case 'solana':
+      default:
+        // Solana uses retention-based fee calculation
+        return calculateSolanaFee(retentionPercentage).toFixed(4);
     }
-    return calculatePlatformFee(retentionPercentage).toFixed(4);
   }, [tokenParams.retentionPercentage, connectedBlockchain]);
 
   // Calculate total cost (platform fee + liquidity + protocol fees)

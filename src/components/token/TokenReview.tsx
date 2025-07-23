@@ -170,8 +170,8 @@ export default function TokenReview({
                 <Typography variant="body1" gutterBottom>{liquidityAmount.toFixed(liquidityAmount < 1 ? 4 : 2)} {currency}</Typography>
               </Grid>
               <Grid item xs={12} sm={6}>
-                <Typography variant="subtitle2">Fee (3%)</Typography>
-                <Typography variant="body1" gutterBottom>{(liquidityAmount * 0.03).toFixed(4)} {currency}</Typography>
+                <Typography variant="subtitle2">Tokens for Liquidity</Typography>
+                <Typography variant="body1" gutterBottom>{Math.floor(tokenParams.supply * ((100 - tokenParams.retentionPercentage) / 100)).toLocaleString()} tokens</Typography>
               </Grid>
             </Grid>
           )
