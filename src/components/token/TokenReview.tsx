@@ -12,25 +12,7 @@ import {
 } from '@mui/material';
 
 interface TokenReviewProps {
-  tokenParams: {
-    name: string;
-    symbol: string;
-    description: string;
-    image: string;
-    decimals: number;
-    supply: number;
-    website?: string;
-    twitter?: string;
-    telegram?: string;
-    discord?: string;
-    retentionPercentage: number;
-    createPool: boolean;
-    liquiditySolAmount: number;
-    blockchain?: 'solana' | 'hyperliquid' | 'polygon' | 'base' | 'bitcoin' | 'arbitrum' | 'tron';
-    revokeMintAuthority?: boolean;
-    revokeFreezeAuthority?: boolean;
-    revokeUpdateAuthority?: boolean;
-  };
+  tokenParams: any; // Use any to avoid complex type matching
   calculateFee: () => string;
   calculateTotalCost: () => string;
   walletInfo?: {
@@ -72,24 +54,25 @@ export default function TokenReview({
     }
   };
   
-  const getTokenStandard = () => {
-    switch (tokenParams.blockchain) {
-      case 'solana': return 'SPL Token';
-      case 'polygon': return 'ERC-20 (Polygon)';
-      case 'base': return 'ERC-20 (BASE)';
-      case 'arbitrum': return 'ERC-20 (Arbitrum)';
-      case 'bitcoin': return 'BRC-20 Inscription';
-      case 'tron': return 'TRC-20';
-      case 'hyperliquid': return 'HIP-1';
-      default: return 'Token';
-    }
-  };
   
   const currency = getCurrency();
   const dexName = getDEXName();
-  const tokenStandard = getTokenStandard();
   const isHyperLiquid = tokenParams.blockchain === 'hyperliquid';
   const isBitcoin = tokenParams.blockchain === 'bitcoin';
+  
+  // Get the appropriate liquidity amount based on blockchain
+  const getLiquidityAmount = () => {
+    switch (tokenParams.blockchain) {
+      case 'polygon': return tokenParams.polygon?.liquidityMaticAmount || 0;
+      case 'base': return tokenParams.base?.liquidityEthAmount || 0;
+      case 'arbitrum': return tokenParams.arbitrum?.liquidityEthAmount || 0;
+      case 'tron': return tokenParams.tron?.liquidityTrxAmount || 0;
+      case 'solana':
+      default: return tokenParams.liquiditySolAmount || 0;
+    }
+  };
+  
+  const liquidityAmount = getLiquidityAmount();
   
   // Debug logging
   console.log('TokenReview - tokenParams.blockchain:', tokenParams.blockchain);
@@ -183,12 +166,12 @@ export default function TokenReview({
           ) : (
             <Grid container spacing={2}>
               <Grid item xs={12} sm={6}>
-                <Typography variant="subtitle2">SOL for Liquidity</Typography>
-                <Typography variant="body1" gutterBottom>{tokenParams.liquiditySolAmount.toFixed(2)} SOL</Typography>
+                <Typography variant="subtitle2">{currency} for Liquidity</Typography>
+                <Typography variant="body1" gutterBottom>{liquidityAmount.toFixed(liquidityAmount < 1 ? 4 : 2)} {currency}</Typography>
               </Grid>
               <Grid item xs={12} sm={6}>
                 <Typography variant="subtitle2">Fee (3%)</Typography>
-                <Typography variant="body1" gutterBottom>{(tokenParams.liquiditySolAmount * 0.03).toFixed(4)} SOL</Typography>
+                <Typography variant="body1" gutterBottom>{(liquidityAmount * 0.03).toFixed(4)} {currency}</Typography>
               </Grid>
             </Grid>
           )
@@ -269,7 +252,7 @@ export default function TokenReview({
                 <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                   <Typography variant="subtitle2">Your Liquidity:</Typography>
                   <Typography variant="subtitle2">
-                    {tokenParams.liquiditySolAmount.toFixed(4)} {currency}
+                    {liquidityAmount.toFixed(liquidityAmount < 1 ? 4 : 2)} {currency}
                   </Typography>
                 </Box>
                 

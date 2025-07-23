@@ -46,13 +46,20 @@ const DEFAULT_TOKEN_PARAMS = {
   decimals: 9,
   supply: 1000000000,
   retentionPercentage: 20,
-  liquiditySolAmount: 0.5,
+  liquiditySolAmount: 0.5, // Legacy field for Solana
   createPool: true,
+  // Chain-specific liquidity amounts
+  polygon: { liquidityMaticAmount: 0.5 },
+  base: { liquidityEthAmount: 0.001 },
+  arbitrum: { liquidityEthAmount: 0.001 },
+  tron: { liquidityTrxAmount: 100 },
   // Security features - default to false for user choice
   revokeUpdateAuthority: false,
   revokeFreezeAuthority: false,
   revokeMintAuthority: false,
 };
+
+type TokenParamsType = typeof DEFAULT_TOKEN_PARAMS;
 
 export default function CreateTokenPage() {
   const router = useRouter();
@@ -154,7 +161,7 @@ export default function CreateTokenPage() {
   }, []);
 
   // Update token parameters
-  const updateTokenParams = useCallback((newParams: Partial<typeof DEFAULT_TOKEN_PARAMS>) => {
+  const updateTokenParams = useCallback((newParams: Partial<TokenParamsType>) => {
     setTokenParams(prevParams => ({
       ...prevParams,
       ...newParams
@@ -248,8 +255,8 @@ export default function CreateTokenPage() {
         polygon: {
           decimals: 18,
           totalSupply: totalSupply,
-          createLiquidity: false, // Pool creation coming soon
-          liquidityMaticAmount: 0,
+          createLiquidity: tokenParams.createPool,
+          liquidityMaticAmount: tokenParams.polygon?.liquidityMaticAmount || 0,
           dexChoice: 'uniswap-v3' as const,
         },
       };
@@ -290,12 +297,36 @@ export default function CreateTokenPage() {
       return platformFee.toFixed(4);
     }
     
-    // Solana costs include liquidity and Raydium fees
-    const liquiditySol = tokenParams.liquiditySolAmount || 0;
-    const raydiumFees = 0.154; // Actual Raydium pool creation costs
+    // Get chain-specific liquidity amount and protocol fees
+    let liquidityAmount = 0;
+    let protocolFees = 0;
     
-    return (platformFee + liquiditySol + raydiumFees).toFixed(4);
-  }, [calculateFee, tokenParams.liquiditySolAmount, connectedBlockchain]);
+    switch (connectedBlockchain) {
+      case 'polygon':
+        liquidityAmount = tokenParams.polygon?.liquidityMaticAmount || 0;
+        protocolFees = 0.01; // Polygon pool creation costs
+        break;
+      case 'base':
+        liquidityAmount = tokenParams.base?.liquidityEthAmount || 0;
+        protocolFees = 0.001; // BASE pool creation costs
+        break;
+      case 'arbitrum':
+        liquidityAmount = tokenParams.arbitrum?.liquidityEthAmount || 0;
+        protocolFees = 0.001; // Arbitrum pool creation costs
+        break;
+      case 'tron':
+        liquidityAmount = tokenParams.tron?.liquidityTrxAmount || 0;
+        protocolFees = 50; // TRON pool creation costs
+        break;
+      case 'solana':
+      default:
+        liquidityAmount = tokenParams.liquiditySolAmount || 0;
+        protocolFees = 0.154; // Raydium pool creation costs
+        break;
+    }
+    
+    return (platformFee + liquidityAmount + protocolFees).toFixed(4);
+  }, [calculateFee, tokenParams, connectedBlockchain]);
 
   // Convert SOL to lamports
   const solToLamports = useCallback((solAmount: number) => {

@@ -16,11 +16,16 @@ interface TokenLiquidityProps {
   tokenParams: {
     supply: number;
     retentionPercentage: number;
-    liquiditySolAmount: number;
+    liquiditySolAmount: number; // Legacy field for Solana
     createPool: boolean;
     blockchain?: 'solana' | 'hyperliquid' | 'polygon' | 'base' | 'bitcoin' | 'arbitrum' | 'tron';
+    // Chain-specific liquidity amounts
+    polygon?: { liquidityMaticAmount?: number; };
+    base?: { liquidityEthAmount?: number; };
+    arbitrum?: { liquidityEthAmount?: number; };
+    tron?: { liquidityTrxAmount?: number; };
   };
-  updateTokenParams: (params: Partial<TokenLiquidityProps['tokenParams']>) => void;
+  updateTokenParams: (params: any) => void; // Use any to avoid complex type matching
   calculateTotalCost: () => string;
   walletInfo?: {
     wallet: string;
@@ -65,10 +70,52 @@ export default function TokenLiquidity({
   const dexName = getDEXName();
   const isHyperLiquid = tokenParams.blockchain === 'hyperliquid';
   const isBitcoin = tokenParams.blockchain === 'bitcoin';
+  
+  // Get the appropriate liquidity amount based on blockchain
+  const getLiquidityAmount = () => {
+    switch (tokenParams.blockchain) {
+      case 'polygon': return tokenParams.polygon?.liquidityMaticAmount || 0;
+      case 'base': return tokenParams.base?.liquidityEthAmount || 0;
+      case 'arbitrum': return tokenParams.arbitrum?.liquidityEthAmount || 0;
+      case 'tron': return tokenParams.tron?.liquidityTrxAmount || 0;
+      case 'solana':
+      default: return tokenParams.liquiditySolAmount || 0;
+    }
+  };
+  
+  const liquidityAmount = getLiquidityAmount();
 
   // Handle liquidity amount slider change
   const handleLiquidityAmountChange = (_: Event, value: number | number[]) => {
-    updateTokenParams({ liquiditySolAmount: value as number });
+    const amount = value as number;
+    
+    // Update the appropriate field based on blockchain
+    switch (tokenParams.blockchain) {
+      case 'polygon':
+        updateTokenParams({ 
+          polygon: { ...tokenParams.polygon, liquidityMaticAmount: amount }
+        });
+        break;
+      case 'base':
+        updateTokenParams({ 
+          base: { ...tokenParams.base, liquidityEthAmount: amount }
+        });
+        break;
+      case 'arbitrum':
+        updateTokenParams({ 
+          arbitrum: { ...tokenParams.arbitrum, liquidityEthAmount: amount }
+        });
+        break;
+      case 'tron':
+        updateTokenParams({ 
+          tron: { ...tokenParams.tron, liquidityTrxAmount: amount }
+        });
+        break;
+      case 'solana':
+      default:
+        updateTokenParams({ liquiditySolAmount: amount });
+        break;
+    }
   };
 
   // Handle toggle for creating pool/trading
@@ -282,12 +329,12 @@ export default function TokenLiquidity({
             <Divider sx={{ my: 2 }} />
             
             <Typography gutterBottom>
-              {currency} amount for initial liquidity: <strong>{tokenParams.liquiditySolAmount.toFixed(2)} {currency}</strong>
+              {currency} amount for initial liquidity: <strong>{liquidityAmount.toFixed(liquidityAmount < 1 ? 4 : 2)} {currency}</strong>
             </Typography>
 
             <Box sx={{ px: 2, mb: 3 }}>
               <Slider
-                value={tokenParams.liquiditySolAmount}
+                value={liquidityAmount}
                 onChange={handleLiquidityAmountChange}
                 step={0.1}
                 min={0.1}
@@ -309,9 +356,9 @@ export default function TokenLiquidity({
                 🏊 Pool Details:
               </Typography>
               <Typography variant="body2">
-                • Initial price: {(tokenParams.liquiditySolAmount / liquidityTokens).toFixed(8)} {currency} per token<br/>
-                • Market cap: ${((tokenParams.liquiditySolAmount / liquidityTokens) * tokenParams.supply * (currency === 'SOL' ? 200 : currency === 'MATIC' ? 1 : currency === 'ETH' ? 3000 : currency === 'TRX' ? 0.1 : 200)).toFixed(0)} (estimated)<br/>
-                • Your liquidity: {tokenParams.liquiditySolAmount.toFixed(4)} {currency} + {liquidityTokens.toLocaleString()} tokens<br/>
+                • Initial price: {(liquidityAmount / liquidityTokens).toFixed(8)} {currency} per token<br/>
+                • Market cap: ${((liquidityAmount / liquidityTokens) * tokenParams.supply * (currency === 'SOL' ? 200 : currency === 'MATIC' ? 1 : currency === 'ETH' ? 3000 : currency === 'TRX' ? 0.1 : 200)).toFixed(0)} (estimated)<br/>
+                • Your liquidity: {liquidityAmount.toFixed(liquidityAmount < 1 ? 4 : 2)} {currency} + {liquidityTokens.toLocaleString()} tokens<br/>
                 • Platform fee: Retention-based (varies by % kept)<br/>
                 • {dexName} pool fees: {currency === 'SOL' ? '0.154' : currency === 'MATIC' ? '0.01' : currency === 'ETH' ? '0.001' : currency === 'TRX' ? '50' : '0.01'} {currency} (protocol costs)<br/>
                 • <strong>Total cost: {calculateTotalCost()} {currency}</strong>
