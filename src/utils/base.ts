@@ -136,6 +136,12 @@ export async function collectBasePlatformFee(
     
     const feeInWei = ethers.parseEther(platformFee.toString());
     
+    // Ensure we're on BASE network before balance check
+    const network = await signer.provider.getNetwork();
+    if (network.chainId !== BigInt(8453)) {
+      throw new Error(`Wrong network: expected BASE (8453), but got ${network.chainId}. Please switch to BASE network.`);
+    }
+    
     // Check if user has sufficient balance
     const balance = await signer.provider.getBalance(userAddress);
     const requiredAmount = feeInWei + ethers.parseEther('0.005'); // Fee + gas buffer
@@ -180,6 +186,12 @@ export async function deployBaseToken(
   error?: string;
 }> {
   try {
+    // Validate network first
+    const network = await signer.provider.getNetwork();
+    if (network.chainId !== BigInt(8453)) {
+      throw new Error(`Wrong network: expected BASE (8453), but connected to ${network.chainId}. Please switch to BASE network in MetaMask.`);
+    }
+    
     progressCallback?.(1, 'Collecting platform fee...');
     
     // Collect platform fee first

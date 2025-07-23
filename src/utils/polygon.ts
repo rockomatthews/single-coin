@@ -136,6 +136,12 @@ export async function collectPolygonPlatformFee(
     
     const feeInWei = ethers.parseEther(platformFee.toString());
     
+    // Ensure we're on Polygon network before balance check
+    const network = await signer.provider.getNetwork();
+    if (network.chainId !== BigInt(137)) {
+      throw new Error(`Wrong network: expected Polygon (137), but got ${network.chainId}. Please switch to Polygon network.`);
+    }
+    
     // Check if user has sufficient balance
     const balance = await signer.provider.getBalance(userAddress);
     const requiredAmount = feeInWei + ethers.parseEther('0.01'); // Fee + gas buffer
@@ -180,6 +186,12 @@ export async function deployPolygonToken(
   error?: string;
 }> {
   try {
+    // Validate network first
+    const network = await signer.provider.getNetwork();
+    if (network.chainId !== BigInt(137)) {
+      throw new Error(`Wrong network: expected Polygon (137), but connected to ${network.chainId}. Please switch to Polygon network in MetaMask.`);
+    }
+    
     progressCallback?.(1, 'Collecting platform fee...');
     
     // Collect platform fee first
