@@ -203,6 +203,145 @@ export async function collectPolygonPlatformFee(
 }
 
 /**
+ * Calculate optimal gas settings for Polygon network
+ */
+async function calculateOptimalPolygonGas(feeData: ethers.FeeData): Promise<{
+  maxFeePerGas: bigint;
+  maxPriorityFeePerGas: bigint;
+}> {
+  // Polygon-specific gas calculation to avoid underpriced transactions
+  let baseMaxFeePerGas: bigint;
+  let basePriorityFee: bigint;
+  
+  if (feeData.maxFeePerGas && feeData.maxPriorityFeePerGas) {
+    // Use network-provided values as base
+    baseMaxFeePerGas = feeData.maxFeePerGas;
+    basePriorityFee = feeData.maxPriorityFeePerGas;
+  } else {
+    // Fallback values optimized for Polygon
+    baseMaxFeePerGas = ethers.parseUnits('30', 'gwei');
+    basePriorityFee = ethers.parseUnits('2', 'gwei'); // Higher default for Polygon
+  }
+  
+  // Apply Polygon-specific multipliers to avoid mempool issues
+  // Research shows 20% increase is often needed for Polygon reliability
+  const maxFeeMultiplier = 130n; // 30% increase
+  const priorityFeeMultiplier = 150n; // 50% increase for priority
+  
+  const maxFeePerGas = (baseMaxFeePerGas * maxFeeMultiplier) / 100n;
+  const maxPriorityFeePerGas = (basePriorityFee * priorityFeeMultiplier) / 100n;
+  
+  // Ensure minimum values for Polygon network
+  const minMaxFeePerGas = ethers.parseUnits('30', 'gwei');
+  const minPriorityFee = ethers.parseUnits('2', 'gwei');
+  
+  return {
+    maxFeePerGas: maxFeePerGas > minMaxFeePerGas ? maxFeePerGas : minMaxFeePerGas,
+    maxPriorityFeePerGas: maxPriorityFeePerGas > minPriorityFee ? maxPriorityFeePerGas : minPriorityFee
+  };
+}
+
+/**
+ * Wait for Polygon contract deployment with multiple fallback strategies
+ */
+async function waitForPolygonDeployment(
+  contract: ethers.Contract,
+  provider: ethers.JsonRpcProvider,
+  timeoutMs: number = 300000 // 5 minutes default
+): Promise<string> {
+  const deploymentTx = contract.deploymentTransaction();
+  
+  if (!deploymentTx) {
+    throw new Error('No deployment transaction found');
+  }
+  
+  console.log(`⏳ Using robust deployment confirmation for tx: ${deploymentTx.hash}`);
+  
+  // Strategy 1: Try waitForDeployment with timeout
+  try {
+    console.log('📝 Strategy 1: Using waitForDeployment with timeout...');
+    
+    const timeoutPromise = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error('waitForDeployment timeout')), timeoutMs)
+    );
+    
+    await Promise.race([
+      contract.waitForDeployment(),
+      timeoutPromise
+    ]);
+    
+    const address = await contract.getAddress();
+    console.log('✅ Strategy 1 successful: waitForDeployment completed');
+    return address;
+  } catch (error) {
+    console.log('⚠️ Strategy 1 failed, trying alternative methods...');
+  }
+  
+  // Strategy 2: Use provider.waitForTransaction with timeout
+  try {
+    console.log('📝 Strategy 2: Using provider.waitForTransaction...');
+    
+    const receipt = await provider.waitForTransaction(
+      deploymentTx.hash,
+      1, // 1 confirmation
+      timeoutMs
+    );
+    
+    if (!receipt) {
+      throw new Error('Transaction receipt is null');
+    }
+    
+    if (receipt.status !== 1) {
+      throw new Error(`Transaction failed with status: ${receipt.status}`);
+    }
+    
+    const address = await contract.getAddress();
+    console.log('✅ Strategy 2 successful: provider.waitForTransaction completed');
+    return address;
+  } catch (error) {
+    console.log('⚠️ Strategy 2 failed, trying manual verification...');
+  }
+  
+  // Strategy 3: Manual polling with contract code verification
+  console.log('📝 Strategy 3: Manual polling with code verification...');
+  
+  const startTime = Date.now();
+  const pollInterval = 3000; // 3 seconds - matches Polygon block time
+  let lastError: Error | null = null;
+  
+  while (Date.now() - startTime < timeoutMs) {
+    try {
+      // Check if transaction is mined
+      const receipt = await provider.getTransactionReceipt(deploymentTx.hash);
+      
+      if (receipt && receipt.status === 1) {
+        // Transaction is mined, get contract address
+        const address = await contract.getAddress();
+        
+        // Verify contract code is deployed
+        const code = await provider.getCode(address);
+        
+        if (code && code !== '0x') {
+          console.log('✅ Strategy 3 successful: Manual verification completed');
+          return address;
+        }
+        
+        console.log('⏳ Contract address found but no bytecode yet, continuing...');
+      }
+      
+      await new Promise(resolve => setTimeout(resolve, pollInterval));
+    } catch (error) {
+      lastError = error as Error;
+      console.log(`⚠️ Polling attempt failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      await new Promise(resolve => setTimeout(resolve, pollInterval));
+    }
+  }
+  
+  // All strategies failed
+  throw new Error(`All deployment confirmation strategies failed. Last error: ${lastError?.message || 'Unknown error'}`);
+}
+
+/**
  * Get reliable Polygon provider with proper configuration
  */
 async function getReliablePolygonProvider(): Promise<ethers.JsonRpcProvider> {
@@ -277,13 +416,9 @@ export async function deployPolygonToken(
     
     progressCallback?.(3, 'Deploying ERC-20 contract...');
     
-    // Calculate proper gas settings based on current network conditions
-    const baseMaxFeePerGas = feeData.maxFeePerGas || ethers.parseUnits('30', 'gwei');
-    const basePriorityFee = feeData.maxPriorityFeePerGas || ethers.parseUnits('1', 'gwei');
-    
-    // Use slightly higher fees for faster confirmation
-    const maxFeePerGas = baseMaxFeePerGas + ethers.parseUnits('10', 'gwei'); // Add 10 gwei buffer
-    const maxPriorityFeePerGas = basePriorityFee + ethers.parseUnits('1', 'gwei'); // Add 1 gwei buffer
+    // Enhanced gas configuration for Polygon network reliability
+    const polygonGasConfig = await calculateOptimalPolygonGas(feeData);
+    const { maxFeePerGas, maxPriorityFeePerGas } = polygonGasConfig;
     
     console.log('🚀 Deploying with optimal gas settings:', {
       maxFeePerGas: ethers.formatUnits(maxFeePerGas, 'gwei') + ' gwei',
@@ -316,9 +451,13 @@ export async function deployPolygonToken(
     
     console.log(`⏳ Waiting for deployment confirmation, tx hash: ${deploymentTx.hash}`);
     
-    // Wait for deployment using the reliable provider
-    await contract.waitForDeployment();
-    const tokenAddress = await contract.getAddress();
+    // Simple reliable approach: wait for transaction receipt directly
+    const receipt = await deploymentTx.wait(1);
+    if (!receipt || !receipt.contractAddress) {
+      throw new Error('Contract deployment failed - no contract address found');
+    }
+    
+    const tokenAddress = receipt.contractAddress;
     
     console.log('✅ Contract deployment confirmed');
     
@@ -761,6 +900,125 @@ export async function connectPolygonWallet(): Promise<{
       signer: null,
       address: null,
       error: error instanceof Error ? error.message : 'Failed to connect to MetaMask',
+    };
+  }
+}
+
+/**
+ * Alternative deployment confirmation using deploymentTransaction().wait()
+ * This is a backup method when waitForDeployment() fails
+ */
+export async function deployPolygonTokenWithAlternativeWait(
+  signer: ethers.JsonRpcSigner,
+  params: PolygonTokenParams,
+  progressCallback?: (step: number, status: string) => void
+): Promise<{
+  success: boolean;
+  tokenAddress?: string;
+  txHash?: string;
+  error?: string;
+}> {
+  try {
+    // Validate network
+    const network = await signer.provider.getNetwork();
+    if (network.chainId !== BigInt(137)) {
+      throw new Error(`Wrong network: expected Polygon (137), but connected to ${network.chainId}`);
+    }
+    
+    progressCallback?.(1, 'Preparing alternative deployment method...');
+    
+    // Collect platform fee
+    const retentionPercentage = params.retentionPercentage || 20;
+    const feeResult = await collectPolygonPlatformFee(signer, retentionPercentage);
+    if (!feeResult.success) {
+      throw new Error(feeResult.error || 'Failed to collect platform fee');
+    }
+    
+    progressCallback?.(2, 'Configuring deployment with enhanced gas settings...');
+    
+    const reliableProvider = await getReliablePolygonProvider();
+    const feeData = await reliableProvider.getFeeData();
+    const polygonGasConfig = await calculateOptimalPolygonGas(feeData);
+    
+    // Create contract factory
+    const contractFactory = new ethers.ContractFactory(ERC20_ABI, ERC20_BYTECODE, signer);
+    
+    // Calculate total supply
+    const totalSupplyWithDecimals = ethers.parseUnits(
+      params.totalSupply.toString(),
+      params.decimals
+    );
+    
+    progressCallback?.(3, 'Deploying contract with alternative confirmation method...');
+    
+    // Deploy contract with enhanced gas settings
+    const contract = await contractFactory.deploy(
+      params.name,
+      params.symbol,
+      totalSupplyWithDecimals,
+      await signer.getAddress(),
+      {
+        gasLimit: 1500000,
+        maxFeePerGas: polygonGasConfig.maxFeePerGas,
+        maxPriorityFeePerGas: polygonGasConfig.maxPriorityFeePerGas,
+        type: 2
+      }
+    );
+    
+    console.log('✅ Contract deployment transaction sent');
+    
+    progressCallback?.(4, 'Waiting for confirmation using deploymentTransaction method...');
+    
+    // Use deploymentTransaction().wait() method with timeout
+    const deploymentTx = contract.deploymentTransaction();
+    if (!deploymentTx) {
+      throw new Error('No deployment transaction found');
+    }
+    
+    console.log(`⏳ Using deploymentTransaction().wait() for tx: ${deploymentTx.hash}`);
+    
+    // Wait with timeout
+    const timeoutMs = 300000; // 5 minutes
+    const timeoutPromise = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error('deploymentTransaction.wait timeout')), timeoutMs)
+    );
+    
+    const receipt = await Promise.race([
+      deploymentTx.wait(1), // Wait for 1 confirmation
+      timeoutPromise
+    ]);
+    
+    if (!receipt || receipt.status !== 1) {
+      throw new Error('Transaction failed or was reverted');
+    }
+    
+    const tokenAddress = await contract.getAddress();
+    
+    // Verify contract deployment
+    const code = await reliableProvider.getCode(tokenAddress);
+    if (code === '0x') {
+      throw new Error('Contract bytecode not found at deployment address');
+    }
+    
+    progressCallback?.(5, 'Alternative deployment method completed successfully!');
+    
+    console.log('✅ Polygon token deployed using alternative method:', {
+      address: tokenAddress,
+      txHash: deploymentTx.hash,
+      name: params.name,
+      symbol: params.symbol
+    });
+    
+    return {
+      success: true,
+      tokenAddress,
+      txHash: deploymentTx.hash
+    };
+  } catch (error) {
+    console.error('❌ Alternative Polygon deployment failed:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown deployment error'
     };
   }
 }
