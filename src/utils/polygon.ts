@@ -286,10 +286,67 @@ export async function deployPolygonToken(
       throw new Error('Contract deployment failed - no contract instance created');
     }
     
-    // Wait for deployment
-    await contract.waitForDeployment();
-    const tokenAddress = await contract.getAddress();
+    // Get deployment transaction info before waiting
     const deploymentTx = contract.deploymentTransaction();
+    if (!deploymentTx) {
+      throw new Error('No deployment transaction found');
+    }
+    
+    console.log(`⏳ Waiting for deployment confirmation, tx hash: ${deploymentTx.hash}`);
+    
+    // Wait for deployment with timeout (60 seconds)
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('Deployment confirmation timeout after 60 seconds')), 60000);
+    });
+    
+    let tokenAddress: string;
+    
+    try {
+      // First try the normal waitForDeployment with timeout
+      await Promise.race([
+        contract.waitForDeployment(),
+        timeoutPromise
+      ]);
+      tokenAddress = await contract.getAddress();
+      console.log('✅ Contract deployment confirmed via waitForDeployment');
+      
+    } catch (error: any) {
+      console.log('⚠️ waitForDeployment failed, trying manual confirmation...', error.message);
+      
+      // Fallback: Manual transaction receipt checking
+      try {
+        console.log('🔍 Checking transaction receipt manually...');
+        const receipt = await deploymentTx.wait(3); // Wait for 3 confirmations
+        
+        if (receipt && receipt.contractAddress) {
+          tokenAddress = receipt.contractAddress;
+          console.log('✅ Contract deployment confirmed via transaction receipt');
+          
+          // Verify the contract exists by calling a view function
+          const testContract = new ethers.Contract(tokenAddress, ERC20_ABI, signer);
+          try {
+            const name = await testContract.name();
+            console.log('✅ Contract verification successful, name:', name);
+          } catch (verifyError) {
+            console.log('⚠️ Contract verification failed, but proceeding with address');
+          }
+          
+        } else {
+          throw new Error('No contract address found in transaction receipt');
+        }
+        
+      } catch (receiptError: any) {
+        console.error('❌ Manual confirmation also failed:', receiptError.message);
+        
+        // Last resort: provide transaction hash for manual checking
+        throw new Error(
+          `Deployment may have succeeded but confirmation failed. ` +
+          `Transaction hash: ${deploymentTx.hash}. ` +
+          `Please check https://polygonscan.com/tx/${deploymentTx.hash} for the contract address. ` +
+          `Original error: ${error.message}`
+        );
+      }
+    }
     
     progressCallback?.(5, 'Token deployed successfully!');
     
