@@ -52,6 +52,7 @@ const DEFAULT_TOKEN_PARAMS = {
   // Chain-specific liquidity amounts
   polygon: { liquidityMaticAmount: 10 },
   base: { liquidityEthAmount: 0.001 },
+  bnb: { liquidityBnbAmount: 0.01 },
   arbitrum: { liquidityEthAmount: 0.001 },
   tron: { liquidityTrxAmount: 100 },
   // Security features - default to false for user choice
@@ -350,7 +351,24 @@ export default function CreateTokenPage() {
       return platformFee.toFixed(4);
     }
     
-    // Get chain-specific liquidity amount and protocol fees
+    // Only include liquidity and protocol fees if LP creation is enabled
+    if (!tokenParams.createPool) {
+      // LP creation is disabled, only return platform fee and gas costs
+      const estimatedGasCosts = {
+        polygon: 0.01,
+        base: 0.001,
+        arbitrum: 0.001,
+        tron: 10,
+        solana: 0.005,
+        bnb: 0.001,
+        bitcoin: 0,
+      };
+      
+      const gasCost = estimatedGasCosts[connectedBlockchain as keyof typeof estimatedGasCosts] || 0;
+      return (platformFee + gasCost).toFixed(4);
+    }
+    
+    // Get chain-specific liquidity amount and protocol fees (only when LP creation is enabled)
     let liquidityAmount = 0;
     let protocolFees = 0;
     
@@ -370,6 +388,10 @@ export default function CreateTokenPage() {
       case 'tron':
         liquidityAmount = tokenParams.tron?.liquidityTrxAmount || 0;
         protocolFees = 50; // TRON pool creation costs
+        break;
+      case 'bnb':
+        liquidityAmount = tokenParams.bnb?.liquidityBnbAmount || 0;
+        protocolFees = 0.001; // BNB pool creation costs
         break;
       case 'solana':
       default:

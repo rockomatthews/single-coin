@@ -337,19 +337,35 @@ export async function deployPolygonToken(
     } catch (error: any) {
       console.log('⚠️ waitForDeployment failed, trying manual confirmation...', error.message);
       
-      // Fallback: Manual transaction receipt checking
+      // Fallback: Manual transaction receipt checking with additional timeout
       try {
         console.log('🔍 Checking transaction receipt manually...');
-        const receipt = await deploymentTx.wait(3); // Wait for 3 confirmations
+        
+        // Add timeout wrapper around manual receipt checking
+        const manualTimeoutPromise = new Promise((_, reject) => {
+          setTimeout(() => reject(new Error('Manual receipt check timeout after 45 seconds')), 45000);
+        });
+        
+        const receipt = await Promise.race([
+          deploymentTx.wait(3), // Wait for 3 confirmations
+          manualTimeoutPromise
+        ]);
         
         if (receipt && receipt.contractAddress) {
           tokenAddress = receipt.contractAddress;
           console.log('✅ Contract deployment confirmed via transaction receipt');
           
-          // Verify the contract exists by calling a view function
+          // Verify the contract exists by calling a view function with timeout
           const testContract = new ethers.Contract(tokenAddress, ERC20_ABI, signer);
           try {
-            const name = await testContract.name();
+            const verificationTimeout = new Promise((_, reject) => {
+              setTimeout(() => reject(new Error('Contract verification timeout')), 10000);
+            });
+            
+            const name = await Promise.race([
+              testContract.name(),
+              verificationTimeout
+            ]);
             console.log('✅ Contract verification successful, name:', name);
           } catch (verifyError) {
             console.log('⚠️ Contract verification failed, but proceeding with address');
@@ -362,13 +378,48 @@ export async function deployPolygonToken(
       } catch (receiptError: any) {
         console.error('❌ Manual confirmation also failed:', receiptError.message);
         
-        // Last resort: provide transaction hash for manual checking
-        throw new Error(
-          `Deployment may have succeeded but confirmation failed. ` +
-          `Transaction hash: ${deploymentTx.hash}. ` +
-          `Please check https://polygonscan.com/tx/${deploymentTx.hash} for the contract address. ` +
-          `Original error: ${error.message}`
-        );
+        // Last resort: Try polling approach for transaction status
+        try {
+          console.log('🔄 Trying polling approach...');
+          
+          // Poll for transaction receipt for up to 30 seconds
+          const pollTimeout = Date.now() + 30000; // 30 seconds
+          let receipt = null;
+          
+          while (Date.now() < pollTimeout && !receipt) {
+            try {
+              receipt = await signer.provider.getTransactionReceipt(deploymentTx.hash);
+              if (receipt) {
+                console.log('✅ Receipt found via polling');
+                break;
+              }
+            } catch (pollError) {
+              console.log('⚠️ Polling attempt failed, retrying...');
+            }
+            
+            // Wait 2 seconds before next poll
+            await new Promise(resolve => setTimeout(resolve, 2000));
+          }
+          
+          if (receipt && receipt.contractAddress) {
+            tokenAddress = receipt.contractAddress;
+            console.log('✅ Contract deployment confirmed via polling');
+          } else {
+            throw new Error('Polling timeout: No receipt found');
+          }
+          
+        } catch (pollError: any) {
+          console.error('❌ Polling approach also failed:', pollError.message);
+          
+          // Final fallback: provide transaction hash for manual checking
+          throw new Error(
+            `All confirmation methods failed. The deployment transaction was sent but we cannot confirm the contract address. ` +
+            `Transaction hash: ${deploymentTx.hash}. ` +
+            `Please check https://polygonscan.com/tx/${deploymentTx.hash} for the contract address. ` +
+            `You can also try the deployment again in a few minutes. ` +
+            `Original error: ${error.message}`
+          );
+        }
       }
     }
     
