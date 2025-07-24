@@ -174,9 +174,33 @@ export async function collectPolygonPlatformFee(
     const tx = await signer.sendTransaction({
       to: feeRecipient,
       value: feeInWei,
+      gasLimit: 21000, // Standard ETH transfer gas limit
+      maxFeePerGas: ethers.parseUnits('50', 'gwei'),
+      maxPriorityFeePerGas: ethers.parseUnits('2', 'gwei'),
+      type: 2
     });
     
-    await tx.wait();
+    console.log(`💳 Platform fee transaction sent: ${tx.hash}`);
+    
+    // Wait for confirmation with timeout
+    try {
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Fee confirmation timeout after 30 seconds')), 30000);
+      });
+      
+      await Promise.race([
+        tx.wait(1), // Wait for 1 confirmation
+        timeoutPromise
+      ]);
+      console.log(`✅ Platform fee confirmed: ${tx.hash}`);
+    } catch (error: any) {
+      if (error.message.includes('timeout')) {
+        console.log(`⚠️ Fee confirmation timed out, but transaction was sent: ${tx.hash}`);
+        // Continue anyway since transaction was sent successfully
+      } else {
+        throw error;
+      }
+    }
     
     console.log(`✅ Platform fee collected: ${tx.hash}`);
     return {

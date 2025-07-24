@@ -349,7 +349,7 @@ class PolygonProvider implements BlockchainProvider {
         retentionPercentage: params.retentionPercentage,
         retainedAmount: params.retainedAmount,
         liquidityAmount: params.liquidityAmount,
-        createLiquidity: params.polygon?.createLiquidity || false,
+        createLiquidity: params.polygon?.createLiquidity ?? params.createPool ?? false,
         liquidityMaticAmount: params.polygon?.liquidityMaticAmount || 0,
         dexChoice: params.polygon?.dexChoice || 'uniswap-v3',
         ...params.polygon,
