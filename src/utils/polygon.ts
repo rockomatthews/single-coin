@@ -56,12 +56,12 @@ const ERC20_ABI = [
 export const POLYGON_CONFIG = {
   chainId: 137,
   name: 'Polygon Mainnet',
-  rpcUrl: 'https://polygon-rpc.com/',
+  rpcUrl: 'https://polygon-mainnet.infura.io/v3/4458cf4d1689497b9a38b1d6bbf05e78',
   rpcUrls: [
+    'https://polygon-mainnet.infura.io/v3/4458cf4d1689497b9a38b1d6bbf05e78',
     'https://polygon-rpc.com/',
     'https://rpc-mainnet.matic.network/',
-    'https://poly-rpc.gateway.pokt.network/',
-    'https://rpc-mainnet.maticvigil.com/'
+    'https://poly-rpc.gateway.pokt.network/'
   ],
   nativeCurrency: {
     name: 'MATIC',
@@ -170,37 +170,28 @@ export async function collectPolygonPlatformFee(
       throw new Error(`Insufficient MATIC balance. Need at least ${ethers.formatEther(requiredAmount)} MATIC, but have ${ethers.formatEther(balance)} MATIC`);
     }
     
-    // Send MATIC to fee recipient
+    // Get current gas prices for fee transaction
+    const reliableProvider = await getReliablePolygonProvider();
+    const feeData = await reliableProvider.getFeeData();
+    
+    const baseMaxFeePerGas = feeData.maxFeePerGas || ethers.parseUnits('30', 'gwei');
+    const basePriorityFee = feeData.maxPriorityFeePerGas || ethers.parseUnits('1', 'gwei');
+    
+    // Send MATIC to fee recipient with proper gas settings
     const tx = await signer.sendTransaction({
       to: feeRecipient,
       value: feeInWei,
       gasLimit: 21000, // Standard ETH transfer gas limit
-      maxFeePerGas: ethers.parseUnits('50', 'gwei'),
-      maxPriorityFeePerGas: ethers.parseUnits('2', 'gwei'),
+      maxFeePerGas: baseMaxFeePerGas + ethers.parseUnits('5', 'gwei'), // Small buffer for faster confirmation
+      maxPriorityFeePerGas: basePriorityFee + ethers.parseUnits('1', 'gwei'),
       type: 2
     });
     
     console.log(`💳 Platform fee transaction sent: ${tx.hash}`);
     
-    // Wait for confirmation with timeout
-    try {
-      const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('Fee confirmation timeout after 30 seconds')), 30000);
-      });
-      
-      await Promise.race([
-        tx.wait(1), // Wait for 1 confirmation
-        timeoutPromise
-      ]);
-      console.log(`✅ Platform fee confirmed: ${tx.hash}`);
-    } catch (error: any) {
-      if (error.message.includes('timeout')) {
-        console.log(`⚠️ Fee confirmation timed out, but transaction was sent: ${tx.hash}`);
-        // Continue anyway since transaction was sent successfully
-      } else {
-        throw error;
-      }
-    }
+    // Wait for confirmation properly
+    await tx.wait(1); // Wait for 1 confirmation
+    console.log(`✅ Platform fee confirmed: ${tx.hash}`);
     
     console.log(`✅ Platform fee collected: ${tx.hash}`);
     return {
@@ -213,6 +204,28 @@ export async function collectPolygonPlatformFee(
       success: false,
       error: error instanceof Error ? error.message : 'Unknown fee collection error',
     };
+  }
+}
+
+/**
+ * Get reliable Polygon provider with proper configuration
+ */
+async function getReliablePolygonProvider(): Promise<ethers.JsonRpcProvider> {
+  // Use Infura as primary RPC for reliability
+  const rpcUrl = POLYGON_CONFIG.rpcUrl;
+  const provider = new ethers.JsonRpcProvider(rpcUrl, {
+    chainId: 137,
+    name: 'polygon'
+  });
+  
+  // Test the connection
+  try {
+    await provider.getBlockNumber();
+    console.log('✅ Connected to reliable Polygon RPC');
+    return provider;
+  } catch (error) {
+    console.error('❌ Failed to connect to Polygon RPC:', error);
+    throw new Error('Failed to establish reliable connection to Polygon network');
   }
 }
 
@@ -247,6 +260,17 @@ export async function deployPolygonToken(
     
     progressCallback?.(2, 'Preparing token deployment...');
     
+    // Get reliable provider for gas estimation
+    const reliableProvider = await getReliablePolygonProvider();
+    
+    // Get current gas prices from reliable source
+    const feeData = await reliableProvider.getFeeData();
+    console.log('📊 Current Polygon gas prices:', {
+      gasPrice: feeData.gasPrice ? ethers.formatUnits(feeData.gasPrice, 'gwei') + ' gwei' : 'N/A',
+      maxFeePerGas: feeData.maxFeePerGas ? ethers.formatUnits(feeData.maxFeePerGas, 'gwei') + ' gwei' : 'N/A',
+      maxPriorityFeePerGas: feeData.maxPriorityFeePerGas ? ethers.formatUnits(feeData.maxPriorityFeePerGas, 'gwei') + ' gwei' : 'N/A'
+    });
+    
     // Create contract factory
     const contractFactory = new ethers.ContractFactory(ERC20_ABI, ERC20_BYTECODE, signer);
     
@@ -258,59 +282,38 @@ export async function deployPolygonToken(
     
     progressCallback?.(3, 'Deploying ERC-20 contract...');
     
-    let contract;
-    let deploymentAttempt = 1;
+    // Calculate proper gas settings based on current network conditions
+    const baseMaxFeePerGas = feeData.maxFeePerGas || ethers.parseUnits('30', 'gwei');
+    const basePriorityFee = feeData.maxPriorityFeePerGas || ethers.parseUnits('1', 'gwei');
     
-    while (deploymentAttempt <= 3) {
-      try {
-        // Deploy contract with manual gas configuration to avoid estimation issues
-        const gasLimit = 2000000; // 2M gas should be enough for ERC-20 deployment
-        const maxFeePerGas = ethers.parseUnits('50', 'gwei'); // Higher fee during congestion
-        const maxPriorityFeePerGas = ethers.parseUnits('2', 'gwei');
-        
-        console.log(`🚀 Deployment attempt ${deploymentAttempt}/3 with gas limit: ${gasLimit}, maxFeePerGas: ${ethers.formatUnits(maxFeePerGas, 'gwei')} gwei`);
-        
-        contract = await contractFactory.deploy(
-          params.name,
-          params.symbol,
-          totalSupplyWithDecimals,
-          await signer.getAddress(),
-          {
-            gasLimit,
-            maxFeePerGas,
-            maxPriorityFeePerGas,
-            type: 2 // EIP-1559 transaction
-          }
-        );
-        
-        console.log('✅ Contract deployment transaction sent successfully');
-        break; // Success, exit retry loop
-        
-      } catch (error: any) {
-        console.log(`❌ Deployment attempt ${deploymentAttempt} failed:`, error.message);
-        
-        if (deploymentAttempt === 3) {
-          // Last attempt failed, throw the error
-          if (error.code === 'CALL_EXCEPTION' || error.message.includes('missing revert data')) {
-            throw new Error(`Contract deployment failed after 3 attempts. This may be due to network congestion or RPC issues. Please try again in a few minutes. Error: ${error.message}`);
-          }
-          throw error;
-        }
-        
-        // Wait before retry
-        console.log(`⏳ Waiting 3 seconds before retry...`);
-        await new Promise(resolve => setTimeout(resolve, 3000));
-        deploymentAttempt++;
+    // Use slightly higher fees for faster confirmation
+    const maxFeePerGas = baseMaxFeePerGas + ethers.parseUnits('10', 'gwei'); // Add 10 gwei buffer
+    const maxPriorityFeePerGas = basePriorityFee + ethers.parseUnits('1', 'gwei'); // Add 1 gwei buffer
+    
+    console.log('🚀 Deploying with optimal gas settings:', {
+      maxFeePerGas: ethers.formatUnits(maxFeePerGas, 'gwei') + ' gwei',
+      maxPriorityFeePerGas: ethers.formatUnits(maxPriorityFeePerGas, 'gwei') + ' gwei'
+    });
+    
+    // Deploy contract with proper gas settings
+    const contract = await contractFactory.deploy(
+      params.name,
+      params.symbol,
+      totalSupplyWithDecimals,
+      await signer.getAddress(),
+      {
+        gasLimit: 1500000, // Reasonable gas limit for ERC-20
+        maxFeePerGas,
+        maxPriorityFeePerGas,
+        type: 2 // EIP-1559 transaction
       }
-    }
+    );
+    
+    console.log('✅ Contract deployment transaction sent successfully');
     
     progressCallback?.(4, 'Waiting for deployment confirmation...');
     
-    if (!contract) {
-      throw new Error('Contract deployment failed - no contract instance created');
-    }
-    
-    // Get deployment transaction info before waiting
+    // Get deployment transaction
     const deploymentTx = contract.deploymentTransaction();
     if (!deploymentTx) {
       throw new Error('No deployment transaction found');
@@ -318,116 +321,27 @@ export async function deployPolygonToken(
     
     console.log(`⏳ Waiting for deployment confirmation, tx hash: ${deploymentTx.hash}`);
     
-    // Wait for deployment with timeout (60 seconds)
-    const timeoutPromise = new Promise((_, reject) => {
-      setTimeout(() => reject(new Error('Deployment confirmation timeout after 60 seconds')), 60000);
-    });
+    // Wait for deployment using the reliable provider
+    await contract.waitForDeployment();
+    const tokenAddress = await contract.getAddress();
     
-    let tokenAddress: string;
+    console.log('✅ Contract deployment confirmed');
     
+    // Verify the contract is working by calling a view function
     try {
-      // First try the normal waitForDeployment with timeout
-      await Promise.race([
-        contract.waitForDeployment(),
-        timeoutPromise
-      ]);
-      tokenAddress = await contract.getAddress();
-      console.log('✅ Contract deployment confirmed via waitForDeployment');
-      
-    } catch (error: any) {
-      console.log('⚠️ waitForDeployment failed, trying manual confirmation...', error.message);
-      
-      // Fallback: Manual transaction receipt checking with additional timeout
-      try {
-        console.log('🔍 Checking transaction receipt manually...');
-        
-        // Add timeout wrapper around manual receipt checking
-        const manualTimeoutPromise = new Promise((_, reject) => {
-          setTimeout(() => reject(new Error('Manual receipt check timeout after 45 seconds')), 45000);
-        });
-        
-        const receipt = await Promise.race([
-          deploymentTx.wait(3), // Wait for 3 confirmations
-          manualTimeoutPromise
-        ]) as ethers.ContractTransactionReceipt | null;
-        
-        if (receipt && receipt.contractAddress) {
-          tokenAddress = receipt.contractAddress;
-          console.log('✅ Contract deployment confirmed via transaction receipt');
-          
-          // Verify the contract exists by calling a view function with timeout
-          const testContract = new ethers.Contract(tokenAddress, ERC20_ABI, signer);
-          try {
-            const verificationTimeout = new Promise((_, reject) => {
-              setTimeout(() => reject(new Error('Contract verification timeout')), 10000);
-            });
-            
-            const name = await Promise.race([
-              testContract.name(),
-              verificationTimeout
-            ]);
-            console.log('✅ Contract verification successful, name:', name);
-          } catch (verifyError) {
-            console.log('⚠️ Contract verification failed, but proceeding with address');
-          }
-          
-        } else {
-          throw new Error('No contract address found in transaction receipt');
-        }
-        
-      } catch (receiptError: any) {
-        console.error('❌ Manual confirmation also failed:', receiptError.message);
-        
-        // Last resort: Try polling approach for transaction status
-        try {
-          console.log('🔄 Trying polling approach...');
-          
-          // Poll for transaction receipt for up to 30 seconds
-          const pollTimeout = Date.now() + 30000; // 30 seconds
-          let receipt = null;
-          
-          while (Date.now() < pollTimeout && !receipt) {
-            try {
-              receipt = await signer.provider.getTransactionReceipt(deploymentTx.hash);
-              if (receipt) {
-                console.log('✅ Receipt found via polling');
-                break;
-              }
-            } catch (pollError) {
-              console.log('⚠️ Polling attempt failed, retrying...');
-            }
-            
-            // Wait 2 seconds before next poll
-            await new Promise(resolve => setTimeout(resolve, 2000));
-          }
-          
-          if (receipt && receipt.contractAddress) {
-            tokenAddress = receipt.contractAddress;
-            console.log('✅ Contract deployment confirmed via polling');
-          } else {
-            throw new Error('Polling timeout: No receipt found');
-          }
-          
-        } catch (pollError: any) {
-          console.error('❌ Polling approach also failed:', pollError.message);
-          
-          // Final fallback: provide transaction hash for manual checking
-          throw new Error(
-            `All confirmation methods failed. The deployment transaction was sent but we cannot confirm the contract address. ` +
-            `Transaction hash: ${deploymentTx.hash}. ` +
-            `Please check https://polygonscan.com/tx/${deploymentTx.hash} for the contract address. ` +
-            `You can also try the deployment again in a few minutes. ` +
-            `Original error: ${error.message}`
-          );
-        }
-      }
+      const name = await contract.name();
+      const symbol = await contract.symbol();
+      const totalSupply = await contract.totalSupply();
+      console.log('✅ Contract verification successful:', { name, symbol, totalSupply: totalSupply.toString() });
+    } catch (verifyError) {
+      console.log('⚠️ Contract verification failed, but deployment succeeded');
     }
     
     progressCallback?.(5, 'Token deployed successfully!');
     
     console.log('✅ Polygon token deployed:', {
       address: tokenAddress,
-      txHash: deploymentTx?.hash,
+      txHash: deploymentTx.hash,
       name: params.name,
       symbol: params.symbol,
       totalSupply: params.totalSupply,
@@ -437,7 +351,7 @@ export async function deployPolygonToken(
     return {
       success: true,
       tokenAddress,
-      txHash: deploymentTx?.hash,
+      txHash: deploymentTx.hash,
     };
   } catch (error) {
     console.error('❌ Polygon token deployment failed:', error);
