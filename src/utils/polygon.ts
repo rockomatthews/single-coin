@@ -349,7 +349,7 @@ export async function deployPolygonToken(
         const receipt = await Promise.race([
           deploymentTx.wait(3), // Wait for 3 confirmations
           manualTimeoutPromise
-        ]);
+        ]) as ethers.ContractTransactionReceipt | null;
         
         if (receipt && receipt.contractAddress) {
           tokenAddress = receipt.contractAddress;
