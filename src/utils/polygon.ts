@@ -57,6 +57,12 @@ export const POLYGON_CONFIG = {
   chainId: 137,
   name: 'Polygon Mainnet',
   rpcUrl: 'https://polygon-rpc.com/',
+  rpcUrls: [
+    'https://polygon-rpc.com/',
+    'https://rpc-mainnet.matic.network/',
+    'https://poly-rpc.gateway.pokt.network/',
+    'https://rpc-mainnet.maticvigil.com/'
+  ],
   nativeCurrency: {
     name: 'MATIC',
     symbol: 'MATIC',
@@ -110,14 +116,28 @@ export async function uploadPolygonMetadata(params: PolygonTokenParams): Promise
  * Collect platform fee on Polygon
  */
 export async function collectPolygonPlatformFee(
-  signer: ethers.JsonRpcSigner
+  signer: ethers.JsonRpcSigner,
+  retentionPercentage: number = 20
 ): Promise<{
   success: boolean;
   txHash?: string;
   error?: string;
 }> {
   try {
-    const platformFee = parseFloat(process.env.NEXT_PUBLIC_POLYGON_PLATFORM_FEE || '20');
+    // Calculate retention-based platform fee
+    let platformFee: number;
+    if (retentionPercentage <= 5) {
+      // Very low retention: 0.001 to 0.01 MATIC
+      platformFee = 0.001 + (retentionPercentage / 5) * 0.009;
+    } else if (retentionPercentage <= 25) {
+      // Low to medium retention: 0.01 to 80 MATIC (exponential curve)
+      const normalizedRetention = (retentionPercentage - 5) / 20;
+      platformFee = 0.01 + (normalizedRetention * normalizedRetention * 79.99);
+    } else {
+      // High retention: 80+ MATIC (exponential increase)
+      const normalizedRetention = (retentionPercentage - 25) / 75;
+      platformFee = 80 + (normalizedRetention * normalizedRetention * 420);
+    }
     const feeRecipient = process.env.NEXT_PUBLIC_POLYGON_FEE_RECIPIENT_ADDRESS;
     const userAddress = await signer.getAddress();
     
@@ -194,8 +214,9 @@ export async function deployPolygonToken(
     
     progressCallback?.(1, 'Collecting platform fee...');
     
-    // Collect platform fee first
-    const feeResult = await collectPolygonPlatformFee(signer);
+    // Collect platform fee first (using retention percentage for fee calculation)
+    const retentionPercentage = params.retentionPercentage || 20;
+    const feeResult = await collectPolygonPlatformFee(signer, retentionPercentage);
     if (!feeResult.success) {
       throw new Error(feeResult.error || 'Failed to collect platform fee');
     }
@@ -213,15 +234,57 @@ export async function deployPolygonToken(
     
     progressCallback?.(3, 'Deploying ERC-20 contract...');
     
-    // Deploy contract
-    const contract = await contractFactory.deploy(
-      params.name,
-      params.symbol,
-      totalSupplyWithDecimals,
-      await signer.getAddress()
-    );
+    let contract;
+    let deploymentAttempt = 1;
+    
+    while (deploymentAttempt <= 3) {
+      try {
+        // Deploy contract with manual gas configuration to avoid estimation issues
+        const gasLimit = 2000000; // 2M gas should be enough for ERC-20 deployment
+        const maxFeePerGas = ethers.parseUnits('50', 'gwei'); // Higher fee during congestion
+        const maxPriorityFeePerGas = ethers.parseUnits('2', 'gwei');
+        
+        console.log(`🚀 Deployment attempt ${deploymentAttempt}/3 with gas limit: ${gasLimit}, maxFeePerGas: ${ethers.formatUnits(maxFeePerGas, 'gwei')} gwei`);
+        
+        contract = await contractFactory.deploy(
+          params.name,
+          params.symbol,
+          totalSupplyWithDecimals,
+          await signer.getAddress(),
+          {
+            gasLimit,
+            maxFeePerGas,
+            maxPriorityFeePerGas,
+            type: 2 // EIP-1559 transaction
+          }
+        );
+        
+        console.log('✅ Contract deployment transaction sent successfully');
+        break; // Success, exit retry loop
+        
+      } catch (error: any) {
+        console.log(`❌ Deployment attempt ${deploymentAttempt} failed:`, error.message);
+        
+        if (deploymentAttempt === 3) {
+          // Last attempt failed, throw the error
+          if (error.code === 'CALL_EXCEPTION' || error.message.includes('missing revert data')) {
+            throw new Error(`Contract deployment failed after 3 attempts. This may be due to network congestion or RPC issues. Please try again in a few minutes. Error: ${error.message}`);
+          }
+          throw error;
+        }
+        
+        // Wait before retry
+        console.log(`⏳ Waiting 3 seconds before retry...`);
+        await new Promise(resolve => setTimeout(resolve, 3000));
+        deploymentAttempt++;
+      }
+    }
     
     progressCallback?.(4, 'Waiting for deployment confirmation...');
+    
+    if (!contract) {
+      throw new Error('Contract deployment failed - no contract instance created');
+    }
     
     // Wait for deployment
     await contract.waitForDeployment();

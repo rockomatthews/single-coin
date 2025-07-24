@@ -291,9 +291,23 @@ export default function CreateTokenPage() {
         return fee.toFixed(4);
       
       case 'polygon':
-        // Polygon uses environment variable for platform fee
-        const polygonFee = parseFloat(process.env.NEXT_PUBLIC_POLYGON_PLATFORM_FEE || '20');
-        return polygonFee.toFixed(4);
+        // Polygon retention-based fee calculation: 0.001 MATIC (low) to ~80 MATIC at 25%
+        if (retentionPercentage <= 5) {
+          // Very low retention: 0.001 to 0.01 MATIC
+          const fee = 0.001 + (retentionPercentage / 5) * 0.009;
+          return fee.toFixed(6);
+        } else if (retentionPercentage <= 25) {
+          // Low to medium retention: 0.01 to 80 MATIC (exponential curve)
+          const normalizedRetention = (retentionPercentage - 5) / 20; // 0 to 1 for 5% to 25%
+          const fee = 0.01 + (normalizedRetention * normalizedRetention * 79.99); // Quadratic scaling
+          return fee.toFixed(4);
+        } else {
+          // High retention: 80+ MATIC (exponential increase)
+          const normalizedRetention = (retentionPercentage - 25) / 75; // 0 to 1 for 25% to 100%
+          const fee = 80 + (normalizedRetention * normalizedRetention * 420); // Up to ~500 MATIC at 100%
+          return fee.toFixed(2);
+        }
+        
       
       case 'base':
         // Base uses environment variable for platform fee  
