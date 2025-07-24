@@ -188,11 +188,6 @@ export async function collectPolygonPlatformFee(
     });
     
     console.log(`💳 Platform fee transaction sent: ${tx.hash}`);
-    
-    // Wait for confirmation properly
-    await tx.wait(1); // Wait for 1 confirmation
-    console.log(`✅ Platform fee confirmed: ${tx.hash}`);
-    
     console.log(`✅ Platform fee collected: ${tx.hash}`);
     return {
       success: true,
