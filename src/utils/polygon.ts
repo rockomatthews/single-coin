@@ -329,9 +329,10 @@ export async function deployPolygonToken(
     
     // Verify the contract is working by calling a view function
     try {
-      const name = await contract.name();
-      const symbol = await contract.symbol();
-      const totalSupply = await contract.totalSupply();
+      const verifyContract = new ethers.Contract(tokenAddress, ERC20_ABI, signer);
+      const name = await verifyContract.name();
+      const symbol = await verifyContract.symbol();
+      const totalSupply = await verifyContract.totalSupply();
       console.log('✅ Contract verification successful:', { name, symbol, totalSupply: totalSupply.toString() });
     } catch (verifyError) {
       console.log('⚠️ Contract verification failed, but deployment succeeded');
