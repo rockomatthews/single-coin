@@ -175,14 +175,45 @@ export async function collectPolygonPlatformFee(
     // Get gas prices from Gas Station API (avoids MetaMask RPC errors)
     const gasData = await getPolygonGasFromStation();
     
-    // Send MATIC to fee recipient with Gas Station API prices
-    const tx = await signer.sendTransaction({
-      to: feeRecipient,
-      value: feeInWei,
-      gasLimit: 21000, // Standard ETH transfer gas limit
-      maxFeePerGas: gasData.maxFeePerGas,
-      maxPriorityFeePerGas: gasData.maxPriorityFeePerGas
-    });
+    // Send MATIC to fee recipient with retry logic for rate limiting
+    let tx;
+    let attempt = 0;
+    const maxAttempts = 3;
+    const baseDelay = 1000; // 1 second for fee collection
+    
+    while (attempt < maxAttempts) {
+      try {
+        tx = await signer.sendTransaction({
+          to: feeRecipient,
+          value: feeInWei,
+          gasLimit: 21000, // Standard ETH transfer gas limit
+          maxFeePerGas: gasData.maxFeePerGas,
+          maxPriorityFeePerGas: gasData.maxPriorityFeePerGas
+        });
+        break; // Success, exit retry loop
+      } catch (error: any) {
+        attempt++;
+        
+        if (error.message?.includes('rate limited') || error.code === -32603) {
+          if (attempt < maxAttempts) {
+            const delay = baseDelay * Math.pow(2, attempt - 1); // Exponential backoff
+            console.log(`⏳ Platform fee rate limited, retrying in ${delay}ms (attempt ${attempt}/${maxAttempts})`);
+            await new Promise(resolve => setTimeout(resolve, delay));
+            continue;
+          } else {
+            console.error('❌ Max retry attempts reached for platform fee rate limiting');
+            throw new Error('Platform fee collection failed due to rate limiting. Please try again.');
+          }
+        } else {
+          // Not a rate limiting error, rethrow immediately
+          throw error;
+        }
+      }
+    }
+    
+    if (!tx) {
+      throw new Error('Platform fee transaction failed - no transaction created');
+    }
     
     console.log(`💳 Platform fee transaction sent: ${tx.hash}`);
     console.log(`✅ Platform fee collected: ${tx.hash}`);
@@ -252,18 +283,50 @@ export async function deployPolygonToken(
     
     progressCallback?.(3, 'Deploying ERC-20 contract...');
     
-    console.log('🚀 Deploying with simple gas settings');
+    console.log('🚀 Deploying with retry logic for rate limiting');
     
-    // Deploy contract with Gas Station API prices
-    const contract = await contractFactory.deploy(
-      params.name,
-      params.symbol,
-      {
-        maxFeePerGas: gasData.maxFeePerGas,
-        maxPriorityFeePerGas: gasData.maxPriorityFeePerGas,
-        gasLimit: 2000000 // Set high gas limit for deployment
+    // Deploy contract with retry logic for rate limiting
+    let contract;
+    let attempt = 0;
+    const maxAttempts = 3;
+    const baseDelay = 2000; // 2 seconds
+    
+    while (attempt < maxAttempts) {
+      try {
+        contract = await contractFactory.deploy(
+          params.name,
+          params.symbol,
+          {
+            maxFeePerGas: gasData.maxFeePerGas,
+            maxPriorityFeePerGas: gasData.maxPriorityFeePerGas,
+            gasLimit: 2000000 // Set high gas limit for deployment
+          }
+        );
+        break; // Success, exit retry loop
+      } catch (error: any) {
+        attempt++;
+        
+        if (error.message?.includes('rate limited') || error.code === -32603) {
+          if (attempt < maxAttempts) {
+            const delay = baseDelay * Math.pow(2, attempt - 1); // Exponential backoff
+            console.log(`⏳ Rate limited, retrying in ${delay}ms (attempt ${attempt}/${maxAttempts})`);
+            progressCallback?.(3, `Rate limited, retrying in ${delay/1000}s...`);
+            await new Promise(resolve => setTimeout(resolve, delay));
+            continue;
+          } else {
+            console.error('❌ Max retry attempts reached for rate limiting');
+            throw new Error('Contract deployment failed due to rate limiting. Please try again in a few minutes.');
+          }
+        } else {
+          // Not a rate limiting error, rethrow immediately
+          throw error;
+        }
       }
-    );
+    }
+    
+    if (!contract) {
+      throw new Error('Contract deployment failed - no contract instance created');
+    }
     
     console.log('✅ Contract deployment transaction sent successfully');
     
