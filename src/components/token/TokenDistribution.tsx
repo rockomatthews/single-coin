@@ -42,6 +42,7 @@ export default function TokenDistribution({
       case 'hyperliquid': return 'HYPE';
       case 'polygon': return 'MATIC';
       case 'base': return 'ETH';
+      case 'bnb': return 'BNB';
       case 'bitcoin': return 'BTC';
       case 'arbitrum': return 'ETH';
       case 'tron': return 'TRX';

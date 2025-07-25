@@ -276,8 +276,43 @@ export default function CreateTokenPage() {
         });
         setActiveStep(steps.length); // Move to success step
       }
+    } else if (connectedBlockchain === 'bnb') {
+      // Use BNB Chain creation via multi-chain hook
+      const unifiedParams = {
+        name: tokenParams.name,
+        symbol: tokenParams.symbol,
+        description: tokenParams.description,
+        image: tokenParams.image,
+        website: tokenParams.website,
+        twitter: tokenParams.twitter,
+        telegram: tokenParams.telegram,
+        discord: tokenParams.discord,
+        blockchain: 'bnb' as const,
+        retentionPercentage,
+        retainedAmount,
+        liquidityAmount,
+        bnb: {
+          decimals: 18,
+          totalSupply: totalSupply,
+          createLiquidity: tokenParams.createPool,
+          liquidityBnbAmount: tokenParams.bnb?.liquidityBnbAmount || 0,
+          dexChoice: 'pancakeswap-v3' as const,
+        },
+      };
+      
+      console.log('🟡 Creating BNB Chain token with params:', unifiedParams);
+      
+      const result = await multiChainCreation.createToken(unifiedParams, bnbSigner || undefined);
+      
+      if (result && result.success) {
+        setCreationResult({
+          tokenAddress: result.tokenAddress || null,
+          poolTxId: result.poolTxId || null,
+        });
+        setActiveStep(steps.length); // Move to success step
+      }
     }
-  }, [tokenParams, activeCreation.isCreating, connectedBlockchain, solanaCreation, multiChainCreation, polygonSigner]);
+  }, [tokenParams, activeCreation.isCreating, connectedBlockchain, solanaCreation, multiChainCreation, polygonSigner, bnbSigner]);
   
   // Calculate fee based on parameters using the centralized fee calculation
   const calculateFee = useCallback(() => {

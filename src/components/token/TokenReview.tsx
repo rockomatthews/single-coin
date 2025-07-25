@@ -33,6 +33,7 @@ export default function TokenReview({
       case 'hyperliquid': return 'HYPE';
       case 'polygon': return 'MATIC';
       case 'base': return 'ETH';
+      case 'bnb': return 'BNB';
       case 'bitcoin': return 'BTC';
       case 'arbitrum': return 'ETH';
       case 'tron': return 'TRX';
@@ -46,6 +47,7 @@ export default function TokenReview({
       case 'solana': return 'Raydium';
       case 'polygon': return 'Uniswap V3';
       case 'base': return 'Aerodrome';
+      case 'bnb': return 'PancakeSwap V3';
       case 'arbitrum': return 'Camelot';
       case 'tron': return 'JustSwap';
       case 'bitcoin': return 'No DEX (BRC-20)';
@@ -65,6 +67,7 @@ export default function TokenReview({
     switch (tokenParams.blockchain) {
       case 'polygon': return tokenParams.polygon?.liquidityMaticAmount || 0;
       case 'base': return tokenParams.base?.liquidityEthAmount || 0;
+      case 'bnb': return tokenParams.bnb?.liquidityBnbAmount || 0;
       case 'arbitrum': return tokenParams.arbitrum?.liquidityEthAmount || 0;
       case 'tron': return tokenParams.tron?.liquidityTrxAmount || 0;
       case 'solana':
