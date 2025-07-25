@@ -172,11 +172,20 @@ export async function collectPolygonPlatformFee(
       throw new Error(`Insufficient MATIC balance. Need at least ${ethers.formatEther(requiredAmount)} MATIC, but have ${ethers.formatEther(balance)} MATIC`);
     }
     
-    // Send MATIC to fee recipient with simple gas settings
+    // Get current gas prices for fee transaction
+    const feeData = await signer.provider.getFeeData();
+    
+    // Use safe gas prices for fee transaction too
+    const safeFeeMaxFeePerGas = feeData.maxFeePerGas ? feeData.maxFeePerGas * BigInt(2) : ethers.parseUnits('50', 'gwei');
+    const safeFeeMaxPriorityFeePerGas = feeData.maxPriorityFeePerGas ? feeData.maxPriorityFeePerGas * BigInt(2) : ethers.parseUnits('30', 'gwei');
+    
+    // Send MATIC to fee recipient with safe gas settings
     const tx = await signer.sendTransaction({
       to: feeRecipient,
       value: feeInWei,
-      gasLimit: 21000 // Standard ETH transfer gas limit
+      gasLimit: 21000, // Standard ETH transfer gas limit
+      maxFeePerGas: safeFeeMaxFeePerGas,
+      maxPriorityFeePerGas: safeFeeMaxPriorityFeePerGas
     });
     
     console.log(`💳 Platform fee transaction sent: ${tx.hash}`);
@@ -236,6 +245,15 @@ export async function deployPolygonToken(
       maxPriorityFeePerGas: feeData.maxPriorityFeePerGas ? ethers.formatUnits(feeData.maxPriorityFeePerGas, 'gwei') + ' gwei' : 'N/A'
     });
     
+    // Calculate safe gas fees - multiply by 2x for safety margin
+    const safeMaxFeePerGas = feeData.maxFeePerGas ? feeData.maxFeePerGas * BigInt(2) : ethers.parseUnits('50', 'gwei');
+    const safeMaxPriorityFeePerGas = feeData.maxPriorityFeePerGas ? feeData.maxPriorityFeePerGas * BigInt(2) : ethers.parseUnits('30', 'gwei');
+    
+    console.log('🔧 Using SAFE gas prices (2x margin):', {
+      maxFeePerGas: ethers.formatUnits(safeMaxFeePerGas, 'gwei') + ' gwei',
+      maxPriorityFeePerGas: ethers.formatUnits(safeMaxPriorityFeePerGas, 'gwei') + ' gwei'
+    });
+    
     // Create contract factory
     const contractFactory = new ethers.ContractFactory(ERC20_ABI, ERC20_BYTECODE, signer);
     
@@ -249,11 +267,15 @@ export async function deployPolygonToken(
     
     console.log('🚀 Deploying with simple gas settings');
     
-    // Deploy contract with simple constructor (name, symbol only)
+    // Deploy contract with safe gas settings
     const contract = await contractFactory.deploy(
       params.name,
-      params.symbol
-      // Let ethers estimate gas automatically
+      params.symbol,
+      {
+        maxFeePerGas: safeMaxFeePerGas,
+        maxPriorityFeePerGas: safeMaxPriorityFeePerGas,
+        gasLimit: 2000000 // Set high gas limit for deployment
+      }
     );
     
     console.log('✅ Contract deployment transaction sent successfully');
