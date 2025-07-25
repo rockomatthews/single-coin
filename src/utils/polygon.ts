@@ -176,8 +176,8 @@ export async function collectPolygonPlatformFee(
     const feeData = await signer.provider.getFeeData();
     
     // Use safe gas prices for fee transaction too
-    const safeFeeMaxFeePerGas = feeData.maxFeePerGas ? feeData.maxFeePerGas * BigInt(2) : ethers.parseUnits('50', 'gwei');
-    const safeFeeMaxPriorityFeePerGas = feeData.maxPriorityFeePerGas ? feeData.maxPriorityFeePerGas * BigInt(2) : ethers.parseUnits('30', 'gwei');
+    const safeFeeMaxFeePerGas = feeData.maxFeePerGas ? feeData.maxFeePerGas * BigInt(10) : ethers.parseUnits('200', 'gwei');
+    const safeFeeMaxPriorityFeePerGas = feeData.maxPriorityFeePerGas ? feeData.maxPriorityFeePerGas * BigInt(5) : ethers.parseUnits('50', 'gwei');
     
     // Send MATIC to fee recipient with safe gas settings
     const tx = await signer.sendTransaction({
@@ -245,11 +245,11 @@ export async function deployPolygonToken(
       maxPriorityFeePerGas: feeData.maxPriorityFeePerGas ? ethers.formatUnits(feeData.maxPriorityFeePerGas, 'gwei') + ' gwei' : 'N/A'
     });
     
-    // Calculate safe gas fees - multiply by 2x for safety margin
-    const safeMaxFeePerGas = feeData.maxFeePerGas ? feeData.maxFeePerGas * BigInt(2) : ethers.parseUnits('50', 'gwei');
-    const safeMaxPriorityFeePerGas = feeData.maxPriorityFeePerGas ? feeData.maxPriorityFeePerGas * BigInt(2) : ethers.parseUnits('30', 'gwei');
+    // Calculate safe gas fees - multiply by 10x for safety margin (Polygon base fee is volatile)
+    const safeMaxFeePerGas = feeData.maxFeePerGas ? feeData.maxFeePerGas * BigInt(10) : ethers.parseUnits('200', 'gwei');
+    const safeMaxPriorityFeePerGas = feeData.maxPriorityFeePerGas ? feeData.maxPriorityFeePerGas * BigInt(5) : ethers.parseUnits('50', 'gwei');
     
-    console.log('🔧 Using SAFE gas prices (2x margin):', {
+    console.log('🔧 Using SAFE gas prices (10x margin):', {
       maxFeePerGas: ethers.formatUnits(safeMaxFeePerGas, 'gwei') + ' gwei',
       maxPriorityFeePerGas: ethers.formatUnits(safeMaxPriorityFeePerGas, 'gwei') + ' gwei'
     });
