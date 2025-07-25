@@ -224,12 +224,17 @@ async function calculateOptimalPolygonGas(feeData: ethers.FeeData): Promise<{
   }
   
   // Apply Polygon-specific multipliers to avoid mempool issues
-  // Research shows 20% increase is often needed for Polygon reliability
-  const maxFeeMultiplier = BigInt(130); // 30% increase
-  const priorityFeeMultiplier = BigInt(150); // 50% increase for priority
+  // CRITICAL: maxPriorityFeePerGas must NEVER exceed maxFeePerGas
+  const maxFeeMultiplier = BigInt(140); // 40% increase for max fee
+  const priorityFeeMultiplier = BigInt(120); // 20% increase for priority fee
   
-  const maxFeePerGas = (baseMaxFeePerGas * maxFeeMultiplier) / BigInt(100);
-  const maxPriorityFeePerGas = (basePriorityFee * priorityFeeMultiplier) / BigInt(100);
+  let maxFeePerGas = (baseMaxFeePerGas * maxFeeMultiplier) / BigInt(100);
+  let maxPriorityFeePerGas = (basePriorityFee * priorityFeeMultiplier) / BigInt(100);
+  
+  // Ensure maxPriorityFeePerGas is never greater than maxFeePerGas
+  if (maxPriorityFeePerGas >= maxFeePerGas) {
+    maxPriorityFeePerGas = (maxFeePerGas * BigInt(80)) / BigInt(100); // Set to 80% of maxFee
+  }
   
   // Ensure minimum values for Polygon network
   const minMaxFeePerGas = ethers.parseUnits('30', 'gwei');
