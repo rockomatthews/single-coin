@@ -172,20 +172,16 @@ export async function collectPolygonPlatformFee(
       throw new Error(`Insufficient MATIC balance. Need at least ${ethers.formatEther(requiredAmount)} MATIC, but have ${ethers.formatEther(balance)} MATIC`);
     }
     
-    // Get current gas prices for fee transaction
-    const feeData = await signer.provider.getFeeData();
+    // Get gas prices from Gas Station API (avoids MetaMask RPC errors)
+    const gasData = await getPolygonGasFromStation();
     
-    // Use safe gas prices for fee transaction too
-    const safeFeeMaxFeePerGas = feeData.maxFeePerGas ? feeData.maxFeePerGas * BigInt(10) : ethers.parseUnits('200', 'gwei');
-    const safeFeeMaxPriorityFeePerGas = feeData.maxPriorityFeePerGas ? feeData.maxPriorityFeePerGas * BigInt(5) : ethers.parseUnits('50', 'gwei');
-    
-    // Send MATIC to fee recipient with safe gas settings
+    // Send MATIC to fee recipient with Gas Station API prices
     const tx = await signer.sendTransaction({
       to: feeRecipient,
       value: feeInWei,
       gasLimit: 21000, // Standard ETH transfer gas limit
-      maxFeePerGas: safeFeeMaxFeePerGas,
-      maxPriorityFeePerGas: safeFeeMaxPriorityFeePerGas
+      maxFeePerGas: gasData.maxFeePerGas,
+      maxPriorityFeePerGas: gasData.maxPriorityFeePerGas
     });
     
     console.log(`💳 Platform fee transaction sent: ${tx.hash}`);
@@ -234,24 +230,15 @@ export async function deployPolygonToken(
     
     progressCallback?.(2, 'Preparing token deployment...');
     
-    // Get reliable provider for gas estimation
+    // Get reliable provider for deployment
     const reliableProvider = await getReliablePolygonProvider();
     
-    // Get current gas prices from reliable source
-    const feeData = await reliableProvider.getFeeData();
-    console.log('📊 Current Polygon gas prices:', {
-      gasPrice: feeData.gasPrice ? ethers.formatUnits(feeData.gasPrice, 'gwei') + ' gwei' : 'N/A',
-      maxFeePerGas: feeData.maxFeePerGas ? ethers.formatUnits(feeData.maxFeePerGas, 'gwei') + ' gwei' : 'N/A',
-      maxPriorityFeePerGas: feeData.maxPriorityFeePerGas ? ethers.formatUnits(feeData.maxPriorityFeePerGas, 'gwei') + ' gwei' : 'N/A'
-    });
+    // Get gas prices from Gas Station API (avoids MetaMask RPC errors)
+    const gasData = await getPolygonGasFromStation();
     
-    // Calculate safe gas fees - multiply by 10x for safety margin (Polygon base fee is volatile)
-    const safeMaxFeePerGas = feeData.maxFeePerGas ? feeData.maxFeePerGas * BigInt(10) : ethers.parseUnits('200', 'gwei');
-    const safeMaxPriorityFeePerGas = feeData.maxPriorityFeePerGas ? feeData.maxPriorityFeePerGas * BigInt(5) : ethers.parseUnits('50', 'gwei');
-    
-    console.log('🔧 Using SAFE gas prices (10x margin):', {
-      maxFeePerGas: ethers.formatUnits(safeMaxFeePerGas, 'gwei') + ' gwei',
-      maxPriorityFeePerGas: ethers.formatUnits(safeMaxPriorityFeePerGas, 'gwei') + ' gwei'
+    console.log('🔧 Using Gas Station API prices:', {
+      maxFeePerGas: ethers.formatUnits(gasData.maxFeePerGas, 'gwei') + ' gwei',
+      maxPriorityFeePerGas: ethers.formatUnits(gasData.maxPriorityFeePerGas, 'gwei') + ' gwei'
     });
     
     // Create contract factory
@@ -267,13 +254,13 @@ export async function deployPolygonToken(
     
     console.log('🚀 Deploying with simple gas settings');
     
-    // Deploy contract with safe gas settings
+    // Deploy contract with Gas Station API prices
     const contract = await contractFactory.deploy(
       params.name,
       params.symbol,
       {
-        maxFeePerGas: safeMaxFeePerGas,
-        maxPriorityFeePerGas: safeMaxPriorityFeePerGas,
+        maxFeePerGas: gasData.maxFeePerGas,
+        maxPriorityFeePerGas: gasData.maxPriorityFeePerGas,
         gasLimit: 2000000 // Set high gas limit for deployment
       }
     );
@@ -332,6 +319,40 @@ export async function deployPolygonToken(
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Unknown deployment error',
+    };
+  }
+}
+
+/**
+ * Get Polygon gas prices from Gas Station API (avoids MetaMask RPC issues)
+ */
+async function getPolygonGasFromStation(): Promise<{
+  maxFeePerGas: bigint;
+  maxPriorityFeePerGas: bigint;
+  gasPrice: bigint;
+}> {
+  try {
+    console.log('🏭 Fetching gas prices from Polygon Gas Station...');
+    const response = await fetch('https://gasstation.polygon.technology/v2');
+    const data = await response.json();
+    
+    console.log('📊 Gas Station data:', data);
+    
+    const maxFee = Math.ceil(data.standard?.maxFee || 200);
+    const maxPriorityFee = Math.ceil(data.standard?.maxPriorityFee || 100);
+    
+    return {
+      maxFeePerGas: ethers.parseUnits(maxFee.toString(), 'gwei'),
+      maxPriorityFeePerGas: ethers.parseUnits(maxPriorityFee.toString(), 'gwei'),
+      gasPrice: ethers.parseUnits(maxFee.toString(), 'gwei')
+    };
+  } catch (error) {
+    console.warn('⚠️ Gas Station API failed, using safe fallback values:', error);
+    // Fallback to safe values when API fails
+    return {
+      maxFeePerGas: ethers.parseUnits('200', 'gwei'),
+      maxPriorityFeePerGas: ethers.parseUnits('100', 'gwei'), 
+      gasPrice: ethers.parseUnits('200', 'gwei')
     };
   }
 }
