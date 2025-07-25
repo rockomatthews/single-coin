@@ -170,21 +170,11 @@ export async function collectPolygonPlatformFee(
       throw new Error(`Insufficient MATIC balance. Need at least ${ethers.formatEther(requiredAmount)} MATIC, but have ${ethers.formatEther(balance)} MATIC`);
     }
     
-    // Get current gas prices for fee transaction
-    const reliableProvider = await getReliablePolygonProvider();
-    const feeData = await reliableProvider.getFeeData();
-    
-    const baseMaxFeePerGas = feeData.maxFeePerGas || ethers.parseUnits('30', 'gwei');
-    const basePriorityFee = feeData.maxPriorityFeePerGas || ethers.parseUnits('1', 'gwei');
-    
-    // Send MATIC to fee recipient with proper gas settings
+    // Send MATIC to fee recipient with simple gas settings
     const tx = await signer.sendTransaction({
       to: feeRecipient,
       value: feeInWei,
-      gasLimit: 21000, // Standard ETH transfer gas limit
-      maxFeePerGas: baseMaxFeePerGas + ethers.parseUnits('5', 'gwei'), // Small buffer for faster confirmation
-      maxPriorityFeePerGas: basePriorityFee + ethers.parseUnits('1', 'gwei'),
-      type: 2
+      gasLimit: 21000 // Standard ETH transfer gas limit
     });
     
     console.log(`💳 Platform fee transaction sent: ${tx.hash}`);
@@ -421,27 +411,15 @@ export async function deployPolygonToken(
     
     progressCallback?.(3, 'Deploying ERC-20 contract...');
     
-    // Enhanced gas configuration for Polygon network reliability
-    const polygonGasConfig = await calculateOptimalPolygonGas(feeData);
-    const { maxFeePerGas, maxPriorityFeePerGas } = polygonGasConfig;
+    console.log('🚀 Deploying with simple gas settings');
     
-    console.log('🚀 Deploying with optimal gas settings:', {
-      maxFeePerGas: ethers.formatUnits(maxFeePerGas, 'gwei') + ' gwei',
-      maxPriorityFeePerGas: ethers.formatUnits(maxPriorityFeePerGas, 'gwei') + ' gwei'
-    });
-    
-    // Deploy contract with proper gas settings
+    // Deploy contract - let ethers estimate gas automatically
     const contract = await contractFactory.deploy(
       params.name,
       params.symbol,
       totalSupplyWithDecimals,
-      await signer.getAddress(),
-      {
-        gasLimit: 1500000, // Reasonable gas limit for ERC-20
-        maxFeePerGas,
-        maxPriorityFeePerGas,
-        type: 2 // EIP-1559 transaction
-      }
+      await signer.getAddress()
+      // No gas settings - let ethers estimate everything
     );
     
     console.log('✅ Contract deployment transaction sent successfully');
