@@ -76,13 +76,13 @@ export default function CreateTokenPage() {
   const { isConnected: tronConnected, account: tronAddress } = useTron();
   
   const isConnected = solanaConnected || hyperLiquidConnected || polygonConnected || baseConnected || bnbConnected || bitcoinConnected || arbitrumConnected || tronConnected;
-  const connectedBlockchain = solanaConnected ? 'solana' 
-    : hyperLiquidConnected ? 'hyperliquid' 
+  const connectedBlockchain = bnbConnected ? 'bnb'
     : polygonConnected ? 'polygon' 
     : baseConnected ? 'base'
-    : bnbConnected ? 'bnb'
-    : bitcoinConnected ? 'bitcoin'
     : arbitrumConnected ? 'arbitrum'
+    : hyperLiquidConnected ? 'hyperliquid' 
+    : solanaConnected ? 'solana' 
+    : bitcoinConnected ? 'bitcoin'
     : tronConnected ? 'tron' 
     : null;
   
@@ -91,18 +91,20 @@ export default function CreateTokenPage() {
   
   // Helper function to get wallet and network info
   const getWalletInfo = () => {
-    if (solanaConnected) {
-      return { wallet: 'Phantom', network: 'Solana', blockchain: 'solana' };
-    } else if (hyperLiquidConnected) {
-      return { wallet: 'MetaMask', network: 'HYPER LIQUID', blockchain: 'hyperliquid' };
+    if (bnbConnected) {
+      return { wallet: 'MetaMask', network: 'BNB Chain', blockchain: 'bnb' };
     } else if (polygonConnected) {
       return { wallet: 'MetaMask', network: 'Polygon', blockchain: 'polygon' };
     } else if (baseConnected) {
       return { wallet: 'MetaMask', network: 'BASE', blockchain: 'base' };
-    } else if (bitcoinConnected) {
-      return { wallet: 'Unisat', network: 'Bitcoin', blockchain: 'bitcoin' };
     } else if (arbitrumConnected) {
       return { wallet: 'MetaMask', network: 'Arbitrum', blockchain: 'arbitrum' };
+    } else if (hyperLiquidConnected) {
+      return { wallet: 'MetaMask', network: 'HYPER LIQUID', blockchain: 'hyperliquid' };
+    } else if (solanaConnected) {
+      return { wallet: 'Phantom', network: 'Solana', blockchain: 'solana' };
+    } else if (bitcoinConnected) {
+      return { wallet: 'Unisat', network: 'Bitcoin', blockchain: 'bitcoin' };
     } else if (tronConnected) {
       return { wallet: 'TronLink', network: 'TRON', blockchain: 'tron' };
     }
@@ -516,7 +518,7 @@ export default function CreateTokenPage() {
             Connect Your Wallet
           </Typography>
           <Typography variant="body1" sx={{ mb: 3 }}>
-            Please connect your wallet to create a token. Choose between Solana (Phantom), HYPER LIQUID (MetaMask), Polygon (MetaMask), BASE (MetaMask), Bitcoin (Unisat), Arbitrum (MetaMask), or TRON (TronLink) networks.
+            Please connect your wallet to create a token. Choose between Solana (Phantom), HYPER LIQUID (MetaMask), Polygon (MetaMask), BASE (MetaMask), BNB Chain (MetaMask), Bitcoin (Unisat), Arbitrum (MetaMask), or TRON (TronLink) networks.
           </Typography>
           <Button
             variant="contained"
