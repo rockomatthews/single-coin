@@ -258,6 +258,10 @@ export default function CreateTokenPage() {
         retentionPercentage,
         retainedAmount,
         liquidityAmount,
+        // REAL SECURITY FEATURES - Pass through from UI
+        revokeUpdateAuthority: tokenParams.revokeUpdateAuthority,
+        revokeFreezeAuthority: tokenParams.revokeFreezeAuthority,
+        revokeMintAuthority: tokenParams.revokeMintAuthority,
         polygon: {
           decimals: 18,
           totalSupply: totalSupply,

@@ -29,6 +29,11 @@ export interface UnifiedTokenParams {
   createPool?: boolean;
   liquiditySolAmount?: number; // For Solana
   
+  // SECURITY FEATURES (cross-chain compatibility)
+  revokeUpdateAuthority?: boolean;  // Renounce ownership / revoke metadata update
+  revokeFreezeAuthority?: boolean;  // Solana-specific but kept for UI consistency
+  revokeMintAuthority?: boolean;    // Finish minting / disable mint function
+  
   // Chain-specific parameters
   solana?: Partial<TokenParams>;
   hyperliquid?: Partial<HyperLiquidTokenParams>;
@@ -352,6 +357,10 @@ class PolygonProvider implements BlockchainProvider {
         createLiquidity: params.polygon?.createLiquidity ?? params.createPool ?? false,
         liquidityMaticAmount: params.polygon?.liquidityMaticAmount || 0,
         dexChoice: params.polygon?.dexChoice || 'uniswap-v3',
+        // REAL SECURITY FEATURES - Pass through from UI
+        revokeUpdateAuthority: params.revokeUpdateAuthority ?? params.polygon?.revokeUpdateAuthority,
+        revokeFreezeAuthority: params.revokeFreezeAuthority ?? params.polygon?.revokeFreezeAuthority, // Not applicable but kept for consistency
+        revokeMintAuthority: params.revokeMintAuthority ?? params.polygon?.revokeMintAuthority,
         ...params.polygon,
       };
       
