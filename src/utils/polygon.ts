@@ -373,23 +373,44 @@ export async function deployPolygonToken(
     
     console.log(`⏳ Waiting for deployment confirmation, tx hash: ${deploymentTx.hash}`);
     
-    // Wait for confirmation with proper ethers.js v6 handling
-    let receipt;
+    // Use polling method to avoid tx.wait() hanging on Polygon
+    let receipt = null;
     let attempts = 0;
-    const maxConfirmationAttempts = 10;
+    const maxConfirmationAttempts = 30; // 30 attempts = 90 seconds total
     
-    while (attempts < maxConfirmationAttempts) {
+    while (receipt === null && attempts < maxConfirmationAttempts) {
       try {
-        receipt = await deploymentTx.wait(1);
-        if (receipt && receipt.status === 1) {
-          break;
-        }
-      } catch (error: any) {
         attempts++;
+        console.log(`⏳ Checking transaction receipt (attempt ${attempts}/${maxConfirmationAttempts})...`);
+        
+        receipt = await signer.provider.getTransactionReceipt(deploymentTx.hash);
+        
+        if (receipt === null) {
+          if (attempts >= maxConfirmationAttempts) {
+            throw new Error(`Transaction confirmation timeout after ${attempts} attempts (${attempts * 3} seconds). Transaction may still be pending: ${deploymentTx.hash}`);
+          }
+          await new Promise(resolve => setTimeout(resolve, 3000)); // Wait 3 seconds between polls
+          continue;
+        }
+        
+        // Check if transaction was successful
+        if (receipt.status !== 1) {
+          throw new Error(`Transaction failed with status ${receipt.status}`);
+        }
+        
+        console.log(`✅ Transaction confirmed in block ${receipt.blockNumber}`);
+        break;
+        
+      } catch (error: any) {
+        if (error.message.includes('Transaction confirmation timeout')) {
+          throw error; // Re-throw timeout errors
+        }
+        
         if (attempts >= maxConfirmationAttempts) {
           throw new Error(`Transaction confirmation failed after ${maxConfirmationAttempts} attempts: ${error.message}`);
         }
-        console.log(`⏳ Confirmation attempt ${attempts}/${maxConfirmationAttempts} failed, retrying...`);
+        
+        console.log(`⏳ Receipt fetch error on attempt ${attempts}/${maxConfirmationAttempts}, retrying...`);
         await new Promise(resolve => setTimeout(resolve, 3000)); // Wait 3 seconds before retry
       }
     }
@@ -495,8 +516,14 @@ async function getPolygonGasFromStation(): Promise<{
     
     console.log('📊 Gas Station data:', data);
     
-    const maxFee = Math.ceil(data.standard?.maxFee || 200);
-    const maxPriorityFee = Math.ceil(data.standard?.maxPriorityFee || 100);
+    // Use guaranteed high gas fees - we're talking pennies for fast confirmation
+    const maxFee = Math.max(Math.ceil(data.fast?.maxFee || 1000), 1000); // At least 1000 gwei
+    const maxPriorityFee = Math.max(Math.ceil(data.fast?.maxPriorityFee || 500), 500); // At least 500 gwei
+    
+    console.log('🔧 Using Gas Station API prices:', { 
+      maxFeePerGas: `${maxFee} gwei`, 
+      maxPriorityFeePerGas: `${maxPriorityFee} gwei` 
+    });
     
     return {
       maxFeePerGas: ethers.parseUnits(maxFee.toString(), 'gwei'),
@@ -504,12 +531,12 @@ async function getPolygonGasFromStation(): Promise<{
       gasPrice: ethers.parseUnits(maxFee.toString(), 'gwei')
     };
   } catch (error) {
-    console.warn('⚠️ Gas Station API failed, using safe fallback values:', error);
-    // Fallback to safe values when API fails
+    console.warn('⚠️ Gas Station API failed, using guaranteed high gas fees:', error);
+    // Use guaranteed high gas fees that will definitely work
     return {
-      maxFeePerGas: ethers.parseUnits('200', 'gwei'),
-      maxPriorityFeePerGas: ethers.parseUnits('100', 'gwei'), 
-      gasPrice: ethers.parseUnits('200', 'gwei')
+      maxFeePerGas: ethers.parseUnits('1000', 'gwei'),    // ~$0.50 for deployment
+      maxPriorityFeePerGas: ethers.parseUnits('500', 'gwei'), // ~$0.25 priority
+      gasPrice: ethers.parseUnits('1000', 'gwei')
     };
   }
 }
