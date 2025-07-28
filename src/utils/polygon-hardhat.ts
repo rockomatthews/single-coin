@@ -106,7 +106,7 @@ export async function deployPolygonTokenWithHardhat(
     const gasPrice = await provider.getFeeData();
     console.log('⛽ Current gas price:', ethers.formatUnits(gasPrice.gasPrice || 0, 'gwei'), 'gwei');
     
-    // Deploy contract with better gas estimation
+    // Deploy contract with legacy gas pricing (Polygon doesn't fully support EIP-1559)
     console.log('🚀 Sending deployment transaction to MetaMask...');
     const contract = await contractFactory.deploy(
       params.name,
@@ -115,8 +115,7 @@ export async function deployPolygonTokenWithHardhat(
       userAddress,
       {
         gasLimit: 2500000, // Increased gas limit
-        maxFeePerGas: gasPrice.maxFeePerGas || ethers.parseUnits('400', 'gwei'),
-        maxPriorityFeePerGas: gasPrice.maxPriorityFeePerGas || ethers.parseUnits('40', 'gwei')
+        gasPrice: gasPrice.gasPrice || ethers.parseUnits('50', 'gwei') // Use legacy gasPrice instead of EIP-1559
       }
     );
     
@@ -156,7 +155,7 @@ export async function deployPolygonTokenWithHardhat(
         const finishMintingFunction = contract.getFunction('finishMinting');
         const finishTx = await finishMintingFunction({
           gasLimit: 100000,
-          gasPrice: ethers.parseUnits('300', 'gwei')
+          gasPrice: gasPrice.gasPrice || ethers.parseUnits('50', 'gwei')
         });
         await finishTx.wait();
         console.log('✅ Minting finished:', finishTx.hash);
@@ -168,7 +167,7 @@ export async function deployPolygonTokenWithHardhat(
         const renounceOwnershipFunction = contract.getFunction('renounceOwnership');
         const renounceTx = await renounceOwnershipFunction({
           gasLimit: 100000,
-          gasPrice: ethers.parseUnits('300', 'gwei')
+          gasPrice: gasPrice.gasPrice || ethers.parseUnits('50', 'gwei')
         });
         await renounceTx.wait();
         console.log('✅ Ownership renounced:', renounceTx.hash);
