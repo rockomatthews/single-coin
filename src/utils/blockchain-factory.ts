@@ -333,9 +333,7 @@ class PolygonProvider implements BlockchainProvider {
   async createToken(params: UnifiedTokenParams, signer?: any): Promise<TokenCreationResult> {
     try {
       const { 
-        deployPolygonTokenWithHardhat, 
-        uploadPolygonMetadata,
-        connectPolygonWallet 
+        deployPolygonTokenWithHardhat
       } = await import('./polygon-hardhat');
       
       // Convert unified params to Polygon-specific params
