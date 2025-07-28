@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
     console.log('Hardhat deployment request:', { name, symbol, totalSupply, owner });
     
     // Set environment variables directly (Vercel serverless is read-only)
-    const deploymentEnv = {
+    const deploymentEnv: NodeJS.ProcessEnv = {
       ...process.env,
       TOKEN_NAME: name,
       TOKEN_SYMBOL: symbol,
@@ -28,7 +28,7 @@ export async function POST(request: NextRequest) {
       APPLY_SECURITY: (revokeUpdateAuthority || revokeMintAuthority) ? 'true' : 'false',
       RENOUNCE_OWNERSHIP: revokeUpdateAuthority ? 'true' : 'false',
       FINISH_MINTING: revokeMintAuthority ? 'true' : 'false',
-      NODE_ENV: 'production'
+      NODE_ENV: 'production' as const
     };
     
     // Compile the contracts
