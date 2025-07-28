@@ -38,6 +38,7 @@
     "https-browserify": "^1.0.0",
     "hyperliquid": "^1.7.6",
     "hyperliquid-sdk-turnkey": "^1.5.8",
+    "moralis": "^2.27.2",
     "next": "14.1.0",
     "os-browserify": "^0.3.0",
     "pg": "^8.11.3",
@@ -57,6 +58,7 @@
     "dotenv": "^17.2.0",
     "eslint": "^8",
     "eslint-config-next": "14.1.0",
+    "solc": "^0.8.30",
     "typescript": "^5"
   }
 }
