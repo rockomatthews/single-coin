@@ -15,10 +15,22 @@ const SECURE_TOKEN_BYTECODE = "0x60806040526006805461ff001916905534801561001a575
 
 const SECURE_TOKEN_ABI = [
   "constructor(string memory name_, string memory symbol_, uint256 initialSupply_, address owner_)",
+  "function name() view returns (string)",
+  "function symbol() view returns (string)", 
+  "function decimals() view returns (uint8)",
+  "function totalSupply() view returns (uint256)",
+  "function balanceOf(address) view returns (uint256)",
+  "function transfer(address, uint256) returns (bool)",
+  "function approve(address, uint256) returns (bool)",
+  "function allowance(address, address) view returns (uint256)",
+  "function transferFrom(address, address, uint256) returns (bool)",
   "function finishMinting() external",
   "function renounceOwnership() external",
   "function owner() view returns (address)",
-  "function mintingFinished() view returns (bool)"
+  "function mintingFinished() view returns (bool)",
+  "function mint(address, uint256) external",
+  "function burn(uint256) external",
+  "function burnFrom(address, uint256) external"
 ];
 
 export async function POST(request: NextRequest) {
