@@ -83,9 +83,9 @@ const OPENZEPPELIN_ERC20_BYTECODE = "0x60806040526006805461ff0019169055348015610
 export const POLYGON_CONFIG = {
   chainId: 137,
   name: 'Polygon Mainnet',
-  rpcUrl: 'https://polygon-mainnet.infura.io/v3/4458cf4d1689497b9a38b1d6bbf05e78',
+  rpcUrl: 'https://responsive-sly-orb.matic.quiknode.pro/91a62e7f27241dad7a320bd508fdc9b58b3c191b',
   rpcUrls: [
-    'https://polygon-mainnet.infura.io/v3/4458cf4d1689497b9a38b1d6bbf05e78',
+    'https://responsive-sly-orb.matic.quiknode.pro/91a62e7f27241dad7a320bd508fdc9b58b3c191b',
     'https://polygon-rpc.com/',
     'https://rpc-mainnet.matic.network/',
     'https://poly-rpc.gateway.pokt.network/'

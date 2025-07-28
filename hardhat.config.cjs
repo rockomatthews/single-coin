@@ -15,7 +15,7 @@ module.exports = {
   },
   networks: {
     polygon: {
-      url: "https://polygon-mainnet.infura.io/v3/4458cf4d1689497b9a38b1d6bbf05e78",
+      url: "https://responsive-sly-orb.matic.quiknode.pro/91a62e7f27241dad7a320bd508fdc9b58b3c191b",
       chainId: 137,
       gasPrice: 300000000000, // 300 gwei for fast confirmation
       gas: 2000000,
