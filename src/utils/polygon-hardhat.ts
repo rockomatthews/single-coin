@@ -111,7 +111,8 @@ export async function deployPolygonTokenWithHardhat(
       
       if (params.revokeMintAuthority) {
         console.log('- Finishing minting (irreversible)...');
-        const finishTx = await contract.finishMinting({
+        const finishMintingFunction = contract.getFunction('finishMinting');
+        const finishTx = await finishMintingFunction({
           gasLimit: 100000,
           gasPrice: ethers.parseUnits('300', 'gwei')
         });
@@ -122,7 +123,8 @@ export async function deployPolygonTokenWithHardhat(
       
       if (params.revokeUpdateAuthority) {
         console.log('- Renouncing ownership (irreversible)...');
-        const renounceTx = await contract.renounceOwnership({
+        const renounceOwnershipFunction = contract.getFunction('renounceOwnership');
+        const renounceTx = await renounceOwnershipFunction({
           gasLimit: 100000,
           gasPrice: ethers.parseUnits('300', 'gwei')
         });

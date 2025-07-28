@@ -100,7 +100,8 @@ export async function POST(request: NextRequest) {
       
       if (revokeMintAuthority) {
         console.log('- Finishing minting (irreversible)...');
-        const finishTx = await contract.finishMinting({
+        const finishMintingFunction = contract.getFunction('finishMinting');
+        const finishTx = await finishMintingFunction({
           gasLimit: 100000,
           gasPrice: ethers.parseUnits('300', 'gwei')
         });
@@ -111,7 +112,8 @@ export async function POST(request: NextRequest) {
       
       if (revokeUpdateAuthority) {
         console.log('- Renouncing ownership (irreversible)...');
-        const renounceTx = await contract.renounceOwnership({
+        const renounceOwnershipFunction = contract.getFunction('renounceOwnership');
+        const renounceTx = await renounceOwnershipFunction({
           gasLimit: 100000,
           gasPrice: ethers.parseUnits('300', 'gwei')
         });
@@ -125,8 +127,11 @@ export async function POST(request: NextRequest) {
     
     // Verify contract is working
     try {
-      const tokenOwner = await contract.owner();
-      const isMintingFinished = await contract.mintingFinished();
+      const ownerFunction = contract.getFunction('owner');
+      const mintingFinishedFunction = contract.getFunction('mintingFinished');
+      
+      const tokenOwner = await ownerFunction();
+      const isMintingFinished = await mintingFinishedFunction();
       
       console.log('✅ Contract verification successful:');
       console.log('- Owner:', tokenOwner);
