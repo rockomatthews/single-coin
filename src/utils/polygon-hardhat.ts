@@ -48,16 +48,9 @@ export async function deployPolygonTokenWithHardhat(
     
     progressCallback?.(2, 'Setting up OpenZeppelin deployment...');
     
-    // Setup provider and signer
+    // Setup provider and signer - use MetaMask provider directly
     const provider = new (await import('ethers')).BrowserProvider(window.ethereum);
     const signer = await provider.getSigner();
-    
-    // Use QuickNode for reliable RPC
-    const quicknodeProvider = new (await import('ethers')).JsonRpcProvider(
-      'https://responsive-sly-orb.matic.quiknode.pro/91a62e7f27241dad7a320bd508fdc9b58b3c191b'
-    );
-    
-    const connectedSigner = signer.connect(quicknodeProvider);
     
     progressCallback?.(3, 'Deploying OpenZeppelin SecureToken...');
     
@@ -69,7 +62,7 @@ export async function deployPolygonTokenWithHardhat(
     const contractFactory = new ethers.ContractFactory(
       SECURE_TOKEN_ABI,
       SECURE_TOKEN_BYTECODE,
-      connectedSigner
+      signer
     );
     
     console.log('🚀 Deploying OpenZeppelin ERC-20 contract with security features');
