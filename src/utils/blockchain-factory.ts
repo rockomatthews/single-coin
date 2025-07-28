@@ -408,10 +408,16 @@ class PolygonProvider implements BlockchainProvider {
       let poolTxId: string | undefined;
       if (polygonParams.createLiquidity) {
         try {
-          const { createPolygonLiquidityPool } = await import('./polygon');
+          const { createPolygonLiquidityPool, connectPolygonWallet } = await import('./polygon');
+          
+          // Connect wallet for liquidity pool creation (still needs signer)
+          const walletConnection = await connectPolygonWallet();
+          if (!walletConnection.signer) {
+            throw new Error(walletConnection.error || 'Failed to connect MetaMask wallet for liquidity pool');
+          }
           
           const poolResult = await createPolygonLiquidityPool(
-            walletSigner,
+            walletConnection.signer,
             result.tokenAddress,
             polygonParams,
             (step: number, status: string) => {
