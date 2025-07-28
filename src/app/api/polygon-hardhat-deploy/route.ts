@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { execSync } from 'child_process';
-import { writeFileSync, unlinkSync } from 'fs';
-import path from 'path';
 
 interface DeploymentRequest {
   name: string;
@@ -20,19 +18,18 @@ export async function POST(request: NextRequest) {
     
     console.log('Hardhat deployment request:', { name, symbol, totalSupply, owner });
     
-    // Create a temporary .env file for this deployment
-    const envPath = path.join(process.cwd(), '.env.hardhat.tmp');
-    const envContent = `
-TOKEN_NAME="${name}"
-TOKEN_SYMBOL="${symbol}"
-TOKEN_SUPPLY="${totalSupply}"
-TOKEN_OWNER="${owner}"
-APPLY_SECURITY="${revokeUpdateAuthority || revokeMintAuthority ? 'true' : 'false'}"
-RENOUNCE_OWNERSHIP="${revokeUpdateAuthority ? 'true' : 'false'}"
-FINISH_MINTING="${revokeMintAuthority ? 'true' : 'false'}"
-`.trim();
-    
-    writeFileSync(envPath, envContent);
+    // Set environment variables directly (Vercel serverless is read-only)
+    const deploymentEnv = {
+      ...process.env,
+      TOKEN_NAME: name,
+      TOKEN_SYMBOL: symbol,
+      TOKEN_SUPPLY: totalSupply.toString(),
+      TOKEN_OWNER: owner,
+      APPLY_SECURITY: (revokeUpdateAuthority || revokeMintAuthority) ? 'true' : 'false',
+      RENOUNCE_OWNERSHIP: revokeUpdateAuthority ? 'true' : 'false',
+      FINISH_MINTING: revokeMintAuthority ? 'true' : 'false',
+      NODE_ENV: 'production'
+    };
     
     // Compile the contracts
     try {
@@ -40,12 +37,11 @@ FINISH_MINTING="${revokeMintAuthority ? 'true' : 'false'}"
       execSync('npx hardhat compile', { 
         stdio: 'pipe',
         cwd: process.cwd(),
-        env: { ...process.env, NODE_ENV: 'production' }
+        env: deploymentEnv
       });
       console.log('✅ Contracts compiled successfully');
     } catch (compileError: any) {
       console.error('❌ Contract compilation failed:', compileError.stdout?.toString());
-      unlinkSync(envPath);
       return NextResponse.json({
         success: false,
         error: `Contract compilation failed: ${compileError.stdout?.toString() || compileError.message}`
@@ -53,7 +49,7 @@ FINISH_MINTING="${revokeMintAuthority ? 'true' : 'false'}"
     }
     
     // Run the deployment script
-    const deployCommand = `npx hardhat run scripts/deploy-secure-token.js --network polygon`;
+    const deployCommand = `npx hardhat run scripts/deploy-secure-token.cjs --network polygon`;
     
     let deployOutput: string;
     try {
@@ -61,13 +57,12 @@ FINISH_MINTING="${revokeMintAuthority ? 'true' : 'false'}"
       deployOutput = execSync(deployCommand, { 
         stdio: 'pipe',
         cwd: process.cwd(),
-        env: { ...process.env, NODE_ENV: 'production' },
+        env: deploymentEnv,
         encoding: 'utf8'
       });
       console.log('Hardhat deployment output:', deployOutput);
     } catch (deployError: any) {
       console.error('❌ Hardhat deployment failed:', deployError.stdout?.toString());
-      unlinkSync(envPath);
       return NextResponse.json({
         success: false,
         error: `Hardhat deployment failed: ${deployError.stdout?.toString() || deployError.message}`
@@ -80,7 +75,6 @@ FINISH_MINTING="${revokeMintAuthority ? 'true' : 'false'}"
     const securityTxMatch = deployOutput.match(/(?:Minting finished|Ownership renounced):\s*([0-9a-fA-Fx]+)/);
     
     if (!addressMatch || !txHashMatch) {
-      unlinkSync(envPath);
       return NextResponse.json({
         success: false,
         error: 'Failed to parse deployment results from Hardhat output'
@@ -97,12 +91,7 @@ FINISH_MINTING="${revokeMintAuthority ? 'true' : 'false'}"
       securityTxHash
     });
     
-    // Clean up temporary env file
-    try {
-      unlinkSync(envPath);
-    } catch (cleanupError) {
-      console.warn('Warning: Failed to clean up temporary env file:', cleanupError);
-    }
+    // No temporary files to clean up
     
     return NextResponse.json({
       success: true,
@@ -114,14 +103,6 @@ FINISH_MINTING="${revokeMintAuthority ? 'true' : 'false'}"
     
   } catch (error) {
     console.error('❌ Hardhat deployment API error:', error);
-    
-    // Clean up temporary env file on error
-    const envPath = path.join(process.cwd(), '.env.hardhat.tmp');
-    try {
-      unlinkSync(envPath);
-    } catch (cleanupError) {
-      // Ignore cleanup errors
-    }
     
     return NextResponse.json({
       success: false,
