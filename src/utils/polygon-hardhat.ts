@@ -46,6 +46,32 @@ export async function deployPolygonTokenWithHardhat(
     
     await window.ethereum.request({ method: 'eth_requestAccounts' });
     
+    // Ensure we're on Polygon network
+    try {
+      await window.ethereum.request({
+        method: 'wallet_switchEthereumChain',
+        params: [{ chainId: '0x89' }], // Polygon mainnet
+      });
+    } catch (switchError: any) {
+      // Chain doesn't exist, add it
+      if (switchError.code === 4902) {
+        await window.ethereum.request({
+          method: 'wallet_addEthereumChain',
+          params: [{
+            chainId: '0x89',
+            chainName: 'Polygon Mainnet',
+            rpcUrls: ['https://polygon-rpc.com/'],
+            nativeCurrency: {
+              name: 'MATIC',
+              symbol: 'MATIC',
+              decimals: 18,
+            },
+            blockExplorerUrls: ['https://polygonscan.com/'],
+          }],
+        });
+      }
+    }
+    
     progressCallback?.(2, 'Setting up OpenZeppelin deployment...');
     
     // Setup provider and signer - use MetaMask provider directly
@@ -72,22 +98,45 @@ export async function deployPolygonTokenWithHardhat(
       totalSupply: params.totalSupply
     });
     
-    // Deploy contract
+    // Check network and gas before deployment
+    const network = await provider.getNetwork();
+    console.log('📡 Connected to network:', network.name, network.chainId);
+    
+    // Get current gas price
+    const gasPrice = await provider.getFeeData();
+    console.log('⛽ Current gas price:', ethers.formatUnits(gasPrice.gasPrice || 0, 'gwei'), 'gwei');
+    
+    // Deploy contract with better gas estimation
+    console.log('🚀 Sending deployment transaction to MetaMask...');
     const contract = await contractFactory.deploy(
       params.name,
       params.symbol, 
       totalSupplyWei,
       userAddress,
       {
-        gasLimit: 2000000,
-        gasPrice: ethers.parseUnits('300', 'gwei') // 300 gwei for fast confirmation
+        gasLimit: 2500000, // Increased gas limit
+        maxFeePerGas: gasPrice.maxFeePerGas || ethers.parseUnits('400', 'gwei'),
+        maxPriorityFeePerGas: gasPrice.maxPriorityFeePerGas || ethers.parseUnits('40', 'gwei')
       }
     );
     
+    console.log('✅ Transaction sent! Hash:', contract.deploymentTransaction()?.hash);
+    
     progressCallback?.(4, 'Waiting for deployment confirmation...');
     
-    // Wait for deployment
-    await contract.waitForDeployment();
+    // Wait for deployment with timeout
+    try {
+      const deploymentPromise = contract.waitForDeployment();
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Deployment timeout after 5 minutes')), 300000)
+      );
+      
+      await Promise.race([deploymentPromise, timeoutPromise]);
+      console.log('✅ Contract deployed successfully!');
+    } catch (error) {
+      console.error('❌ Deployment error:', error);
+      throw error;
+    }
     
     const contractAddress = await contract.getAddress();
     const deploymentTx = contract.deploymentTransaction();
