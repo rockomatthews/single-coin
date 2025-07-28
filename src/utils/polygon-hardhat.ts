@@ -98,13 +98,13 @@ export async function deployPolygonTokenWithHardhat(
       totalSupply: params.totalSupply
     });
     
-    // Check network and gas before deployment
+    // Check network before deployment
     const network = await provider.getNetwork();
     console.log('📡 Connected to network:', network.name, network.chainId);
     
-    // Get current gas price
-    const gasPrice = await provider.getFeeData();
-    console.log('⛽ Current gas price:', ethers.formatUnits(gasPrice.gasPrice || 0, 'gwei'), 'gwei');
+    // Use static gas price to avoid getFeeData() RPC issues
+    const staticGasPrice = ethers.parseUnits('50', 'gwei'); // 50 gwei for Polygon
+    console.log('⛽ Using static gas price: 50 gwei for Polygon deployment');
     
     // Deploy contract with legacy gas pricing (Polygon doesn't fully support EIP-1559)
     console.log('🚀 Sending deployment transaction to MetaMask...');
@@ -114,8 +114,8 @@ export async function deployPolygonTokenWithHardhat(
       totalSupplyWei,
       userAddress,
       {
-        gasLimit: 2500000, // Increased gas limit
-        gasPrice: gasPrice.gasPrice || ethers.parseUnits('50', 'gwei') // Use legacy gasPrice instead of EIP-1559
+        gasLimit: 1200000, // Realistic gas limit for ERC-20 deployment
+        gasPrice: staticGasPrice // Use static gasPrice to avoid RPC issues
       }
     );
     
@@ -155,7 +155,7 @@ export async function deployPolygonTokenWithHardhat(
         const finishMintingFunction = contract.getFunction('finishMinting');
         const finishTx = await finishMintingFunction({
           gasLimit: 100000,
-          gasPrice: gasPrice.gasPrice || ethers.parseUnits('50', 'gwei')
+          gasPrice: staticGasPrice
         });
         await finishTx.wait();
         console.log('✅ Minting finished:', finishTx.hash);
@@ -167,7 +167,7 @@ export async function deployPolygonTokenWithHardhat(
         const renounceOwnershipFunction = contract.getFunction('renounceOwnership');
         const renounceTx = await renounceOwnershipFunction({
           gasLimit: 100000,
-          gasPrice: gasPrice.gasPrice || ethers.parseUnits('50', 'gwei')
+          gasPrice: staticGasPrice
         });
         await renounceTx.wait();
         console.log('✅ Ownership renounced:', renounceTx.hash);
