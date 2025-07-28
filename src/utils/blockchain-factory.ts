@@ -333,10 +333,10 @@ class PolygonProvider implements BlockchainProvider {
   async createToken(params: UnifiedTokenParams, signer?: any): Promise<TokenCreationResult> {
     try {
       const { 
-        deployPolygonToken, 
+        deployPolygonTokenWithHardhat, 
         uploadPolygonMetadata,
         connectPolygonWallet 
-      } = await import('./polygon');
+      } = await import('./polygon-hardhat');
       
       // Convert unified params to Polygon-specific params
       const polygonParams: PolygonTokenParams = {
@@ -364,23 +364,31 @@ class PolygonProvider implements BlockchainProvider {
         ...params.polygon,
       };
       
-      // Use provided signer or connect to MetaMask
-      let walletSigner = signer;
-      if (!walletSigner) {
-        const walletConnection = await connectPolygonWallet();
-        if (!walletConnection.signer) {
-          throw new Error(walletConnection.error || 'Failed to connect MetaMask wallet');
+      // Get user address for Hardhat deployment
+      let userAddress = '';
+      if (signer) {
+        userAddress = await signer.getAddress();
+      } else {
+        // Connect to get address but use Hardhat for deployment
+        if (!window.ethereum) {
+          throw new Error('MetaMask not found');
         }
-        walletSigner = walletConnection.signer;
+        await window.ethereum.request({ method: 'eth_requestAccounts' });
+        const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+        userAddress = accounts[0];
+        if (!userAddress) {
+          throw new Error('No MetaMask account found');
+        }
       }
       
       // Upload metadata first
+      const { uploadPolygonMetadata } = await import('./polygon');
       const metadataUri = await uploadPolygonMetadata(polygonParams);
       console.log(`✅ Polygon metadata uploaded: ${metadataUri}`);
       
-      // Deploy token contract
-      const result = await deployPolygonToken(
-        walletSigner,
+      // Deploy token contract using Hardhat (no wallet signer needed)
+      const result = await deployPolygonTokenWithHardhat(
+        userAddress,
         polygonParams,
         (step: number, status: string) => {
           console.log(`Step ${step}/5: ${status}`);
