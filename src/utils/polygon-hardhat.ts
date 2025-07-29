@@ -205,8 +205,12 @@ export async function deployPolygonTokenWithHardhat(
       console.log('📋 Polygonscan verification:', verifyData);
       
       // Get the deployed contract
-      contract = contractFactory.attach(receipt!.contractAddress!) as any;
-      contractAddress = receipt.contractAddress!;
+      if (!receipt || !receipt.contractAddress) {
+        throw new Error('No contract address received from deployment');
+      }
+      
+      contract = contractFactory.attach(receipt.contractAddress) as any;
+      contractAddress = receipt.contractAddress;
       
       progressCallback?.(5, 'Deployment confirmed!');
       
