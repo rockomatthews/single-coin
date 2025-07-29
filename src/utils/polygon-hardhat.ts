@@ -204,9 +204,14 @@ export async function deployPolygonTokenWithHardhat(
       const verifyData = await verifyResponse.json();
       console.log('📋 Polygonscan verification:', verifyData);
       
-      // Verify tokens were minted to user's address
-      const userBalance = await contract.balanceOf(userAddress);
-      console.log('💰 Tokens minted to user:', ethers.formatUnits(userBalance, 18), params.symbol);
+      // Verify tokens were minted to user's address using contract interface
+      try {
+        const balanceOfFunction = contract.getFunction('balanceOf');
+        const userBalance = await balanceOfFunction(userAddress);
+        console.log('💰 Tokens minted to user:', ethers.formatUnits(userBalance, 18), params.symbol);
+      } catch (balanceError) {
+        console.log('⚠️ Could not verify token balance (contract still deploying)');
+      }
       
       progressCallback?.(5, 'Deployment confirmed!');
       
