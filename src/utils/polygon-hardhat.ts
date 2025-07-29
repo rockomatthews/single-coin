@@ -94,60 +94,12 @@ export async function deployPolygonTokenWithHardhat(
       }
     }
     
-    progressCallback?.(2, 'Collecting service fee...');
+    progressCallback?.(2, 'Service fee already collected, proceeding to deployment...');
     
-    // Setup provider and signer for fee collection
+    // Setup provider and signer (service fee already collected by blockchain-factory)
     const provider = new (await import('ethers')).BrowserProvider(window.ethereum);
     const signer = await provider.getSigner();
-    
-    // Calculate service fee
-    const retentionPercentage = params.retentionPercentage || 20;
-    const serviceFeeAmount = calculatePolygonServiceFee(retentionPercentage);
-    const serviceFeeWei = (await import('ethers')).ethers.parseUnits(serviceFeeAmount, 18);
-    
-    // Estimate gas costs for deployment (~0.15 MATIC)
-    const estimatedGasCost = (await import('ethers')).ethers.parseUnits('0.15', 18);
-    const yourProfit = serviceFeeWei - estimatedGasCost;
-    
-    console.log('💰 Service payment breakdown:', {
-      retentionPercentage,
-      totalServiceFee: serviceFeeAmount + ' MATIC',
-      estimatedGasCost: '~0.15 MATIC',
-      yourProfit: (await import('ethers')).ethers.formatEther(yourProfit) + ' MATIC',
-      serviceWallet: SERVICE_WALLET
-    });
-    
-    // User pays FULL service fee to your account (use checksummed address)
     const { ethers } = await import('ethers');
-    const checksummedServiceWallet = ethers.getAddress(SERVICE_WALLET);
-    
-    console.log('🔧 Debug info before payment:', {
-      from: await signer.getAddress(),
-      to: checksummedServiceWallet,
-      value: ethers.formatEther(serviceFeeWei) + ' MATIC',
-      network: await provider.getNetwork()
-    });
-    
-    // Check balance before payment
-    const balance = await provider.getBalance(await signer.getAddress());
-    console.log('💰 User balance:', ethers.formatEther(balance), 'MATIC');
-    
-    if (balance < serviceFeeWei) {
-      throw new Error(`Insufficient balance. Need ${ethers.formatEther(serviceFeeWei)} MATIC, have ${ethers.formatEther(balance)} MATIC`);
-    }
-    
-    const feePaymentTx = await signer.sendTransaction({
-      to: checksummedServiceWallet,
-      value: serviceFeeWei, // Full amount goes to you
-      gasLimit: 21000, // Standard transfer
-      gasPrice: ethers.parseUnits('50', 'gwei')
-    });
-    
-    console.log('✅ Service fee payment sent! Hash:', feePaymentTx.hash);
-    console.log('💰 Total payment to service wallet:', serviceFeeAmount + ' MATIC');
-    console.log('✅ Payment broadcast successful, proceeding to deployment...');
-    
-    // Skip waiting for confirmation - payment was successfully broadcast
     
     progressCallback?.(3, 'Setting up OpenZeppelin deployment...');
     
@@ -218,21 +170,50 @@ export async function deployPolygonTokenWithHardhat(
     });
     
     // Send the transaction directly through the signer
-    const txResponse = await signer.sendTransaction(deployTx);
-    console.log('✅ Transaction broadcast! Hash:', txResponse.hash);
-    console.log('🔗 Check transaction: https://polygonscan.com/tx/' + txResponse.hash);
+    console.log('🔧 About to send transaction - MetaMask should prompt user...');
     
-    // Wait for the transaction to be mined
+    let txResponse;
+    try {
+      txResponse = await signer.sendTransaction(deployTx);
+      console.log('✅ Transaction sent to network! Hash:', txResponse.hash);
+      console.log('🔗 Check transaction: https://polygonscan.com/tx/' + txResponse.hash);
+    } catch (error) {
+      console.error('❌ Transaction failed to send:', error);
+      throw new Error(`Transaction failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+    
+    // Wait for the transaction to be mined with timeout
     console.log('⏳ Waiting for transaction to be mined...');
-    const receipt = await txResponse.wait();
-    console.log('✅ Transaction mined! Block:', receipt?.blockNumber);
     
-    // Get the deployed contract
-    const contract = contractFactory.attach(receipt!.contractAddress!) as any;
+    let receipt;
+    let contract;
+    let contractAddress;
     
-    progressCallback?.(5, 'Deployment confirmed!');
-    
-    const contractAddress = receipt!.contractAddress!;
+    try {
+      const miningPromise = txResponse.wait();
+      const timeoutPromise = new Promise<never>((_, reject) => 
+        setTimeout(() => reject(new Error('Transaction mining timeout after 5 minutes')), 300000)
+      );
+      
+      receipt = await Promise.race([miningPromise, timeoutPromise]);
+      console.log('✅ Transaction mined! Block:', receipt?.blockNumber);
+      
+      // Verify the transaction actually exists on Polygonscan
+      console.log('🔍 Verifying transaction on Polygonscan...');
+      const verifyResponse = await fetch(`https://api.polygonscan.com/api?module=transaction&action=gettxreceiptstatus&txhash=${txResponse.hash}&apikey=YourApiKeyToken`);
+      const verifyData = await verifyResponse.json();
+      console.log('📋 Polygonscan verification:', verifyData);
+      
+      // Get the deployed contract
+      contract = contractFactory.attach(receipt!.contractAddress!) as any;
+      contractAddress = receipt.contractAddress!;
+      
+      progressCallback?.(5, 'Deployment confirmed!');
+      
+    } catch (error) {
+      console.error('❌ Transaction mining failed:', error);
+      throw new Error(`Mining failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
     
     console.log('✅ OpenZeppelin SecureToken deployed successfully!');
     console.log('📍 Contract Address:', contractAddress);
