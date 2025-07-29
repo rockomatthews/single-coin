@@ -423,23 +423,17 @@ class PolygonProvider implements BlockchainProvider {
         console.log('✅ Service fee payment sent:', feePaymentTx.hash);
       }
       
-      // Deploy token contract using server-side API (reliable)
-      console.log('Step 3/4: Deploying token on server...');
+      // Deploy token contract using client wallet (user owns their token)
+      console.log('Step 3/4: Deploying token with user wallet...');
       
-      const deployResponse = await fetch('/api/polygon-hardhat-deploy', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: polygonParams.name,
-          symbol: polygonParams.symbol,
-          totalSupply: polygonParams.totalSupply,
-          owner: userAddress,
-          revokeUpdateAuthority: polygonParams.revokeUpdateAuthority,
-          revokeMintAuthority: polygonParams.revokeMintAuthority
-        })
-      });
-      
-      const result = await deployResponse.json();
+      const { deployPolygonTokenWithHardhat } = await import('./polygon-hardhat');
+      const result = await deployPolygonTokenWithHardhat(
+        userAddress,
+        polygonParams,
+        (step: number, status: string) => {
+          console.log(`Step ${step}/5: ${status}`);
+        }
+      );
       
       if (!result.success || !result.tokenAddress) {
         return {
