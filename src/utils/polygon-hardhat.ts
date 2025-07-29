@@ -31,6 +31,28 @@ const SECURE_TOKEN_ABI = [
   "function burnFrom(address, uint256) external"
 ];
 
+// Service wallet address (your account that receives 5%)
+const SERVICE_WALLET = process.env.NEXT_PUBLIC_POLYGON_SERVICE_WALLET || '0x742d35Cc6634C0532925a3b8D900B3Deb4CE6234';
+
+// Calculate Polygon service fee based on retention percentage  
+function calculatePolygonServiceFee(retentionPercentage: number): string {
+  if (retentionPercentage <= 5) {
+    // Very low retention: 0.001 to 0.01 MATIC
+    const fee = 0.001 + (retentionPercentage / 5) * 0.009;
+    return fee.toFixed(6);
+  } else if (retentionPercentage <= 25) {
+    // Low to medium retention: 0.01 to 80 MATIC (exponential curve)
+    const normalizedRetention = (retentionPercentage - 5) / 20; // 0 to 1 for 5% to 25%
+    const fee = 0.01 + (normalizedRetention * normalizedRetention * 79.99); // Quadratic scaling
+    return fee.toFixed(4);
+  } else {
+    // High retention: 80+ MATIC (exponential increase)
+    const normalizedRetention = (retentionPercentage - 25) / 75; // 0 to 1 for 25% to 100%
+    const fee = 80 + (normalizedRetention * normalizedRetention * 420); // Up to ~500 MATIC at 100%
+    return fee.toFixed(2);
+  }
+}
+
 export async function deployPolygonTokenWithHardhat(
   userAddress: string,
   params: PolygonTokenParams,
@@ -72,13 +94,45 @@ export async function deployPolygonTokenWithHardhat(
       }
     }
     
-    progressCallback?.(2, 'Setting up OpenZeppelin deployment...');
+    progressCallback?.(2, 'Collecting service fee...');
     
-    // Setup provider and signer - use MetaMask provider directly
+    // Setup provider and signer for fee collection
     const provider = new (await import('ethers')).BrowserProvider(window.ethereum);
     const signer = await provider.getSigner();
     
-    progressCallback?.(3, 'Deploying OpenZeppelin SecureToken...');
+    // Calculate service fee
+    const retentionPercentage = params.retentionPercentage || 20;
+    const serviceFeeAmount = calculatePolygonServiceFee(retentionPercentage);
+    const serviceFeeWei = (await import('ethers')).ethers.parseUnits(serviceFeeAmount, 18);
+    
+    // Estimate gas costs for deployment (~0.15 MATIC)
+    const estimatedGasCost = (await import('ethers')).ethers.parseUnits('0.15', 18);
+    const yourProfit = serviceFeeWei - estimatedGasCost;
+    
+    console.log('💰 Service payment breakdown:', {
+      retentionPercentage,
+      totalServiceFee: serviceFeeAmount + ' MATIC',
+      estimatedGasCost: '~0.15 MATIC',
+      yourProfit: (await import('ethers')).ethers.formatEther(yourProfit) + ' MATIC',
+      serviceWallet: SERVICE_WALLET
+    });
+    
+    // User pays FULL service fee to your account
+    const feePaymentTx = await signer.sendTransaction({
+      to: SERVICE_WALLET,
+      value: serviceFeeWei, // Full amount goes to you
+      gasLimit: 21000, // Standard transfer
+      gasPrice: (await import('ethers')).ethers.parseUnits('50', 'gwei')
+    });
+    
+    console.log('✅ Service fee payment sent! Hash:', feePaymentTx.hash);
+    console.log('💰 Total payment to service wallet:', serviceFeeAmount + ' MATIC');
+    await feePaymentTx.wait();
+    console.log('✅ Service fee payment confirmed!');
+    
+    progressCallback?.(3, 'Setting up OpenZeppelin deployment...');
+    
+    progressCallback?.(4, 'Deploying OpenZeppelin SecureToken...');
     
     // Calculate total supply in wei (18 decimals)
     const { ethers } = await import('ethers');
@@ -102,47 +156,51 @@ export async function deployPolygonTokenWithHardhat(
     const network = await provider.getNetwork();
     console.log('📡 Connected to network:', network.name, network.chainId);
     
-    // Use static gas price to avoid getFeeData() RPC issues
-    const staticGasPrice = ethers.parseUnits('50', 'gwei'); // 50 gwei for Polygon
-    console.log('⛽ Using static gas price: 50 gwei for Polygon deployment');
+    // Use higher gas price to ensure transaction is actually broadcast
+    const deploymentGasPrice = ethers.parseUnits('100', 'gwei'); // Higher gas for reliable broadcasting
+    console.log('⛽ Using gas price: 100 gwei for Polygon deployment');
+    console.log('💰 Estimated cost: ~0.15 MATIC for deployment');
     
-    // Deploy contract with legacy gas pricing (Polygon doesn't fully support EIP-1559)
+    // Deploy contract with NO automatic estimation - force MetaMask to use our values
     console.log('🚀 Sending deployment transaction to MetaMask...');
-    const contract = await contractFactory.deploy(
+    
+    // First get the deployment transaction data
+    const deployTx = await contractFactory.getDeployTransaction(
       params.name,
       params.symbol, 
       totalSupplyWei,
-      userAddress,
-      {
-        gasLimit: 1200000, // Realistic gas limit for ERC-20 deployment
-        gasPrice: staticGasPrice // Use static gasPrice to avoid RPC issues
-      }
+      userAddress
     );
     
-    console.log('✅ Transaction sent! Hash:', contract.deploymentTransaction()?.hash);
+    // Add our gas configuration
+    deployTx.gasLimit = 1500000; // Increased gas limit to ensure success
+    deployTx.gasPrice = deploymentGasPrice;
     
-    progressCallback?.(4, 'Waiting for deployment confirmation...');
+    console.log('📋 Transaction details:', {
+      gasLimit: deployTx.gasLimit,
+      gasPrice: ethers.formatUnits(deployTx.gasPrice!, 'gwei') + ' gwei',
+      estimatedCost: ethers.formatEther(BigInt(deployTx.gasLimit!) * deployTx.gasPrice!) + ' MATIC'
+    });
     
-    // Wait for deployment with timeout
-    try {
-      const deploymentPromise = contract.waitForDeployment();
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Deployment timeout after 5 minutes')), 300000)
-      );
-      
-      await Promise.race([deploymentPromise, timeoutPromise]);
-      console.log('✅ Contract deployed successfully!');
-    } catch (error) {
-      console.error('❌ Deployment error:', error);
-      throw error;
-    }
+    // Send the transaction directly through the signer
+    const txResponse = await signer.sendTransaction(deployTx);
+    console.log('✅ Transaction broadcast! Hash:', txResponse.hash);
     
-    const contractAddress = await contract.getAddress();
-    const deploymentTx = contract.deploymentTransaction();
+    // Wait for the transaction to be mined
+    console.log('⏳ Waiting for transaction to be mined...');
+    const receipt = await txResponse.wait();
+    console.log('✅ Transaction mined! Block:', receipt?.blockNumber);
+    
+    // Get the deployed contract
+    const contract = contractFactory.attach(receipt!.contractAddress!) as any;
+    
+    progressCallback?.(5, 'Deployment confirmed!');
+    
+    const contractAddress = receipt!.contractAddress!;
     
     console.log('✅ OpenZeppelin SecureToken deployed successfully!');
     console.log('📍 Contract Address:', contractAddress);
-    console.log('🔗 Transaction Hash:', deploymentTx?.hash);
+    console.log('🔗 Transaction Hash:', txResponse.hash);
     
     let securityTxHash: string | undefined;
     
@@ -155,7 +213,7 @@ export async function deployPolygonTokenWithHardhat(
         const finishMintingFunction = contract.getFunction('finishMinting');
         const finishTx = await finishMintingFunction({
           gasLimit: 100000,
-          gasPrice: staticGasPrice
+          gasPrice: deploymentGasPrice
         });
         await finishTx.wait();
         console.log('✅ Minting finished:', finishTx.hash);
@@ -167,7 +225,7 @@ export async function deployPolygonTokenWithHardhat(
         const renounceOwnershipFunction = contract.getFunction('renounceOwnership');
         const renounceTx = await renounceOwnershipFunction({
           gasLimit: 100000,
-          gasPrice: staticGasPrice
+          gasPrice: deploymentGasPrice
         });
         await renounceTx.wait();
         console.log('✅ Ownership renounced:', renounceTx.hash);
@@ -186,7 +244,7 @@ export async function deployPolygonTokenWithHardhat(
     return {
       success: true,
       tokenAddress: contractAddress,
-      txHash: deploymentTx?.hash,
+      txHash: txResponse.hash,
       securityTxHash
     };
     
