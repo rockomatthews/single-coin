@@ -173,7 +173,7 @@ export async function deployPolygonTokenWithHardhat(
     );
     
     // Add our gas configuration
-    deployTx.gasLimit = 1500000; // Increased gas limit to ensure success
+    deployTx.gasLimit = BigInt(1500000); // Increased gas limit to ensure success
     deployTx.gasPrice = deploymentGasPrice;
     
     console.log('📋 Transaction details:', {
@@ -237,7 +237,7 @@ export async function deployPolygonTokenWithHardhat(
     
     console.log('✅ OpenZeppelin deployment successful:', {
       address: contractAddress,
-      txHash: deploymentTx?.hash,
+      txHash: txResponse.hash,
       securityTxHash
     });
     
