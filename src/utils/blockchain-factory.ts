@@ -398,7 +398,7 @@ class PolygonProvider implements BlockchainProvider {
       console.log(`✅ Polygon metadata uploaded: ${metadataUri}`);
       
       // First collect service fee from user
-      progressCallback?.(2, 'Collecting service fee...');
+      console.log('Step 2/4: Collecting service fee...');
       
       // Calculate service fee
       const retentionPercentage = polygonParams.retentionPercentage || 20;
@@ -424,7 +424,7 @@ class PolygonProvider implements BlockchainProvider {
       }
       
       // Deploy token contract using server-side API (reliable)
-      progressCallback?.(3, 'Deploying token on server...');
+      console.log('Step 3/4: Deploying token on server...');
       
       const deployResponse = await fetch('/api/polygon-hardhat-deploy', {
         method: 'POST',
