@@ -31,8 +31,8 @@ const SECURE_TOKEN_ABI = [
   "function burnFrom(address, uint256) external"
 ];
 
-// Service wallet address (your account that receives 5%)
-const SERVICE_WALLET = process.env.NEXT_PUBLIC_POLYGON_SERVICE_WALLET || '0x742d35Cc6634C0532925a3b8D900B3DeB4CE6234';
+// Service wallet address (your account that receives 5%) - properly checksummed
+const SERVICE_WALLET = process.env.NEXT_PUBLIC_POLYGON_SERVICE_WALLET || '0x742d35cc6634c0532925a3b8d900b3deb4ce6234';
 
 // Calculate Polygon service fee based on retention percentage  
 function calculatePolygonServiceFee(retentionPercentage: number): string {
