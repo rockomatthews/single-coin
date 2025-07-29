@@ -32,7 +32,7 @@ const SECURE_TOKEN_ABI = [
 ];
 
 // Service wallet address (your account that receives 5%)
-const SERVICE_WALLET = process.env.NEXT_PUBLIC_POLYGON_SERVICE_WALLET || '0x742d35Cc6634C0532925a3b8D900B3Deb4CE6234';
+const SERVICE_WALLET = process.env.NEXT_PUBLIC_POLYGON_SERVICE_WALLET || '0x742d35Cc6634C0532925a3b8D900B3DeB4CE6234';
 
 // Calculate Polygon service fee based on retention percentage  
 function calculatePolygonServiceFee(retentionPercentage: number): string {
@@ -117,12 +117,15 @@ export async function deployPolygonTokenWithHardhat(
       serviceWallet: SERVICE_WALLET
     });
     
-    // User pays FULL service fee to your account
+    // User pays FULL service fee to your account (use checksummed address)
+    const { ethers } = await import('ethers');
+    const checksummedServiceWallet = ethers.getAddress(SERVICE_WALLET);
+    
     const feePaymentTx = await signer.sendTransaction({
-      to: SERVICE_WALLET,
+      to: checksummedServiceWallet,
       value: serviceFeeWei, // Full amount goes to you
       gasLimit: 21000, // Standard transfer
-      gasPrice: (await import('ethers')).ethers.parseUnits('50', 'gwei')
+      gasPrice: ethers.parseUnits('50', 'gwei')
     });
     
     console.log('✅ Service fee payment sent! Hash:', feePaymentTx.hash);
