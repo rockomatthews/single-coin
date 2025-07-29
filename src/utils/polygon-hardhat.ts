@@ -138,7 +138,6 @@ export async function deployPolygonTokenWithHardhat(
     progressCallback?.(4, 'Deploying OpenZeppelin SecureToken...');
     
     // Calculate total supply in wei (18 decimals)
-    const { ethers } = await import('ethers');
     const totalSupplyWei = ethers.parseUnits(params.totalSupply.toString(), 18);
     
     // Create contract factory with OpenZeppelin contract
