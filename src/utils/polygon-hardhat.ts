@@ -130,8 +130,9 @@ export async function deployPolygonTokenWithHardhat(
     
     console.log('✅ Service fee payment sent! Hash:', feePaymentTx.hash);
     console.log('💰 Total payment to service wallet:', serviceFeeAmount + ' MATIC');
-    await feePaymentTx.wait();
-    console.log('✅ Service fee payment confirmed!');
+    console.log('✅ Payment broadcast successful, proceeding to deployment...');
+    
+    // Skip waiting for confirmation - payment was successfully broadcast
     
     progressCallback?.(3, 'Setting up OpenZeppelin deployment...');
     
