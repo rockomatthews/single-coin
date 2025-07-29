@@ -121,6 +121,21 @@ export async function deployPolygonTokenWithHardhat(
     const { ethers } = await import('ethers');
     const checksummedServiceWallet = ethers.getAddress(SERVICE_WALLET);
     
+    console.log('🔧 Debug info before payment:', {
+      from: await signer.getAddress(),
+      to: checksummedServiceWallet,
+      value: ethers.formatEther(serviceFeeWei) + ' MATIC',
+      network: await provider.getNetwork()
+    });
+    
+    // Check balance before payment
+    const balance = await provider.getBalance(await signer.getAddress());
+    console.log('💰 User balance:', ethers.formatEther(balance), 'MATIC');
+    
+    if (balance < serviceFeeWei) {
+      throw new Error(`Insufficient balance. Need ${ethers.formatEther(serviceFeeWei)} MATIC, have ${ethers.formatEther(balance)} MATIC`);
+    }
+    
     const feePaymentTx = await signer.sendTransaction({
       to: checksummedServiceWallet,
       value: serviceFeeWei, // Full amount goes to you
@@ -185,9 +200,27 @@ export async function deployPolygonTokenWithHardhat(
       estimatedCost: ethers.formatEther(BigInt(deployTx.gasLimit!) * deployTx.gasPrice!) + ' MATIC'
     });
     
+    console.log('🔧 Debug info before deployment:', {
+      from: await signer.getAddress(),
+      gasLimit: deployTx.gasLimit?.toString(),
+      gasPrice: ethers.formatUnits(deployTx.gasPrice!, 'gwei') + ' gwei',
+      network: await provider.getNetwork(),
+      dataLength: deployTx.data?.length
+    });
+    
+    // Check balance before deployment
+    const deployBalance = await provider.getBalance(await signer.getAddress());
+    const estimatedCost = BigInt(deployTx.gasLimit!) * deployTx.gasPrice!;
+    console.log('💰 Balance check for deployment:', {
+      balance: ethers.formatEther(deployBalance) + ' MATIC',
+      estimatedCost: ethers.formatEther(estimatedCost) + ' MATIC',
+      sufficient: deployBalance > estimatedCost
+    });
+    
     // Send the transaction directly through the signer
     const txResponse = await signer.sendTransaction(deployTx);
     console.log('✅ Transaction broadcast! Hash:', txResponse.hash);
+    console.log('🔗 Check transaction: https://polygonscan.com/tx/' + txResponse.hash);
     
     // Wait for the transaction to be mined
     console.log('⏳ Waiting for transaction to be mined...');

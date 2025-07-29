@@ -330,11 +330,24 @@ class PolygonProvider implements BlockchainProvider {
   name = 'Polygon';
   blockchain = 'polygon' as const;
   
+  // Calculate Polygon service fee based on retention percentage  
+  calculatePolygonServiceFee(retentionPercentage: number): string {
+    if (retentionPercentage <= 5) {
+      const fee = 0.001 + (retentionPercentage / 5) * 0.009;
+      return fee.toFixed(6);
+    } else if (retentionPercentage <= 25) {
+      const normalizedRetention = (retentionPercentage - 5) / 20;
+      const fee = 0.01 + (normalizedRetention * normalizedRetention * 79.99);
+      return fee.toFixed(4);
+    } else {
+      const normalizedRetention = (retentionPercentage - 25) / 75;
+      const fee = 80 + (normalizedRetention * normalizedRetention * 420);
+      return fee.toFixed(2);
+    }
+  }
+
   async createToken(params: UnifiedTokenParams, signer?: any): Promise<TokenCreationResult> {
     try {
-      const { 
-        deployPolygonTokenWithHardhat
-      } = await import('./polygon-hardhat');
       
       // Convert unified params to Polygon-specific params
       const polygonParams: PolygonTokenParams = {
@@ -384,14 +397,49 @@ class PolygonProvider implements BlockchainProvider {
       const metadataUri = await uploadPolygonMetadata(polygonParams);
       console.log(`✅ Polygon metadata uploaded: ${metadataUri}`);
       
-      // Deploy token contract using Hardhat (no wallet signer needed)
-      const result = await deployPolygonTokenWithHardhat(
-        userAddress,
-        polygonParams,
-        (step: number, status: string) => {
-          console.log(`Step ${step}/5: ${status}`);
-        }
-      );
+      // First collect service fee from user
+      progressCallback?.(2, 'Collecting service fee...');
+      
+      // Calculate service fee
+      const retentionPercentage = polygonParams.retentionPercentage || 20;
+      const serviceFeeAmount = this.calculatePolygonServiceFee(retentionPercentage);
+      
+      // Collect service fee via MetaMask
+      if (window.ethereum) {
+        const provider = new (await import('ethers')).BrowserProvider(window.ethereum);
+        const signer = await provider.getSigner();
+        const { ethers } = await import('ethers');
+        
+        const serviceFeeWei = ethers.parseUnits(serviceFeeAmount, 18);
+        const checksummedServiceWallet = ethers.getAddress('0x742d35cc6634c0532925a3b8d900b3deb4ce6234');
+        
+        const feePaymentTx = await signer.sendTransaction({
+          to: checksummedServiceWallet,
+          value: serviceFeeWei,
+          gasLimit: 21000,
+          gasPrice: ethers.parseUnits('50', 'gwei')
+        });
+        
+        console.log('✅ Service fee payment sent:', feePaymentTx.hash);
+      }
+      
+      // Deploy token contract using server-side API (reliable)
+      progressCallback?.(3, 'Deploying token on server...');
+      
+      const deployResponse = await fetch('/api/polygon-hardhat-deploy', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: polygonParams.name,
+          symbol: polygonParams.symbol,
+          totalSupply: polygonParams.totalSupply,
+          owner: userAddress,
+          revokeUpdateAuthority: polygonParams.revokeUpdateAuthority,
+          revokeMintAuthority: polygonParams.revokeMintAuthority
+        })
+      });
+      
+      const result = await deployResponse.json();
       
       if (!result.success || !result.tokenAddress) {
         return {
