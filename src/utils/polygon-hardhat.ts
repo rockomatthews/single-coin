@@ -134,68 +134,68 @@ export async function deployPolygonTokenWithHardhat(
     // Deploy contract with NO automatic estimation - force MetaMask to use our values
     console.log('🚀 Sending deployment transaction to MetaMask...');
     
-    // First get the deployment transaction data
-    const deployTx = await contractFactory.getDeployTransaction(
-      params.name,
-      params.symbol, 
-      totalSupplyWei,
-      userAddress
-    );
-    
-    // Add our gas configuration
-    deployTx.gasLimit = BigInt(1500000); // Increased gas limit to ensure success
-    deployTx.gasPrice = deploymentGasPrice;
-    
-    console.log('📋 Transaction details:', {
-      gasLimit: deployTx.gasLimit,
-      gasPrice: ethers.formatUnits(deployTx.gasPrice!, 'gwei') + ' gwei',
-      estimatedCost: ethers.formatEther(BigInt(deployTx.gasLimit!) * deployTx.gasPrice!) + ' MATIC'
-    });
-    
-    console.log('🔧 Debug info before deployment:', {
-      from: await signer.getAddress(),
-      gasLimit: deployTx.gasLimit?.toString(),
-      gasPrice: ethers.formatUnits(deployTx.gasPrice!, 'gwei') + ' gwei',
-      network: await provider.getNetwork(),
-      dataLength: deployTx.data?.length
-    });
-    
     // Check balance before deployment
     const deployBalance = await provider.getBalance(await signer.getAddress());
-    const estimatedCost = BigInt(deployTx.gasLimit!) * deployTx.gasPrice!;
+    const estimatedCost = BigInt(1500000) * deploymentGasPrice;
     console.log('💰 Balance check for deployment:', {
       balance: ethers.formatEther(deployBalance) + ' MATIC',
       estimatedCost: ethers.formatEther(estimatedCost) + ' MATIC',
       sufficient: deployBalance > estimatedCost
     });
     
-    // Send the transaction directly through the signer
-    console.log('🔧 About to send transaction - MetaMask should prompt user...');
+    // Deploy contract directly using contractFactory.deploy() - this will prompt MetaMask
+    console.log('🔧 About to deploy contract - MetaMask will prompt user...');
     
+    let contract;
     let txResponse;
     try {
-      txResponse = await signer.sendTransaction(deployTx);
-      console.log('✅ Transaction sent to network! Hash:', txResponse.hash);
+      // This properly uses MetaMask signing and prompts the user
+      contract = await contractFactory.deploy(
+        params.name,
+        params.symbol, 
+        totalSupplyWei,
+        userAddress,
+        {
+          gasLimit: BigInt(1500000),
+          gasPrice: deploymentGasPrice
+        }
+      );
+      
+      // Get the deployment transaction from the contract
+      txResponse = contract.deploymentTransaction();
+      if (!txResponse) {
+        throw new Error('Failed to get deployment transaction');
+      }
+      
+      console.log('✅ Contract deployment initiated! Hash:', txResponse.hash);
       console.log('🔗 Check transaction: https://polygonscan.com/tx/' + txResponse.hash);
+      console.log('📍 Contract will be deployed at:', await contract.getAddress());
     } catch (error) {
-      console.error('❌ Transaction failed to send:', error);
-      throw new Error(`Transaction failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      console.error('❌ Contract deployment failed:', error);
+      throw new Error(`Deployment failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
     
-    // Wait for the transaction to be mined with timeout
-    console.log('⏳ Waiting for transaction to be mined...');
+    // Wait for the contract deployment to be mined with timeout
+    console.log('⏳ Waiting for contract deployment to be mined...');
     
     let receipt;
-    let contract;
     let contractAddress;
     
     try {
-      const miningPromise = txResponse.wait();
+      const miningPromise = contract.waitForDeployment();
       const timeoutPromise = new Promise<never>((_, reject) => 
-        setTimeout(() => reject(new Error('Transaction mining timeout after 5 minutes')), 300000)
+        setTimeout(() => reject(new Error('Contract deployment timeout after 5 minutes')), 300000)
       );
       
-      receipt = await Promise.race([miningPromise, timeoutPromise]);
+      await Promise.race([miningPromise, timeoutPromise]);
+      console.log('✅ Contract deployment confirmed!');
+      
+      // Get the deployed contract address
+      contractAddress = await contract.getAddress();
+      console.log('📍 Contract deployed at:', contractAddress);
+      
+      // Get the transaction receipt for verification
+      receipt = await txResponse.wait();
       console.log('✅ Transaction mined! Block:', receipt?.blockNumber);
       
       // Verify the transaction actually exists on Polygonscan
@@ -204,19 +204,15 @@ export async function deployPolygonTokenWithHardhat(
       const verifyData = await verifyResponse.json();
       console.log('📋 Polygonscan verification:', verifyData);
       
-      // Get the deployed contract
-      if (!receipt || !receipt.contractAddress) {
-        throw new Error('No contract address received from deployment');
-      }
-      
-      contract = contractFactory.attach(receipt.contractAddress) as any;
-      contractAddress = receipt.contractAddress;
+      // Verify tokens were minted to user's address
+      const userBalance = await contract.balanceOf(userAddress);
+      console.log('💰 Tokens minted to user:', ethers.formatUnits(userBalance, 18), params.symbol);
       
       progressCallback?.(5, 'Deployment confirmed!');
       
     } catch (error) {
-      console.error('❌ Transaction mining failed:', error);
-      throw new Error(`Mining failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      console.error('❌ Contract deployment failed:', error);
+      throw new Error(`Deployment failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
     
     console.log('✅ OpenZeppelin SecureToken deployed successfully!');
