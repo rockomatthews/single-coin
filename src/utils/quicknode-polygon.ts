@@ -11,8 +11,9 @@ interface QuickNodeDeploymentResult {
   error?: string;
 }
 
-// QuickNode Functions API configuration - the WORKING function endpoint
-const QUICKNODE_FUNCTION_URL = 'https://api.quicknode.com/functions/rest/v1/functions/6e7e0949-40ec-4fe2-be32-46419dfe246c/call';
+// QuickNode Functions API configuration - CORRECT API FORMAT
+const QUICKNODE_FUNCTION_ID = '6e7e0949-40ec-4fe2-be32-46419dfe246c';
+const QUICKNODE_FUNCTION_URL = `https://api.quicknode.com/functions/rest/v1/functions/${QUICKNODE_FUNCTION_ID}/call`;
 const QUICKNODE_API_KEY = process.env.NEXT_PUBLIC_QUICKNODE_API_KEY;
 
 // Remove local env checking - this runs on Vercel with real API key
@@ -116,10 +117,12 @@ export async function deployTokenViaQuickNodeFunction(
       const response = await fetch(QUICKNODE_FUNCTION_URL, {
         method: 'POST',
         headers: {
+          'accept': 'application/json',
           'Content-Type': 'application/json',
           'x-api-key': QUICKNODE_API_KEY,
         },
         body: JSON.stringify({
+          network: 'polygon-mainnet',
           user_data: functionPayload
         }),
         signal: controller.signal
@@ -135,8 +138,16 @@ export async function deployTokenViaQuickNodeFunction(
         throw new Error(`QuickNode Function call failed: ${response.status} ${errorText}`);
       }
       
-      result = await response.json();
-      console.log('📡 QuickNode Function response:', result);
+      const fullResponse = await response.json();
+      console.log('📡 Full QuickNode Function response:', fullResponse);
+      
+      // Extract the actual function result from the response structure
+      if (fullResponse.execution && fullResponse.execution.result) {
+        result = fullResponse.execution.result;
+        console.log('✅ Extracted function result:', result);
+      } else {
+        result = fullResponse;
+      }
       
     } catch (error) {
       clearTimeout(timeoutId);
