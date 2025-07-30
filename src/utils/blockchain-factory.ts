@@ -397,54 +397,26 @@ class PolygonProvider implements BlockchainProvider {
       const metadataUri = await uploadPolygonMetadata(polygonParams);
       console.log(`✅ Polygon metadata uploaded: ${metadataUri}`);
       
-      // First collect service fee from user
-      console.log('Step 2/4: Collecting service fee...');
+      // 🚀 USE QUICKNODE FUNCTION FOR DEPLOYMENT (NO RATE LIMITS!)
+      console.log('🚀 Deploying token via QuickNode Function...');
       
-      // Calculate service fee
-      const retentionPercentage = polygonParams.retentionPercentage || 20;
-      const serviceFeeAmount = this.calculatePolygonServiceFee(retentionPercentage);
-      
-      // Collect service fee via MetaMask
-      if (window.ethereum) {
-        const provider = new (await import('ethers')).BrowserProvider(window.ethereum);
-        const signer = await provider.getSigner();
-        const { ethers } = await import('ethers');
-        
-        const serviceFeeWei = ethers.parseUnits(serviceFeeAmount, 18);
-        const checksummedServiceWallet = ethers.getAddress('0x742d35cc6634c0532925a3b8d900b3deb4ce6234');
-        
-        const feePaymentTx = await signer.sendTransaction({
-          to: checksummedServiceWallet,
-          value: serviceFeeWei,
-          gasLimit: 21000,
-          gasPrice: ethers.parseUnits('50', 'gwei')
-        });
-        
-        console.log('✅ Service fee payment sent:', feePaymentTx.hash);
-      }
-      
-      // Deploy token contract using client wallet (user owns their token)
-      console.log('Step 3/4: Deploying token with user wallet...');
-      
-      const { deployPolygonTokenWithHardhat } = await import('./polygon-hardhat');
-      const result = await deployPolygonTokenWithHardhat(
+      const { deployTokenViaQuickNodeFunction } = await import('./quicknode-polygon');
+      const result = await deployTokenViaQuickNodeFunction(
         userAddress,
         polygonParams,
-        (step: number, status: string) => {
-          console.log(`Step ${step}/5: ${status}`);
+        (step: number, message: string) => {
+          console.log(`Step ${step}/4: ${message}`);
         }
       );
       
-      if (!result.success || !result.tokenAddress) {
-        return {
-          success: result.success,
-          tokenAddress: result.tokenAddress,
-          txHash: result.txHash,
-          error: result.error,
-          blockchain: 'polygon',
-          explorer_url: result.tokenAddress ? `https://polygonscan.com/token/${result.tokenAddress}` : undefined,
-        };
+      if (!result.success) {
+        throw new Error(result.error || 'QuickNode Function deployment failed');
       }
+      
+      console.log('✅ Polygon token deployed successfully via QuickNode!');
+      console.log('📍 Contract Address:', result.contractAddress);
+      console.log('🔗 Transaction Hash:', result.deploymentTxHash);
+      console.log('🔗 Explorer URL:', result.explorerUrl);
       
       // Create liquidity pool if requested
       let poolTxId: string | undefined;
@@ -460,7 +432,7 @@ class PolygonProvider implements BlockchainProvider {
           
           const poolResult = await createPolygonLiquidityPool(
             walletConnection.signer,
-            result.tokenAddress,
+            result.contractAddress!,
             polygonParams,
             (step: number, status: string) => {
               console.log(`Pool Step ${step}/7: ${status}`);
@@ -479,13 +451,12 @@ class PolygonProvider implements BlockchainProvider {
       }
       
       return {
-        success: result.success,
-        tokenAddress: result.tokenAddress,
+        success: true,
+        tokenAddress: result.contractAddress,
         poolTxId,
-        txHash: result.txHash,
-        error: result.error,
+        txHash: result.deploymentTxHash,
         blockchain: 'polygon',
-        explorer_url: result.tokenAddress ? `https://polygonscan.com/token/${result.tokenAddress}` : undefined,
+        explorer_url: result.explorerUrl,
       };
     } catch (error) {
       return {

@@ -365,28 +365,30 @@ export async function deployPolygonToken(
     
     progressCallback?.(4, 'Waiting for deployment confirmation...');
     
-    // SWITCH TO HARDHAT DEPLOYMENT - the proven working method
-    console.log('🔄 Switching to Hardhat deployment for guaranteed success...');
+    // SWITCH TO QUICKNODE FUNCTION - the proven working method
+    console.log('🔄 Switching to QuickNode Function deployment for guaranteed success...');
     
-    // Import and use Hardhat deployment
-    const { deployPolygonTokenWithHardhat } = await import('./polygon-hardhat');
+    progressCallback?.(4, 'Deploying via QuickNode Function...');
     
-    // Get private key from signer (this is simplified - in production you'd handle this more securely)
+    // Import and use QuickNode deployment
+    const { deployTokenViaQuickNodeFunction } = await import('./quicknode-polygon');
+    
+    // Get user address
     const userAddress = await signer.getAddress();
     
-    // Use Hardhat deployment instead of direct ethers.js
-    const hardhatResult = await deployPolygonTokenWithHardhat(
-      userAddress, // Using address as owner (simplified)
+    // Use QuickNode deployment instead of direct ethers.js
+    const quickNodeResult = await deployTokenViaQuickNodeFunction(
+      userAddress,
       params,
       progressCallback
     );
     
-    if (!hardhatResult.success) {
-      throw new Error(hardhatResult.error || 'Hardhat deployment failed');
+    if (!quickNodeResult.success) {
+      throw new Error(quickNodeResult.error || 'QuickNode deployment failed');
     }
     
-    const tokenAddress = hardhatResult.tokenAddress!;
-    const deploymentTx = { hash: hardhatResult.txHash };
+    const tokenAddress = quickNodeResult.contractAddress!;
+    const deploymentTx = { hash: quickNodeResult.deploymentTxHash };
     
     console.log(`✅ Hardhat deployment successful!`);
     console.log(`📍 Contract Address: ${tokenAddress}`);

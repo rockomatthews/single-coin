@@ -148,31 +148,54 @@ export async function deployPolygonTokenWithHardhat(
     
     let contract;
     let txResponse;
-    try {
-      // This properly uses MetaMask signing and prompts the user
-      contract = await contractFactory.deploy(
-        params.name,
-        params.symbol, 
-        totalSupplyWei,
-        userAddress,
-        {
-          gasLimit: BigInt(1500000),
-          gasPrice: deploymentGasPrice
+    let deployRetryCount = 0;
+    const maxDeployRetries = 3;
+    
+    while (deployRetryCount < maxDeployRetries) {
+      try {
+        // This properly uses MetaMask signing and prompts the user
+        contract = await contractFactory.deploy(
+          params.name,
+          params.symbol, 
+          totalSupplyWei,
+          userAddress,
+          {
+            gasLimit: BigInt(1500000),
+            gasPrice: deploymentGasPrice
+          }
+        );
+        
+        // Get the deployment transaction from the contract
+        txResponse = contract.deploymentTransaction();
+        if (!txResponse) {
+          throw new Error('Failed to get deployment transaction');
         }
-      );
-      
-      // Get the deployment transaction from the contract
-      txResponse = contract.deploymentTransaction();
-      if (!txResponse) {
-        throw new Error('Failed to get deployment transaction');
+        
+        console.log('✅ Contract deployment initiated! Hash:', txResponse.hash);
+        console.log('🔗 Check transaction: https://polygonscan.com/tx/' + txResponse.hash);
+        console.log('📍 Contract will be deployed at:', await contract.getAddress());
+        break; // Success, exit retry loop
+        
+      } catch (error: any) {
+        deployRetryCount++;
+        console.log(`⚠️ Contract deployment attempt ${deployRetryCount} failed:`, error.message);
+        
+        if (error.code === -32005 || error.message?.includes('rate limit')) {
+          if (deployRetryCount < maxDeployRetries) {
+            console.log(`🔄 Rate limited during deployment, retrying in ${deployRetryCount * 3} seconds...`);
+            await new Promise(resolve => setTimeout(resolve, deployRetryCount * 3000));
+            continue;
+          } else {
+            throw new Error(`Contract deployment failed after ${maxDeployRetries} attempts: Rate limited. Please try again in a few minutes.`);
+          }
+        } else {
+          throw new Error(`Deployment failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        }
       }
-      
-      console.log('✅ Contract deployment initiated! Hash:', txResponse.hash);
-      console.log('🔗 Check transaction: https://polygonscan.com/tx/' + txResponse.hash);
-      console.log('📍 Contract will be deployed at:', await contract.getAddress());
-    } catch (error) {
-      console.error('❌ Contract deployment failed:', error);
-      throw new Error(`Deployment failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+    
+    if (!contract || !txResponse) {
+      throw new Error('Contract deployment failed after all retry attempts');
     }
     
     // Wait for the contract deployment to be mined with timeout
