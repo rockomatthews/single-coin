@@ -15,6 +15,8 @@ interface QuickNodeDeploymentResult {
 const QUICKNODE_FUNCTION_URL = 'https://api.quicknode.com/functions/rest/v1/functions/6e7e0949-40ec-4fe2-be32-46419dfe246c/call';
 const QUICKNODE_API_KEY = process.env.NEXT_PUBLIC_QUICKNODE_API_KEY;
 
+// Remove local env checking - this runs on Vercel with real API key
+
 export async function deployTokenViaQuickNodeFunction(
   userAddress: string,
   params: PolygonTokenParams,
@@ -93,16 +95,24 @@ export async function deployTokenViaQuickNodeFunction(
     
     console.log('🚀 Calling QuickNode Function with payload:', functionPayload);
     
+    // Vercel deployment - API key should be set in Vercel environment variables
+    console.log('🚀 Starting QuickNode API call on Vercel...');
+    console.log('🔑 API Key present:', !!QUICKNODE_API_KEY);
+    console.log('🎯 Function URL:', QUICKNODE_FUNCTION_URL);
+    
     if (!QUICKNODE_API_KEY) {
-      throw new Error('QuickNode API key not configured');
+      throw new Error('QuickNode API key not found in Vercel environment variables');
     }
     
-    // Add timeout to prevent hanging
+    // Add timeout to prevent hanging - use REAL API call now
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout for debugging
     
     let result;
     try {
+      console.log('🌐 Making QuickNode API request on Vercel...');
+      console.log('📤 Payload being sent:', JSON.stringify(functionPayload, null, 2));
+      
       const response = await fetch(QUICKNODE_FUNCTION_URL, {
         method: 'POST',
         headers: {
@@ -116,9 +126,12 @@ export async function deployTokenViaQuickNodeFunction(
       });
       
       clearTimeout(timeoutId);
+      console.log('📡 QuickNode response status:', response.status);
+      console.log('📋 QuickNode response headers:', Object.fromEntries(response.headers.entries()));
     
       if (!response.ok) {
         const errorText = await response.text();
+        console.error('❌ QuickNode error response:', errorText);
         throw new Error(`QuickNode Function call failed: ${response.status} ${errorText}`);
       }
       
@@ -127,8 +140,9 @@ export async function deployTokenViaQuickNodeFunction(
       
     } catch (error) {
       clearTimeout(timeoutId);
+      console.error('💥 QuickNode API call failed:', error);
       if (error.name === 'AbortError') {
-        throw new Error('QuickNode Function call timed out after 30 seconds');
+        throw new Error('QuickNode Function call timed out after 10 seconds - check your API key and function status');
       }
       throw error;
     }
