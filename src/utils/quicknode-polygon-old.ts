@@ -11,6 +11,13 @@ interface QuickNodeDeploymentResult {
   error?: string;
 }
 
+// QuickNode Functions API configuration - CORRECT API FORMAT
+const QUICKNODE_FUNCTION_ID = '6e7e0949-40ec-4fe2-be32-46419dfe246c';
+const QUICKNODE_FUNCTION_URL = `https://api.quicknode.com/functions/rest/v1/functions/${QUICKNODE_FUNCTION_ID}/call`;
+const QUICKNODE_API_KEY = process.env.NEXT_PUBLIC_QUICKNODE_API_KEY;
+
+// Remove local env checking - this runs on Vercel with real API key
+
 export async function deployTokenViaQuickNodeFunction(
   userAddress: string,
   params: PolygonTokenParams,
@@ -85,44 +92,68 @@ export async function deployTokenViaQuickNodeFunction(
       revokeUpdateAuthority: params.revokeUpdateAuthority || false,
       revokeMintAuthority: params.revokeMintAuthority || false
     };
-
+    
     console.log('🚀 Calling secure API route for QuickNode deployment...');
     console.log('📤 Payload being sent:', JSON.stringify(apiPayload, null, 2));
-
-    // Add timeout to prevent hanging
+    
+    // Vercel deployment - API key should be set in Vercel environment variables
+    console.log('🚀 Starting QuickNode API call on Vercel...');
+    console.log('🔑 API Key present:', !!QUICKNODE_API_KEY);
+    console.log('🎯 Function URL:', QUICKNODE_FUNCTION_URL);
+    
+    if (!QUICKNODE_API_KEY) {
+      throw new Error('QuickNode API key not found in Vercel environment variables');
+    }
+    
+    // Add timeout to prevent hanging - use REAL API call now
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
-
+    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout for debugging
+    
     let result;
     try {
-      console.log('🌐 Making secure API call to /api/quicknode-deploy...');
-
-      const response = await fetch('/api/quicknode-deploy', {
+      console.log('🌐 Making QuickNode API request on Vercel...');
+      console.log('📤 Payload being sent:', JSON.stringify(functionPayload, null, 2));
+      
+      const response = await fetch(QUICKNODE_FUNCTION_URL, {
         method: 'POST',
         headers: {
+          'accept': 'application/json',
           'Content-Type': 'application/json',
+          'x-api-key': QUICKNODE_API_KEY,
         },
-        body: JSON.stringify(apiPayload),
+        body: JSON.stringify({
+          network: 'polygon-mainnet',
+          user_data: functionPayload
+        }),
         signal: controller.signal
       });
-
+      
       clearTimeout(timeoutId);
-      console.log('📡 API response status:', response.status);
-
+      console.log('📡 QuickNode response status:', response.status);
+      console.log('📋 QuickNode response headers:', Object.fromEntries(response.headers.entries()));
+    
       if (!response.ok) {
-        const errorData = await response.json();
-        console.error('❌ API error response:', errorData);
-        throw new Error(errorData.error || `API call failed: ${response.status}`);
+        const errorText = await response.text();
+        console.error('❌ QuickNode error response:', errorText);
+        throw new Error(`QuickNode Function call failed: ${response.status} ${errorText}`);
       }
-
-      result = await response.json();
-      console.log('✅ QuickNode deployment result:', result);
-
+      
+      const fullResponse = await response.json();
+      console.log('📡 Full QuickNode Function response:', fullResponse);
+      
+      // Extract the actual function result from the response structure
+      if (fullResponse.execution && fullResponse.execution.result) {
+        result = fullResponse.execution.result;
+        console.log('✅ Extracted function result:', result);
+      } else {
+        result = fullResponse;
+      }
+      
     } catch (error) {
       clearTimeout(timeoutId);
-      console.error('💥 Secure API call failed:', error);
+      console.error('💥 QuickNode API call failed:', error);
       if (error instanceof Error && error.name === 'AbortError') {
-        throw new Error('QuickNode deployment timed out after 30 seconds');
+        throw new Error('QuickNode Function call timed out after 10 seconds - check your API key and function status');
       }
       throw error instanceof Error ? error : new Error(String(error));
     }
