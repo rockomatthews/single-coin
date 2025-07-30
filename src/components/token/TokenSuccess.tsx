@@ -28,6 +28,13 @@ import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
 import LaunchIcon from '@mui/icons-material/Launch';
 import TokenSecurity from './TokenSecurity';
 
+// Type declaration for window.ethereum
+declare global {
+  interface Window {
+    ethereum?: any;
+  }
+}
+
 interface TokenSuccessProps {
   tokenAddress: string | null;
   blockchain?: 'solana' | 'polygon' | 'base' | 'bnb' | 'arbitrum' | 'hyperliquid' | 'bitcoin' | 'tron';
@@ -140,7 +147,7 @@ export default function TokenSuccess({ tokenAddress, blockchain = 'solana', toke
           ],
           networkLive: 'LIVE on Solana!',
           poolType: 'Raydium CPMM pool',
-          walletInstructions: 'Your token should appear automatically in Phantom wallet. If not: Open Phantom → Tokens tab → "+" button → Paste token address → Add Token'
+          walletInstructions: 'Your token should appear automatically in Phantom wallet. If not: Open Phantom -> Tokens tab -> "+" button -> Paste token address -> Add Token'
         };
     }
   };
@@ -160,7 +167,7 @@ export default function TokenSuccess({ tokenAddress, blockchain = 'solana', toke
             address: tokenAddress,
             symbol: tokenParams.symbol || 'TOKEN',
             decimals: 18,
-            image: tokenParams.name ? `https://via.placeholder.com/128/000000/FFFFFF/?text=${tokenParams.name.charAt(0)}` : undefined,
+            image: tokenParams.name ? 'https://via.placeholder.com/128/000000/FFFFFF/?text=' + tokenParams.name.charAt(0) : undefined,
           },
         },
       });
@@ -175,7 +182,7 @@ export default function TokenSuccess({ tokenAddress, blockchain = 'solana', toke
       <Box sx={{ textAlign: 'center', mb: 4 }}>
         <CheckCircleIcon color="success" sx={{ fontSize: 60, mb: 2 }} />
         <Typography variant="h5" color="primary" gutterBottom fontWeight="bold">
-          🎉 Token Successfully Created!
+          Token Successfully Created!
         </Typography>
         <Typography variant="body1" sx={{ mb: 2 }}>
           Your token with {chainConfig.poolType} has been created and is <strong>{chainConfig.networkLive}</strong>
@@ -197,13 +204,13 @@ export default function TokenSuccess({ tokenAddress, blockchain = 'solana', toke
         sx={{ mb: 3, '& .MuiAlert-message': { width: '100%' } }}
       >
         <Typography variant="subtitle2" fontWeight="bold" gutterBottom>
-          🚀 CONGRATULATIONS! Your Token is NOW TRADEABLE!
+          CONGRATULATIONS! Your Token is NOW TRADEABLE!
         </Typography>
         <Typography variant="body2" sx={{ mb: 1 }}>
           Your {chainConfig.poolType} is live and tokens are immediately tradeable on all major {chainConfig.name} DEXes!
         </Typography>
         <Typography variant="body2" fontWeight="bold">
-          📈 Start sharing your trading links now!
+          Start sharing your trading links now!
         </Typography>
       </Alert>
 
@@ -258,7 +265,7 @@ export default function TokenSuccess({ tokenAddress, blockchain = 'solana', toke
       {/* Trading Links */}
       <Box sx={{ mt: 4 }}>
         <Typography variant="h6" gutterBottom align="center" sx={{ mb: 2 }}>
-          🚀 Your Token is NOW LIVE and TRADEABLE! 🚀
+          Your Token is NOW LIVE and TRADEABLE!
         </Typography>
         <Typography variant="body2" align="center" color="text.secondary" sx={{ mb: 3 }}>
           Share these links to start trading immediately on all major {chainConfig.name} DEXes:
@@ -288,7 +295,7 @@ export default function TokenSuccess({ tokenAddress, blockchain = 'solana', toke
       <Accordion sx={{ mb: 3 }}>
         <AccordionSummary expandIcon={<ExpandMoreIcon />}>
           <Typography variant="subtitle1" fontWeight="bold">
-            🏊 Pool Details & What Happened
+            Pool Details & What Happened
           </Typography>
         </AccordionSummary>
         <AccordionDetails>
@@ -298,30 +305,30 @@ export default function TokenSuccess({ tokenAddress, blockchain = 'solana', toke
           <Box component="ul" sx={{ pl: 2, mb: 2 }}>
             {blockchain === 'solana' ? (
               <>
-                <li><Typography variant="body2">✅ Real Raydium CPMM pool created (not a simulation)</Typography></li>
-                <li><Typography variant="body2">✅ Tokens and SOL locked in liquidity pool</Typography></li>
-                <li><Typography variant="body2">✅ Pool ID generated and registered with Raydium</Typography></li>
-                <li><Typography variant="body2">✅ Immediately indexed by Jupiter aggregator</Typography></li>
-                <li><Typography variant="body2">✅ Available on DexScreener for price tracking</Typography></li>
-                <li><Typography variant="body2">✅ Accessible via Birdeye analytics</Typography></li>
+                <li><Typography variant="body2">Real Raydium CPMM pool created (not a simulation)</Typography></li>
+                <li><Typography variant="body2">Tokens and SOL locked in liquidity pool</Typography></li>
+                <li><Typography variant="body2">Pool ID generated and registered with Raydium</Typography></li>
+                <li><Typography variant="body2">Immediately indexed by Jupiter aggregator</Typography></li>
+                <li><Typography variant="body2">Available on DexScreener for price tracking</Typography></li>
+                <li><Typography variant="body2">Accessible via Birdeye analytics</Typography></li>
               </>
             ) : (
               <>
-                <li><Typography variant="body2">✅ ERC20 token contract deployed on {chainConfig.name}</Typography></li>
-                <li><Typography variant="body2">✅ Token and {chainConfig.currency} ready for liquidity pool creation</Typography></li>
-                <li><Typography variant="body2">✅ Contract verified and indexed by block explorers</Typography></li>
-                <li><Typography variant="body2">✅ Compatible with all major {chainConfig.name} DEX aggregators</Typography></li>
-                <li><Typography variant="body2">✅ Available on DexScreener for price tracking</Typography></li>
-                <li><Typography variant="body2">✅ Ready for DEX listing and trading</Typography></li>
+                <li><Typography variant="body2">ERC20 token contract deployed on {chainConfig.name}</Typography></li>
+                <li><Typography variant="body2">Token and {chainConfig.currency} ready for liquidity pool creation</Typography></li>
+                <li><Typography variant="body2">Contract verified and indexed by block explorers</Typography></li>
+                <li><Typography variant="body2">Compatible with all major {chainConfig.name} DEX aggregators</Typography></li>
+                <li><Typography variant="body2">Available on DexScreener for price tracking</Typography></li>
+                <li><Typography variant="body2">Ready for DEX listing and trading</Typography></li>
               </>
             )}
           </Box>
           
           <Typography variant="body2" color="text.secondary">
             {blockchain === 'solana' ? (
-              <strong>Technical:</strong> Your token uses Raydium's latest CPMM program (CPMMoo8L3F4NbTegBCKVNunggL7H1ZpdTHKxQB5qKP1C) which doesn't require OpenBook markets, making it immediately compatible with all Solana DEX aggregators.
+              <><strong>Technical:</strong> Your token uses Raydium's latest CPMM program (CPMMoo8L3F4NbTegBCKVNunggL7H1ZpdTHKxQB5qKP1C) which doesn't require OpenBook markets, making it immediately compatible with all Solana DEX aggregators.</>
             ) : (
-              <strong>Technical:</strong> Your ERC20 token contract is deployed on {chainConfig.name} and follows standard specifications, making it immediately compatible with all major DEX protocols and wallet integrations.
+              <><strong>Technical:</strong> Your ERC20 token contract is deployed on {chainConfig.name} and follows standard specifications, making it immediately compatible with all major DEX protocols and wallet integrations.</>
             )}
           </Typography>
         </AccordionDetails>
@@ -330,7 +337,7 @@ export default function TokenSuccess({ tokenAddress, blockchain = 'solana', toke
       {/* Marketing Steps */}
       <Paper variant="outlined" sx={{ p: 3, mb: 3 }}>
         <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
-          🚀 Next Steps: Grow Your Token
+          Next Steps: Grow Your Token
         </Typography>
         
         <Stack spacing={2}>
@@ -389,10 +396,10 @@ export default function TokenSuccess({ tokenAddress, blockchain = 'solana', toke
       {/* Footer */}
       <Divider sx={{ my: 3 }} />
       <Typography variant="body2" color="text.secondary" textAlign="center">
-        🎯 <strong>Success!</strong> Your token is live and tradeable on {chainConfig.name} DEX ecosystem!
+        <strong>Success!</strong> Your token is live and tradeable on {chainConfig.name} DEX ecosystem!
         <br />
         Start trading, build community, and grow your project. Need help with marketing? Contact our team!
       </Typography>
     </Box>
   );
-} 
+}
