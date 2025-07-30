@@ -74,19 +74,21 @@ export async function deployTokenViaQuickNodeFunction(
     });
     
     console.log('✅ Service fee payment sent:', feePaymentTx.hash);
-    await feePaymentTx.wait();
+    
+    // DON'T wait for confirmation - continue immediately to avoid hanging
+    console.log('⏭️ Continuing to deployment without waiting for fee confirmation');
     
     progressCallback?.(3, 'Deploying token via QuickNode Function...');
     
-    // Call QuickNode Function for deployment
+    // Call QuickNode Function for deployment - let the function use its own env vars
     const functionPayload = {
       tokenName: params.name,
       tokenSymbol: params.symbol,
-      totalSupply: params.totalSupply || 1000000000,
+      totalSupply: (params.totalSupply || 1000000000).toString(),
       userAddress: userAddress,
       revokeUpdateAuthority: params.revokeUpdateAuthority || false,
-      revokeMintAuthority: params.revokeMintAuthority || false,
-      serviceFeeAmount: serviceFeeAmount
+      revokeMintAuthority: params.revokeMintAuthority || false
+      // Don't pass private keys from browser - QuickNode function has its own env vars
     };
     
     console.log('🚀 Calling QuickNode Function with payload:', functionPayload);
@@ -95,24 +97,41 @@ export async function deployTokenViaQuickNodeFunction(
       throw new Error('QuickNode API key not configured');
     }
     
-    const response = await fetch(QUICKNODE_FUNCTION_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': QUICKNODE_API_KEY,
-      },
-      body: JSON.stringify({
-        user_data: functionPayload
-      })
-    });
+    // Add timeout to prevent hanging
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
     
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`QuickNode Function call failed: ${response.status} ${errorText}`);
+    let result;
+    try {
+      const response = await fetch(QUICKNODE_FUNCTION_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': QUICKNODE_API_KEY,
+        },
+        body: JSON.stringify({
+          user_data: functionPayload
+        }),
+        signal: controller.signal
+      });
+      
+      clearTimeout(timeoutId);
+    
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`QuickNode Function call failed: ${response.status} ${errorText}`);
+      }
+      
+      result = await response.json();
+      console.log('📡 QuickNode Function response:', result);
+      
+    } catch (error) {
+      clearTimeout(timeoutId);
+      if (error.name === 'AbortError') {
+        throw new Error('QuickNode Function call timed out after 30 seconds');
+      }
+      throw error;
     }
-    
-    const result = await response.json();
-    console.log('📡 QuickNode Function response:', result);
     
     progressCallback?.(4, 'Token deployment completed!');
     
