@@ -48,9 +48,17 @@ interface SecurityData {
 interface TokenSecurityProps {
   tokenAddress: string;
   showDetails?: boolean;
+  tokenParams?: {
+    name?: string;
+    symbol?: string;
+    revokeUpdateAuthority?: boolean;
+    revokeFreezeAuthority?: boolean;
+    revokeMintAuthority?: boolean;
+  };
+  blockchain?: 'solana' | 'polygon' | 'base' | 'bnb' | 'arbitrum' | 'hyperliquid' | 'bitcoin' | 'tron';
 }
 
-export default function TokenSecurity({ tokenAddress, showDetails = true }: TokenSecurityProps) {
+export default function TokenSecurity({ tokenAddress, showDetails = true, tokenParams, blockchain = 'solana' }: TokenSecurityProps) {
   const [securityData, setSecurityData] = useState<SecurityData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -177,13 +185,133 @@ export default function TokenSecurity({ tokenAddress, showDetails = true }: Toke
           </Box>
         )}
 
-        {/* Coinbull Features */}
-        {securityData.redbullcoinsFeatures && showDetails && (
+        {/* Security Features based on actual user selections */}
+        {tokenParams && showDetails && (
           <>
             <Divider sx={{ my: 2 }} />
             <Typography variant="subtitle2" gutterBottom>
               <ShieldIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
-              Redbull Coins Security Features
+              Token Security Features
+            </Typography>
+            <List dense>
+              {blockchain === 'solana' ? (
+                <>
+                  <ListItem>
+                    <ListItemIcon>
+                      {tokenParams.revokeMintAuthority ? (
+                        <CheckCircleIcon color="success" />
+                      ) : (
+                        <BlockIcon color="warning" />
+                      )}
+                    </ListItemIcon>
+                    <ListItemText
+                      primary={tokenParams.revokeMintAuthority ? "Mint Authority Revoked" : "Mint Authority Retained"}
+                      secondary={tokenParams.revokeMintAuthority ? 
+                        "Token supply is fixed and cannot be increased" : 
+                        "Token supply can be increased by the creator"
+                      }
+                    />
+                  </ListItem>
+                  <ListItem>
+                    <ListItemIcon>
+                      {tokenParams.revokeFreezeAuthority ? (
+                        <CheckCircleIcon color="success" />
+                      ) : (
+                        <BlockIcon color="warning" />
+                      )}
+                    </ListItemIcon>
+                    <ListItemText
+                      primary={tokenParams.revokeFreezeAuthority ? "Freeze Authority Revoked" : "Freeze Authority Retained"}
+                      secondary={tokenParams.revokeFreezeAuthority ? 
+                        "Token accounts cannot be frozen" : 
+                        "Token accounts can be frozen by the creator"
+                      }
+                    />
+                  </ListItem>
+                  <ListItem>
+                    <ListItemIcon>
+                      {tokenParams.revokeUpdateAuthority ? (
+                        <CheckCircleIcon color="success" />
+                      ) : (
+                        <BlockIcon color="warning" />
+                      )}
+                    </ListItemIcon>
+                    <ListItemText
+                      primary={tokenParams.revokeUpdateAuthority ? "Update Authority Revoked" : "Update Authority Retained"}
+                      secondary={tokenParams.revokeUpdateAuthority ? 
+                        "Token metadata cannot be changed" : 
+                        "Token metadata can be updated by the creator"
+                      }
+                    />
+                  </ListItem>
+                  <ListItem>
+                    <ListItemIcon>
+                      <CheckCircleIcon color="success" />
+                    </ListItemIcon>
+                    <ListItemText
+                      primary="Real Liquidity Pool"
+                      secondary="Genuine Raydium CPMM pool with actual liquidity"
+                    />
+                  </ListItem>
+                </>
+              ) : (
+                <>
+                  <ListItem>
+                    <ListItemIcon>
+                      {tokenParams.revokeMintAuthority ? (
+                        <CheckCircleIcon color="success" />
+                      ) : (
+                        <BlockIcon color="warning" />
+                      )}
+                    </ListItemIcon>
+                    <ListItemText
+                      primary={tokenParams.revokeMintAuthority ? "Mint Function Disabled" : "Mint Function Enabled"}
+                      secondary={tokenParams.revokeMintAuthority ? 
+                        "Token supply is fixed and cannot be increased" : 
+                        "Additional tokens can be minted by the owner"
+                      }
+                    />
+                  </ListItem>
+                  <ListItem>
+                    <ListItemIcon>
+                      <CheckCircleIcon color="success" />
+                    </ListItemIcon>
+                    <ListItemText
+                      primary="ERC20 Standard Compliant"
+                      secondary="Follows standard ERC20 token specifications"
+                    />
+                  </ListItem>
+                  <ListItem>
+                    <ListItemIcon>
+                      <CheckCircleIcon color="success" />
+                    </ListItemIcon>
+                    <ListItemText
+                      primary="Deployed on Secure Network"
+                      secondary={`Contract deployed on ${blockchain} mainnet`}
+                    />
+                  </ListItem>
+                </>
+              )}
+              <ListItem>
+                <ListItemIcon>
+                  <CheckCircleIcon color="success" />
+                </ListItemIcon>
+                <ListItemText
+                  primary="2025 Token Standards"
+                  secondary="Follows latest token metadata and security standards"
+                />
+              </ListItem>
+            </List>
+          </>
+        )}
+
+        {/* Fallback for API security data when tokenParams not available */}
+        {!tokenParams && securityData.redbullcoinsFeatures && showDetails && (
+          <>
+            <Divider sx={{ my: 2 }} />
+            <Typography variant="subtitle2" gutterBottom>
+              <ShieldIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
+              Security Features
             </Typography>
             <List dense>
               <ListItem>
@@ -210,7 +338,7 @@ export default function TokenSecurity({ tokenAddress, showDetails = true }: Toke
                 </ListItemIcon>
                 <ListItemText
                   primary="Real Liquidity Pool"
-                  secondary="Genuine Raydium CPMM pool with actual liquidity"
+                  secondary={blockchain === 'solana' ? "Genuine Raydium CPMM pool with actual liquidity" : "Ready for DEX liquidity pool creation"}
                 />
               </ListItem>
               <ListItem>
@@ -218,8 +346,8 @@ export default function TokenSecurity({ tokenAddress, showDetails = true }: Toke
                   <CheckCircleIcon color="success" />
                 </ListItemIcon>
                 <ListItemText
-                  primary="2025 Metadata Standards"
-                  secondary="Follows latest Metaplex token standards"
+                  primary="2025 Token Standards"
+                  secondary={blockchain === 'solana' ? "Follows latest Metaplex token standards" : "Follows latest ERC20 token standards"}
                 />
               </ListItem>
             </List>

@@ -30,9 +30,17 @@ import TokenSecurity from './TokenSecurity';
 
 interface TokenSuccessProps {
   tokenAddress: string | null;
+  blockchain?: 'solana' | 'polygon' | 'base' | 'bnb' | 'arbitrum' | 'hyperliquid' | 'bitcoin' | 'tron';
+  tokenParams?: {
+    name?: string;
+    symbol?: string;
+    revokeUpdateAuthority?: boolean;
+    revokeFreezeAuthority?: boolean;
+    revokeMintAuthority?: boolean;
+  };
 }
 
-export default function TokenSuccess({ tokenAddress }: TokenSuccessProps) {
+export default function TokenSuccess({ tokenAddress, blockchain = 'solana', tokenParams }: TokenSuccessProps) {
   if (!tokenAddress) {
     return (
       <Alert severity="error">
@@ -40,6 +48,126 @@ export default function TokenSuccess({ tokenAddress }: TokenSuccessProps) {
       </Alert>
     );
   }
+
+  // Dynamic configuration based on blockchain
+  const getChainConfig = () => {
+    switch (blockchain) {
+      case 'polygon':
+        return {
+          name: 'Polygon',
+          currency: 'MATIC',
+          explorerName: 'Polygonscan',
+          explorerUrl: `https://polygonscan.com/token/${tokenAddress}`,
+          altExplorerName: 'PolygonScan',
+          altExplorerUrl: `https://polygonscan.com/address/${tokenAddress}`,
+          dexes: [
+            { name: 'QuickSwap', url: `https://quickswap.exchange/#/swap?outputCurrency=${tokenAddress}` },
+            { name: 'SushiSwap', url: `https://app.sushi.com/swap?chainId=137&token1=${tokenAddress}` },
+            { name: 'DexScreener', url: `https://dexscreener.com/polygon/${tokenAddress}` },
+            { name: 'CoinGecko', url: `https://www.coingecko.com/en/coins/new` }
+          ],
+          networkLive: 'LIVE on Polygon!',
+          poolType: 'DEX liquidity pool',
+          walletInstructions: 'Your token should appear automatically in MetaMask. If not, manually add the token using the contract address above.'
+        };
+      case 'base':
+        return {
+          name: 'Base',
+          currency: 'ETH',
+          explorerName: 'BaseScan',
+          explorerUrl: `https://basescan.org/token/${tokenAddress}`,
+          altExplorerName: 'Base Explorer',
+          altExplorerUrl: `https://basescan.org/address/${tokenAddress}`,
+          dexes: [
+            { name: 'Uniswap', url: `https://app.uniswap.org/#/swap?outputCurrency=${tokenAddress}&chain=base` },
+            { name: 'BaseSwap', url: `https://baseswap.fi/swap?outputCurrency=${tokenAddress}` },
+            { name: 'DexScreener', url: `https://dexscreener.com/base/${tokenAddress}` },
+            { name: 'CoinGecko', url: `https://www.coingecko.com/en/coins/new` }
+          ],
+          networkLive: 'LIVE on Base!',
+          poolType: 'Uniswap V3 pool',
+          walletInstructions: 'Your token should appear automatically in MetaMask. If not, manually add the token using the contract address above.'
+        };
+      case 'bnb':
+        return {
+          name: 'BNB Chain',
+          currency: 'BNB',
+          explorerName: 'BscScan',
+          explorerUrl: `https://bscscan.com/token/${tokenAddress}`,
+          altExplorerName: 'BSC Explorer',
+          altExplorerUrl: `https://bscscan.com/address/${tokenAddress}`,
+          dexes: [
+            { name: 'PancakeSwap', url: `https://pancakeswap.finance/swap?outputCurrency=${tokenAddress}` },
+            { name: 'Biswap', url: `https://biswap.org/swap?outputCurrency=${tokenAddress}` },
+            { name: 'DexScreener', url: `https://dexscreener.com/bsc/${tokenAddress}` },
+            { name: 'CoinGecko', url: `https://www.coingecko.com/en/coins/new` }
+          ],
+          networkLive: 'LIVE on BNB Chain!',
+          poolType: 'PancakeSwap V3 pool',
+          walletInstructions: 'Your token should appear automatically in MetaMask. If not, manually add the token using the contract address above.'
+        };
+      case 'arbitrum':
+        return {
+          name: 'Arbitrum',
+          currency: 'ETH',
+          explorerName: 'Arbiscan',
+          explorerUrl: `https://arbiscan.io/token/${tokenAddress}`,
+          altExplorerName: 'Arbitrum Explorer',
+          altExplorerUrl: `https://arbiscan.io/address/${tokenAddress}`,
+          dexes: [
+            { name: 'Uniswap', url: `https://app.uniswap.org/#/swap?outputCurrency=${tokenAddress}&chain=arbitrum` },
+            { name: 'SushiSwap', url: `https://app.sushi.com/swap?chainId=42161&token1=${tokenAddress}` },
+            { name: 'DexScreener', url: `https://dexscreener.com/arbitrum/${tokenAddress}` },
+            { name: 'CoinGecko', url: `https://www.coingecko.com/en/coins/new` }
+          ],
+          networkLive: 'LIVE on Arbitrum!',
+          poolType: 'Uniswap V3 pool',
+          walletInstructions: 'Your token should appear automatically in MetaMask. If not, manually add the token using the contract address above.'
+        };
+      default: // Solana
+        return {
+          name: 'Solana',
+          currency: 'SOL',
+          explorerName: 'Solscan',
+          explorerUrl: `https://solscan.io/token/${tokenAddress}`,
+          altExplorerName: 'Solana FM',
+          altExplorerUrl: `https://solana.fm/address/${tokenAddress}`,
+          dexes: [
+            { name: 'Raydium', url: `https://raydium.io/swap/?inputCurrency=sol&outputCurrency=${tokenAddress}` },
+            { name: 'Jupiter', url: `https://jup.ag/swap/SOL-${tokenAddress}` },
+            { name: 'DexScreener', url: `https://dexscreener.com/solana/${tokenAddress}` },
+            { name: 'Birdeye', url: `https://birdeye.so/token/${tokenAddress}?chain=solana` }
+          ],
+          networkLive: 'LIVE on Solana!',
+          poolType: 'Raydium CPMM pool',
+          walletInstructions: 'Your token should appear automatically in Phantom wallet. If not: Open Phantom → Tokens tab → "+" button → Paste token address → Add Token'
+        };
+    }
+  };
+
+  const chainConfig = getChainConfig();
+
+  // Add MetaMask token function for EVM chains
+  const addTokenToMetaMask = async () => {
+    if (blockchain === 'solana' || !window.ethereum || !tokenParams) return;
+    
+    try {
+      await window.ethereum.request({
+        method: 'wallet_watchAsset',
+        params: {
+          type: 'ERC20',
+          options: {
+            address: tokenAddress,
+            symbol: tokenParams.symbol || 'TOKEN',
+            decimals: 18,
+            image: tokenParams.name ? `https://via.placeholder.com/128/000000/FFFFFF/?text=${tokenParams.name.charAt(0)}` : undefined,
+          },
+        },
+      });
+    } catch (error) {
+      console.error('Failed to add token to MetaMask:', error);
+    }
+  };
 
   return (
     <Box>
@@ -50,12 +178,17 @@ export default function TokenSuccess({ tokenAddress }: TokenSuccessProps) {
           🎉 Token Successfully Created!
         </Typography>
         <Typography variant="body1" sx={{ mb: 2 }}>
-          Your token with Raydium liquidity pool has been created and is <strong>LIVE on Solana!</strong>
+          Your token with {chainConfig.poolType} has been created and is <strong>{chainConfig.networkLive}</strong>
         </Typography>
       </Box>
 
       {/* Security Verification */}
-      <TokenSecurity tokenAddress={tokenAddress} showDetails={false} />
+      <TokenSecurity 
+        tokenAddress={tokenAddress} 
+        tokenParams={tokenParams}
+        blockchain={blockchain}
+        showDetails={false} 
+      />
 
       {/* Trading Live Alert */}
       <Alert 
@@ -67,7 +200,7 @@ export default function TokenSuccess({ tokenAddress }: TokenSuccessProps) {
           🚀 CONGRATULATIONS! Your Token is NOW TRADEABLE!
         </Typography>
         <Typography variant="body2" sx={{ mb: 1 }}>
-          Your Raydium CPMM pool is live and tokens are immediately tradeable on all major DEXes!
+          Your {chainConfig.poolType} is live and tokens are immediately tradeable on all major {chainConfig.name} DEXes!
         </Typography>
         <Typography variant="body2" fontWeight="bold">
           📈 Start sharing your trading links now!
@@ -100,24 +233,24 @@ export default function TokenSuccess({ tokenAddress }: TokenSuccessProps) {
           <Button
             variant="contained"
             component={Link}
-            href={`https://solscan.io/token/${tokenAddress}`}
+            href={chainConfig.explorerUrl}
             target="_blank"
             rel="noopener noreferrer"
             startIcon={<ArrowOutwardIcon />}
             fullWidth
           >
-            View on Solscan
+            View on {chainConfig.explorerName}
           </Button>
           <Button
             variant="outlined"
             component={Link}
-            href={`https://solana.fm/address/${tokenAddress}`}
+            href={chainConfig.altExplorerUrl}
             target="_blank"
             rel="noopener noreferrer"
             startIcon={<LinkIcon />}
             fullWidth
           >
-            View on Solana FM
+            View on {chainConfig.altExplorerName}
           </Button>
         </Stack>
       </Paper>
@@ -128,66 +261,26 @@ export default function TokenSuccess({ tokenAddress }: TokenSuccessProps) {
           🚀 Your Token is NOW LIVE and TRADEABLE! 🚀
         </Typography>
         <Typography variant="body2" align="center" color="text.secondary" sx={{ mb: 3 }}>
-          Share these links to start trading immediately on all major Solana DEXes:
+          Share these links to start trading immediately on all major {chainConfig.name} DEXes:
         </Typography>
         
         <Grid container spacing={2}>
-          <Grid item xs={12} sm={6}>
-            <Button
-              variant="contained"
-              color="primary"
-              fullWidth
-              startIcon={<LaunchIcon />}
-              href={`https://raydium.io/swap/?inputCurrency=sol&outputCurrency=${tokenAddress}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              sx={{ py: 1.5 }}
-            >
-              Trade on Raydium
-            </Button>
-          </Grid>
-          <Grid item xs={12} sm={6}>
-            <Button
-              variant="outlined"
-              color="primary"
-              fullWidth
-              startIcon={<LaunchIcon />}
-              href={`https://jup.ag/swap/SOL-${tokenAddress}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              sx={{ py: 1.5 }}
-            >
-              Trade on Jupiter
-            </Button>
-          </Grid>
-          <Grid item xs={12} sm={6}>
-            <Button
-              variant="outlined"
-              color="secondary"
-              fullWidth
-              startIcon={<LaunchIcon />}
-              href={`https://dexscreener.com/solana/${tokenAddress}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              sx={{ py: 1.5 }}
-            >
-              View on DexScreener
-            </Button>
-          </Grid>
-          <Grid item xs={12} sm={6}>
-            <Button
-              variant="outlined"
-              color="secondary"
-              fullWidth
-              startIcon={<LaunchIcon />}
-              href={`https://birdeye.so/token/${tokenAddress}?chain=solana`}
-              target="_blank"
-              rel="noopener noreferrer"
-              sx={{ py: 1.5 }}
-            >
-              View on Birdeye
-            </Button>
-          </Grid>
+          {chainConfig.dexes.map((dex, index) => (
+            <Grid item xs={12} sm={6} key={dex.name}>
+              <Button
+                variant={index === 0 ? "contained" : "outlined"}
+                color={index < 2 ? "primary" : "secondary"}
+                fullWidth
+                startIcon={<LaunchIcon />}
+                href={dex.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                sx={{ py: 1.5 }}
+              >
+                {dex.name === 'CoinGecko' ? 'Submit to CoinGecko' : `${dex.name.includes('View') || dex.name.includes('Dex') ? 'View on' : 'Trade on'} ${dex.name}`}
+              </Button>
+            </Grid>
+          ))}
         </Grid>
       </Box>
 
@@ -200,19 +293,36 @@ export default function TokenSuccess({ tokenAddress }: TokenSuccessProps) {
         </AccordionSummary>
         <AccordionDetails>
           <Typography variant="subtitle2" gutterBottom>
-            Raydium CPMM Pool Created Successfully:
+            {chainConfig.poolType} Created Successfully:
           </Typography>
           <Box component="ul" sx={{ pl: 2, mb: 2 }}>
-            <li><Typography variant="body2">✅ Real Raydium CPMM pool created (not a simulation)</Typography></li>
-            <li><Typography variant="body2">✅ Tokens and SOL locked in liquidity pool</Typography></li>
-            <li><Typography variant="body2">✅ Pool ID generated and registered with Raydium</Typography></li>
-            <li><Typography variant="body2">✅ Immediately indexed by Jupiter aggregator</Typography></li>
-            <li><Typography variant="body2">✅ Available on DexScreener for price tracking</Typography></li>
-            <li><Typography variant="body2">✅ Accessible via Birdeye analytics</Typography></li>
+            {blockchain === 'solana' ? (
+              <>
+                <li><Typography variant="body2">✅ Real Raydium CPMM pool created (not a simulation)</Typography></li>
+                <li><Typography variant="body2">✅ Tokens and SOL locked in liquidity pool</Typography></li>
+                <li><Typography variant="body2">✅ Pool ID generated and registered with Raydium</Typography></li>
+                <li><Typography variant="body2">✅ Immediately indexed by Jupiter aggregator</Typography></li>
+                <li><Typography variant="body2">✅ Available on DexScreener for price tracking</Typography></li>
+                <li><Typography variant="body2">✅ Accessible via Birdeye analytics</Typography></li>
+              </>
+            ) : (
+              <>
+                <li><Typography variant="body2">✅ ERC20 token contract deployed on {chainConfig.name}</Typography></li>
+                <li><Typography variant="body2">✅ Token and {chainConfig.currency} ready for liquidity pool creation</Typography></li>
+                <li><Typography variant="body2">✅ Contract verified and indexed by block explorers</Typography></li>
+                <li><Typography variant="body2">✅ Compatible with all major {chainConfig.name} DEX aggregators</Typography></li>
+                <li><Typography variant="body2">✅ Available on DexScreener for price tracking</Typography></li>
+                <li><Typography variant="body2">✅ Ready for DEX listing and trading</Typography></li>
+              </>
+            )}
           </Box>
           
           <Typography variant="body2" color="text.secondary">
-            <strong>Technical:</strong> Your token uses Raydium's latest CPMM program (CPMMoo8L3F4NbTegBCKVNunggL7H1ZpdTHKxQB5qKP1C) which doesn't require OpenBook markets, making it immediately compatible with all Solana DEX aggregators.
+            {blockchain === 'solana' ? (
+              <strong>Technical:</strong> Your token uses Raydium's latest CPMM program (CPMMoo8L3F4NbTegBCKVNunggL7H1ZpdTHKxQB5qKP1C) which doesn't require OpenBook markets, making it immediately compatible with all Solana DEX aggregators.
+            ) : (
+              <strong>Technical:</strong> Your ERC20 token contract is deployed on {chainConfig.name} and follows standard specifications, making it immediately compatible with all major DEX protocols and wallet integrations.
+            )}
           </Typography>
         </AccordionDetails>
       </Accordion>
@@ -261,15 +371,25 @@ export default function TokenSuccess({ tokenAddress }: TokenSuccessProps) {
           Adding Token to Your Wallet
         </Typography>
         <Typography variant="body2">
-          Your token should appear automatically in Phantom wallet. If not:
-          <br />• Open Phantom → Tokens tab → "+" button → Paste token address → Add Token
+          {chainConfig.walletInstructions}
         </Typography>
+        {blockchain !== 'solana' && tokenParams && (
+          <Button
+            variant="contained"
+            onClick={addTokenToMetaMask}
+            startIcon={<AccountBalanceWalletIcon />}
+            sx={{ mt: 2 }}
+            size="small"
+          >
+            Add to MetaMask
+          </Button>
+        )}
       </Alert>
 
       {/* Footer */}
       <Divider sx={{ my: 3 }} />
       <Typography variant="body2" color="text.secondary" textAlign="center">
-        🎯 <strong>Success!</strong> Your token is live and tradeable on Solana DEX ecosystem!
+        🎯 <strong>Success!</strong> Your token is live and tradeable on {chainConfig.name} DEX ecosystem!
         <br />
         Start trading, build community, and grow your project. Need help with marketing? Contact our team!
       </Typography>

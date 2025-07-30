@@ -480,11 +480,21 @@ export default function CreateTokenPage() {
           walletInfo={walletInfo}
         />;
       case 4:
-        return <TokenSuccess tokenAddress={
-          creationResult?.tokenAddress || 
-          (connectedBlockchain === 'solana' ? solanaCreation.tokenAddress : multiChainCreation.result?.tokenAddress) || 
-          null
-        } />;
+        return <TokenSuccess 
+          tokenAddress={
+            creationResult?.tokenAddress || 
+            (connectedBlockchain === 'solana' ? solanaCreation.tokenAddress : multiChainCreation.result?.tokenAddress) || 
+            null
+          }
+          blockchain={connectedBlockchain || 'solana'}
+          tokenParams={{
+            name: tokenParams.name,
+            symbol: tokenParams.symbol,
+            revokeUpdateAuthority: tokenParams.revokeUpdateAuthority,
+            revokeFreezeAuthority: tokenParams.revokeFreezeAuthority,
+            revokeMintAuthority: tokenParams.revokeMintAuthority
+          }}
+        />;
       default:
         return 'Unknown step';
     }
