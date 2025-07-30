@@ -152,10 +152,10 @@ export async function deployTokenViaQuickNodeFunction(
     } catch (error) {
       clearTimeout(timeoutId);
       console.error('💥 QuickNode API call failed:', error);
-      if (error.name === 'AbortError') {
+      if (error instanceof Error && error.name === 'AbortError') {
         throw new Error('QuickNode Function call timed out after 10 seconds - check your API key and function status');
       }
-      throw error;
+      throw error instanceof Error ? error : new Error(String(error));
     }
     
     progressCallback?.(4, 'Token deployment completed!');
