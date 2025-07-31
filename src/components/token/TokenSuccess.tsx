@@ -44,6 +44,7 @@ interface TokenSuccessProps {
     revokeUpdateAuthority?: boolean;
     revokeFreezeAuthority?: boolean;
     revokeMintAuthority?: boolean;
+    createPool?: boolean;
   };
 }
 
@@ -154,12 +155,12 @@ export default function TokenSuccess({ tokenAddress, blockchain = 'solana', toke
 
   const chainConfig = getChainConfig();
 
-  // Add MetaMask token function for EVM chains
+  // Add MetaMask token function for EVM chains with enhanced metadata
   const addTokenToMetaMask = async () => {
     if (blockchain === 'solana' || !window.ethereum || !tokenParams) return;
     
     try {
-      await window.ethereum.request({
+      const success = await window.ethereum.request({
         method: 'wallet_watchAsset',
         params: {
           type: 'ERC20',
@@ -167,14 +168,40 @@ export default function TokenSuccess({ tokenAddress, blockchain = 'solana', toke
             address: tokenAddress,
             symbol: tokenParams.symbol || 'TOKEN',
             decimals: 18,
-            image: tokenParams.name ? 'https://via.placeholder.com/128/000000/FFFFFF/?text=' + tokenParams.name.charAt(0) : undefined,
+            // Enhanced image URL with better token icon using symbol
+            image: tokenParams.symbol ? 
+              `https://via.placeholder.com/128/4CAF50/FFFFFF/?text=${encodeURIComponent(tokenParams.symbol.substring(0, 3))}` : 
+              `https://via.placeholder.com/128/4CAF50/FFFFFF/?text=TKN`,
           },
         },
       });
+      
+      if (success) {
+        console.log('✅ Token successfully added to MetaMask');
+      }
     } catch (error) {
       console.error('Failed to add token to MetaMask:', error);
+      // Show user-friendly error message
+      alert('Failed to add token to MetaMask. You can manually add it using the contract address: ' + tokenAddress);
     }
   };
+
+  // Auto-prompt to add token to MetaMask for EVM chains
+  React.useEffect(() => {
+    if (blockchain !== 'solana' && tokenParams && window.ethereum && tokenAddress) {
+      // Auto-prompt after 2 seconds to allow user to read success message first
+      const timer = setTimeout(() => {
+        const shouldAutoPrompt = confirm(
+          `🦊 Would you like to automatically add your ${tokenParams.symbol} token to MetaMask?\n\nToken: ${tokenParams.name} (${tokenParams.symbol})\nAddress: ${tokenAddress}`
+        );
+        if (shouldAutoPrompt) {
+          addTokenToMetaMask();
+        }
+      }, 2000);
+
+      return () => clearTimeout(timer);
+    }
+  }, [tokenAddress, blockchain, tokenParams, addTokenToMetaMask]);
 
   return (
     <Box>
@@ -291,13 +318,14 @@ export default function TokenSuccess({ tokenAddress, blockchain = 'solana', toke
         </Grid>
       </Box>
 
-      {/* Pool Success Details */}
-      <Accordion sx={{ mb: 3 }}>
-        <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-          <Typography variant="subtitle1" fontWeight="bold">
-            Pool Details & What Happened
-          </Typography>
-        </AccordionSummary>
+      {/* Pool Success Details - Only show if LP creation was enabled */}
+      {tokenParams?.createPool !== false && (
+        <Accordion sx={{ mb: 3 }}>
+          <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+            <Typography variant="subtitle1" fontWeight="bold">
+              Pool Details & What Happened
+            </Typography>
+          </AccordionSummary>
         <AccordionDetails>
           <Typography variant="subtitle2" gutterBottom>
             {chainConfig.poolType} Created Successfully:
@@ -332,7 +360,8 @@ export default function TokenSuccess({ tokenAddress, blockchain = 'solana', toke
             )}
           </Typography>
         </AccordionDetails>
-      </Accordion>
+        </Accordion>
+      )}
 
       {/* Marketing Steps */}
       <Paper variant="outlined" sx={{ p: 3, mb: 3 }}>
@@ -377,19 +406,30 @@ export default function TokenSuccess({ tokenAddress, blockchain = 'solana', toke
           <AccountBalanceWalletIcon sx={{ verticalAlign: 'middle', mr: 1 }} />
           Adding Token to Your Wallet
         </Typography>
-        <Typography variant="body2">
+        <Typography variant="body2" sx={{ mb: 2 }}>
           {chainConfig.walletInstructions}
         </Typography>
         {blockchain !== 'solana' && tokenParams && (
-          <Button
-            variant="contained"
-            onClick={addTokenToMetaMask}
-            startIcon={<AccountBalanceWalletIcon />}
-            sx={{ mt: 2 }}
-            size="small"
-          >
-            Add to MetaMask
-          </Button>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+            <Button
+              variant="contained"
+              color="success"
+              onClick={addTokenToMetaMask}
+              startIcon={<AccountBalanceWalletIcon />}
+              size="large"
+              fullWidth
+              sx={{ 
+                py: 1.5,
+                fontSize: '1.1rem',
+                fontWeight: 'bold'
+              }}
+            >
+              🦊 Add Token to MetaMask
+            </Button>
+            <Typography variant="caption" color="text.secondary" align="center">
+              ⚠️ New tokens won't appear automatically - click the button above to add it to your wallet
+            </Typography>
+          </Box>
         )}
       </Alert>
 

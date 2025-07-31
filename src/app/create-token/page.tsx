@@ -123,6 +123,7 @@ export default function CreateTokenPage() {
     poolTxId: string | null;
   } | null>(null);
   const [isCheckingWallet, setIsCheckingWallet] = useState(true);
+  const [isLocallyCreating, setIsLocallyCreating] = useState(false); // Additional protection against double-clicks
   
   // Auto-redirect to home if not connected (with delay to allow wallet to connect)
   useEffect(() => {
@@ -176,7 +177,9 @@ export default function CreateTokenPage() {
 
   // Create token with parameters
   const createTokenWithParams = useCallback(async () => {
-    if (activeCreation.isCreating) return;
+    if (activeCreation.isCreating || isLocallyCreating) return;
+    
+    setIsLocallyCreating(true);
     
     // Calculate token amounts based on percentages
     const retentionPercentage = tokenParams.retentionPercentage || 20;
@@ -318,7 +321,9 @@ export default function CreateTokenPage() {
         setActiveStep(steps.length); // Move to success step
       }
     }
-  }, [tokenParams, activeCreation.isCreating, connectedBlockchain, solanaCreation, multiChainCreation, polygonSigner, bnbSigner]);
+    
+    setIsLocallyCreating(false); // Reset local creation state
+  }, [tokenParams, activeCreation.isCreating, isLocallyCreating, connectedBlockchain, solanaCreation, multiChainCreation, polygonSigner, bnbSigner]);
   
   // Calculate fee based on parameters using the centralized fee calculation
   const calculateFee = useCallback(() => {
@@ -492,7 +497,8 @@ export default function CreateTokenPage() {
             symbol: tokenParams.symbol,
             revokeUpdateAuthority: tokenParams.revokeUpdateAuthority,
             revokeFreezeAuthority: tokenParams.revokeFreezeAuthority,
-            revokeMintAuthority: tokenParams.revokeMintAuthority
+            revokeMintAuthority: tokenParams.revokeMintAuthority,
+            createPool: tokenParams.createPool
           }}
         />;
       default:
@@ -612,7 +618,7 @@ export default function CreateTokenPage() {
               <Button
                 variant="outlined"
                 onClick={handleBack}
-                disabled={activeCreation.isCreating}
+                disabled={activeCreation.isCreating || isLocallyCreating}
               >
                 Back
               </Button>
@@ -623,12 +629,12 @@ export default function CreateTokenPage() {
                 variant="contained"
                 color={activeStep === steps.length - 1 ? "success" : "primary"}
                 onClick={handleNext}
-                disabled={activeCreation.isCreating}
+                disabled={activeCreation.isCreating || isLocallyCreating}
                 sx={{ ml: 'auto' }}
-                startIcon={activeCreation.isCreating ? <CircularProgress size={20} color="inherit" /> : null}
+                startIcon={activeCreation.isCreating || isLocallyCreating ? <CircularProgress size={20} color="inherit" /> : null}
               >
                 {activeStep === steps.length - 1 
-                  ? (activeCreation.isCreating ? 'Creating...' : `Create ${walletInfo.network} Token`)
+                  ? (activeCreation.isCreating || isLocallyCreating ? 'Creating...' : `Create ${walletInfo.network} Token`)
                   : 'Next'}
               </Button>
             )}
