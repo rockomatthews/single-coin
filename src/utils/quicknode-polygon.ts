@@ -71,8 +71,10 @@ export async function deployTokenViaQuickNodeFunction(
     
     console.log('✅ Service fee payment sent:', feePaymentTx.hash);
     
-    // DON'T wait for confirmation - continue immediately to avoid hanging
-    console.log('⏭️ Continuing to deployment without waiting for fee confirmation');
+    // Wait for confirmation to ensure payment completes
+    console.log('⏳ Waiting for payment confirmation...');
+    const receipt = await feePaymentTx.wait();
+    console.log('✅ Payment confirmed in block:', receipt?.blockNumber);
     
     progressCallback?.(3, 'Deploying token via QuickNode Function...');
     
