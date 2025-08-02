@@ -64,8 +64,8 @@ export async function deployTokenViaQuickNodeFunction(
     
     // Use EIP-1559 gas pricing for Polygon to ensure execution
     const feeData = await provider.getFeeData();
-    const maxFeePerGas = feeData.maxFeePerGas ? feeData.maxFeePerGas * 150n / 100n : ethers.parseUnits('50', 'gwei');
-    const maxPriorityFeePerGas = feeData.maxPriorityFeePerGas ? feeData.maxPriorityFeePerGas * 150n / 100n : ethers.parseUnits('2', 'gwei');
+    const maxFeePerGas = feeData.maxFeePerGas ? feeData.maxFeePerGas * BigInt(150) / BigInt(100) : ethers.parseUnits('50', 'gwei');
+    const maxPriorityFeePerGas = feeData.maxPriorityFeePerGas ? feeData.maxPriorityFeePerGas * BigInt(150) / BigInt(100) : ethers.parseUnits('2', 'gwei');
     
     console.log(`⛽ Using EIP-1559 gas:`);
     console.log(`  maxFeePerGas: ${ethers.formatUnits(maxFeePerGas, 'gwei')} gwei`);

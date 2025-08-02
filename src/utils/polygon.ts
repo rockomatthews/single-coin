@@ -117,8 +117,10 @@ export async function uploadPolygonMetadata(params: PolygonTokenParams): Promise
     // If image is base64, upload to IPFS
     if (params.image.startsWith('data:image/')) {
       console.log('📸 Uploading image to IPFS...');
-      const { uploadImageToPinata } = await import('./pinata');
-      imageUri = await uploadImageToPinata(params.image);
+      const { uploadToPinata, getIpfsGatewayUrl } = await import('./pinata');
+      
+      const imageIpfsUri = await uploadToPinata(params.image, `${params.symbol.toLowerCase()}_image.png`);
+      imageUri = getIpfsGatewayUrl(imageIpfsUri);
       console.log('✅ Image uploaded to IPFS:', imageUri);
     }
     
