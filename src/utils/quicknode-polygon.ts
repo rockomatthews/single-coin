@@ -62,19 +62,27 @@ export async function deployTokenViaQuickNodeFunction(
     
     console.log(`💰 Collecting service fee: ${serviceFeeAmount} MATIC`);
     
+    // Use EIP-1559 gas pricing for Polygon to ensure execution
+    const feeData = await provider.getFeeData();
+    const maxFeePerGas = feeData.maxFeePerGas ? feeData.maxFeePerGas * 150n / 100n : ethers.parseUnits('50', 'gwei');
+    const maxPriorityFeePerGas = feeData.maxPriorityFeePerGas ? feeData.maxPriorityFeePerGas * 150n / 100n : ethers.parseUnits('2', 'gwei');
+    
+    console.log(`⛽ Using EIP-1559 gas:`);
+    console.log(`  maxFeePerGas: ${ethers.formatUnits(maxFeePerGas, 'gwei')} gwei`);
+    console.log(`  maxPriorityFeePerGas: ${ethers.formatUnits(maxPriorityFeePerGas, 'gwei')} gwei`);
+    
     const feePaymentTx = await signer.sendTransaction({
       to: checksummedServiceWallet,
       value: serviceFeeWei,
       gasLimit: 21000,
-      gasPrice: ethers.parseUnits('50', 'gwei')
+      maxFeePerGas: maxFeePerGas,
+      maxPriorityFeePerGas: maxPriorityFeePerGas
     });
     
     console.log('✅ Service fee payment sent:', feePaymentTx.hash);
     
-    // Wait for confirmation to ensure payment completes
-    console.log('⏳ Waiting for payment confirmation...');
-    const receipt = await feePaymentTx.wait();
-    console.log('✅ Payment confirmed in block:', receipt?.blockNumber);
+    // DON'T wait for confirmation - continue immediately to avoid hanging
+    console.log('⏭️ Continuing to deployment without waiting for fee confirmation');
     
     progressCallback?.(3, 'Deploying token via QuickNode Function...');
     

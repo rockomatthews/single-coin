@@ -108,31 +108,67 @@ export const POLYGON_CONFIG = {
  * Upload metadata to IPFS for Polygon token
  */
 export async function uploadPolygonMetadata(params: PolygonTokenParams): Promise<string> {
-  console.log('📝 Uploading Polygon token metadata to IPFS...');
+  console.log('📝 Uploading Polygon ERC-20 token metadata to IPFS...');
   
   try {
-    // Use the same metadata upload as other chains
-    const { uploadMetadata } = await import('./solana');
+    // Upload image first
+    let imageUri = params.image;
     
-    // Convert to compatible format
-    const metadataParams = {
+    // If image is base64, upload to IPFS
+    if (params.image.startsWith('data:image/')) {
+      console.log('📸 Uploading image to IPFS...');
+      const { uploadImageToPinata } = await import('./pinata');
+      imageUri = await uploadImageToPinata(params.image);
+      console.log('✅ Image uploaded to IPFS:', imageUri);
+    }
+    
+    // Create ERC-20 compatible metadata (OpenSea/MetaMask standard)
+    const metadata = {
       name: params.name,
       symbol: params.symbol,
-      description: params.description,
-      image: params.image,
-      website: params.website,
-      twitter: params.twitter,
-      telegram: params.telegram,
-      discord: params.discord,
-      decimals: params.decimals,
-      supply: params.totalSupply,
+      description: params.description || `${params.name} (${params.symbol}) - ERC-20 token on Polygon`,
+      image: imageUri,
+      decimals: params.decimals || 18,
+      external_url: params.website || '',
+      attributes: [
+        {
+          trait_type: "Blockchain",
+          value: "Polygon"
+        },
+        {
+          trait_type: "Token Standard", 
+          value: "ERC-20"
+        },
+        {
+          trait_type: "Total Supply",
+          value: params.totalSupply.toString()
+        }
+      ]
     };
     
-    // Upload metadata (connection not used for IPFS upload)
-    const metadataUri = await uploadMetadata(null as any, metadataParams);
+    // Add social links if provided
+    if (params.website || params.twitter || params.telegram || params.discord) {
+      const socialLinks: any = {};
+      if (params.website) socialLinks.website = params.website;
+      if (params.twitter) socialLinks.twitter = params.twitter;
+      if (params.telegram) socialLinks.telegram = params.telegram;
+      if (params.discord) socialLinks.discord = params.discord;
+      
+      metadata.attributes.push({
+        trait_type: "Social Links",
+        value: Object.keys(socialLinks).join(', ')
+      });
+    }
     
-    console.log('✅ Polygon metadata uploaded:', metadataUri);
+    console.log('🔷 Uploading Polygon-optimized metadata...');
+    
+    // Upload metadata to IPFS
+    const { uploadToPinata } = await import('./pinata');
+    const metadataUri = await uploadToPinata(JSON.stringify(metadata, null, 2), 'application/json');
+    
+    console.log('✅ Polygon ERC-20 metadata uploaded:', metadataUri);
     return metadataUri;
+    
   } catch (error) {
     console.error('❌ Failed to upload Polygon metadata:', error);
     throw error;
