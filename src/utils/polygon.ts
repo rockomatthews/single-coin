@@ -165,8 +165,9 @@ export async function uploadPolygonMetadata(params: PolygonTokenParams): Promise
     console.log('🔷 Uploading Polygon-optimized metadata...');
     
     // Upload metadata to IPFS
-    const { uploadToPinata } = await import('./pinata');
-    const metadataUri = await uploadToPinata(JSON.stringify(metadata, null, 2), 'application/json');
+    const { uploadToPinata, getIpfsGatewayUrl } = await import('./pinata');
+    const metadataIpfsUri = await uploadToPinata(metadata); // Pass object directly, no filename for JSON
+    const metadataUri = getIpfsGatewayUrl(metadataIpfsUri);
     
     console.log('✅ Polygon ERC-20 metadata uploaded:', metadataUri);
     return metadataUri;
