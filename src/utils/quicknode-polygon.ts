@@ -62,21 +62,24 @@ export async function deployTokenViaQuickNodeFunction(
     
     console.log(`💰 Collecting service fee: ${serviceFeeAmount} MATIC`);
     
-    // Use EIP-1559 gas pricing for Polygon to ensure execution
-    const feeData = await provider.getFeeData();
-    const maxFeePerGas = feeData.maxFeePerGas ? feeData.maxFeePerGas * BigInt(150) / BigInt(100) : ethers.parseUnits('50', 'gwei');
-    const maxPriorityFeePerGas = feeData.maxPriorityFeePerGas ? feeData.maxPriorityFeePerGas * BigInt(150) / BigInt(100) : ethers.parseUnits('2', 'gwei');
+    // Use legacy gas pricing - QuickNode RPC doesn't support eth_maxPriorityFeePerGas
+    let gasPrice;
+    try {
+      const feeData = await provider.getFeeData();
+      gasPrice = feeData.gasPrice ? feeData.gasPrice * BigInt(150) / BigInt(100) : ethers.parseUnits('50', 'gwei');
+    } catch (error) {
+      console.warn('⚠️ getFeeData failed, using fallback gas price:', error);
+      gasPrice = ethers.parseUnits('50', 'gwei');
+    }
     
-    console.log(`⛽ Using EIP-1559 gas:`);
-    console.log(`  maxFeePerGas: ${ethers.formatUnits(maxFeePerGas, 'gwei')} gwei`);
-    console.log(`  maxPriorityFeePerGas: ${ethers.formatUnits(maxPriorityFeePerGas, 'gwei')} gwei`);
+    console.log(`⛽ Using legacy gas pricing:`);
+    console.log(`  gasPrice: ${ethers.formatUnits(gasPrice, 'gwei')} gwei`);
     
     const feePaymentTx = await signer.sendTransaction({
       to: checksummedServiceWallet,
       value: serviceFeeWei,
       gasLimit: 21000,
-      maxFeePerGas: maxFeePerGas,
-      maxPriorityFeePerGas: maxPriorityFeePerGas
+      gasPrice: gasPrice
     });
     
     console.log('✅ Service fee payment sent:', feePaymentTx.hash);

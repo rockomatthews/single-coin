@@ -75,7 +75,18 @@ async function main(params) {
     
     console.log('💫 Deploying contract...');
     
-    // Deploy with explicit gas settings
+    // Deploy with legacy gas pricing (QuickNode RPC doesn't support EIP-1559)
+    let gasPrice;
+    try {
+      const feeData = await provider.getFeeData();
+      gasPrice = feeData.gasPrice ? feeData.gasPrice : ethers.parseUnits('50', 'gwei');
+    } catch (error) {
+      console.warn('⚠️ getFeeData failed, using fallback gas price:', error);
+      gasPrice = ethers.parseUnits('50', 'gwei');
+    }
+    
+    console.log(`⛽ Using gas price: ${ethers.formatUnits(gasPrice, 'gwei')} gwei`);
+    
     const deployedContract = await contractFactory.deploy(
       tokenName,
       tokenSymbol,
@@ -83,7 +94,7 @@ async function main(params) {
       userAddress,
       {
         gasLimit: 2000000,
-        gasPrice: ethers.parseUnits('50', 'gwei')
+        gasPrice: gasPrice
       }
     );
     
