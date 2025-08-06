@@ -19,9 +19,29 @@ export async function POST(request: NextRequest) {
     const SERVICE_PRIVATE_KEY = process.env.SERVICE_PRIVATE_KEY;
     const QUICKNODE_POLYGON_RPC_URL = process.env.QUICKNODE_POLYGON_RPC_URL;
 
+    console.log('🔍 Environment check:', {
+      hasApiKey: !!QUICKNODE_API_KEY,
+      hasPrivateKey: !!SERVICE_PRIVATE_KEY,
+      hasRpcUrl: !!QUICKNODE_POLYGON_RPC_URL
+    });
+
     if (!QUICKNODE_API_KEY) {
       return NextResponse.json(
         { error: 'QuickNode API key not configured' },
+        { status: 500 }
+      );
+    }
+
+    if (!SERVICE_PRIVATE_KEY) {
+      return NextResponse.json(
+        { error: 'Service private key not configured' },
+        { status: 500 }
+      );
+    }
+
+    if (!QUICKNODE_POLYGON_RPC_URL) {
+      return NextResponse.json(
+        { error: 'QuickNode Polygon RPC URL not configured' },
         { status: 500 }
       );
     }
