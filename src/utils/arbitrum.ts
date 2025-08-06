@@ -409,13 +409,20 @@ export async function getArbitrumNetworkStatus(): Promise<{
     const provider = await getArbitrumProvider();
     const network = await provider.getNetwork();
     const blockNumber = await provider.getBlockNumber();
-    const gasPrice = await provider.getFeeData();
+    let gasPrice;
+    try {
+      const feeData = await provider.getFeeData();
+      gasPrice = feeData.gasPrice || feeData.maxFeePerGas;
+    } catch (error) {
+      console.warn('⚠️ Arbitrum gas price fetch failed:', error);
+      gasPrice = null;
+    }
 
     return {
       isConnected: true,
       chainId: Number(network.chainId),
       blockNumber,
-      gasPrice: ethers.formatUnits(gasPrice.gasPrice || 0, 'gwei'),
+      gasPrice: gasPrice ? ethers.formatUnits(gasPrice, 'gwei') : '0',
     };
   } catch (error) {
     console.error('Failed to get Arbitrum network status:', error);

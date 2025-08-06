@@ -105,9 +105,8 @@ export async function deploySimplePolygonToken(
     
     progressCallback?.(2, 'Preparing deployment...');
     
-    // Get current gas price with high fees for guaranteed confirmation
-    const feeData = await provider.getFeeData();
-    const gasPrice = feeData.gasPrice ? feeData.gasPrice * BigInt(2) : ethers.parseUnits('1000', 'gwei');
+    // Use high fallback gas price to avoid getFeeData() RPC compatibility issues
+    const gasPrice = ethers.parseUnits('1000', 'gwei'); // High gas for guaranteed confirmation
     const gasLimit = BigInt(2000000); // 2M gas limit
     
     progressCallback?.(3, 'Deploying contract...');

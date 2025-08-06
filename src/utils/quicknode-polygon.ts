@@ -62,15 +62,8 @@ export async function deployTokenViaQuickNodeFunction(
     
     console.log(`💰 Collecting service fee: ${serviceFeeAmount} MATIC`);
     
-    // Use legacy gas pricing - QuickNode RPC doesn't support eth_maxPriorityFeePerGas
-    let gasPrice;
-    try {
-      const feeData = await provider.getFeeData();
-      gasPrice = feeData.gasPrice ? feeData.gasPrice * BigInt(150) / BigInt(100) : ethers.parseUnits('50', 'gwei');
-    } catch (error) {
-      console.warn('⚠️ getFeeData failed, using fallback gas price:', error);
-      gasPrice = ethers.parseUnits('50', 'gwei');
-    }
+    // Use static gas price to completely avoid RPC getFeeData/getGasPrice compatibility issues
+    const gasPrice = ethers.parseUnits('50', 'gwei'); // Safe gas price for Polygon
     
     console.log(`⛽ Using legacy gas pricing:`);
     console.log(`  gasPrice: ${ethers.formatUnits(gasPrice, 'gwei')} gwei`);
