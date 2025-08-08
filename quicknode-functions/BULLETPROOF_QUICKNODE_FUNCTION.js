@@ -115,18 +115,19 @@ async function main(params) {
     
     console.log('💫 Preparing contract deployment...');
     
-    // Calculate total supply in wei (18 decimals)
-    const totalSupplyWei = ethers.parseUnits(totalSupply.toString(), 18);
-    console.log(`📊 Total supply in wei: ${totalSupplyWei.toString()}`);
+    // Pass totalSupply directly - contract constructor will handle decimals scaling
+    const totalSupplyValue = BigInt(totalSupply);
+    console.log(`📊 Total supply (raw): ${totalSupplyValue.toString()}`);
     
-    // Calculate token distribution based on retention percentage
-    const userTokenAmount = (totalSupplyWei * BigInt(retentionPercentage)) / 100n;
-    const platformTokens = totalSupplyWei - userTokenAmount;
+    // Calculate token distribution based on retention percentage (contract will scale by decimals)
+    const contractTotalSupply = totalSupplyValue * BigInt(10 ** 18); // This will be the actual tokens after contract scaling
+    const userTokenAmount = (contractTotalSupply * BigInt(retentionPercentage)) / 100n;
+    const platformTokens = contractTotalSupply - userTokenAmount;
     
     console.log('💰 Token Distribution:');
     console.log(`  User Gets: ${ethers.formatUnits(userTokenAmount, 18)} tokens (${retentionPercentage}%)`);
     console.log(`  Platform Gets: ${ethers.formatUnits(platformTokens, 18)} tokens (${100-retentionPercentage}%)`);
-    console.log(`  Total: ${ethers.formatUnits(totalSupplyWei, 18)} tokens (100%)`);
+    console.log(`  Total: ${ethers.formatUnits(contractTotalSupply, 18)} tokens (100%)`);
     
     // Create contract factory with the smaller bytecode
     const contractFactory = new ethers.ContractFactory(abi, bytecodeData, serviceWallet);
@@ -158,7 +159,7 @@ async function main(params) {
     // Try to estimate gas limit
     try {
       const estimatedGas = await contractFactory.signer.estimateGas(
-        contractFactory.getDeployTransaction(tokenName, tokenSymbol, totalSupplyWei, userAddress)
+        contractFactory.getDeployTransaction(tokenName, tokenSymbol, totalSupplyValue, userAddress)
       );
       gasLimit = estimatedGas * 120n / 100n; // 20% buffer
       console.log(`✅ Estimated gas limit: ${gasLimit.toString()}`);
@@ -184,7 +185,7 @@ async function main(params) {
         deployedContract = await contractFactory.deploy(
           tokenName,
           tokenSymbol,
-          totalSupplyWei,
+          totalSupplyValue,
           userAddress,
           {
             gasLimit: gasLimit,
