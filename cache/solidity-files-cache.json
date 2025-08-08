@@ -420,6 +420,42 @@
       "artifacts": [
         "SimpleToken"
       ]
+    },
+    "/Users/home/evolved/single-token/coinbull/contracts/SecurableToken.sol": {
+      "lastModificationDate": 1754690057372,
+      "contentHash": "4f31d79a7edc042ed2b6bdf56cad469e",
+      "sourceName": "contracts/SecurableToken.sol",
+      "solcConfig": {
+        "version": "0.8.20",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "evmVersion": "paris",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.20"
+      ],
+      "artifacts": [
+        "SecurableToken"
+      ]
     }
   }
 }
