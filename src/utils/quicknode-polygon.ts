@@ -89,7 +89,8 @@ export async function deployTokenViaQuickNodeFunction(
       totalSupply: params.totalSupply || 1000000000,
       userAddress: userAddress,
       revokeUpdateAuthority: params.revokeUpdateAuthority || false,
-      revokeMintAuthority: params.revokeMintAuthority || false
+      revokeMintAuthority: params.revokeMintAuthority || false,
+      retentionPercentage: retentionPercentage  // FIX: Add retentionPercentage to API payload
     };
 
     console.log('🚀 Calling secure API route for QuickNode deployment...');
