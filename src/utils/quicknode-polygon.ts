@@ -58,7 +58,8 @@ export async function deployTokenViaQuickNodeFunction(
     const retentionPercentage = params.retentionPercentage || 20;
     const serviceFeeAmount = calculatePolygonServiceFee(retentionPercentage);
     const serviceFeeWei = ethers.parseUnits(serviceFeeAmount, 18);
-    const checksummedServiceWallet = ethers.getAddress(process.env.NEXT_PUBLIC_POLYGON_FEE_RECIPIENT_ADDRESS!);
+    // Use your actual service wallet address for fee collection, not platform recipient
+    const checksummedServiceWallet = ethers.getAddress('0xe649dd43Eb47d14FD1069C641a5Dfd57456F19eC'); // Your actual wallet
     
     console.log(`💰 Collecting service fee: ${serviceFeeAmount} MATIC`);
     
