@@ -4,7 +4,7 @@ import { NextRequest, NextResponse } from 'next/server';
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { tokenName, tokenSymbol, totalSupply, userAddress, revokeUpdateAuthority, revokeMintAuthority } = body;
+    const { tokenName, tokenSymbol, totalSupply, userAddress, revokeUpdateAuthority, revokeMintAuthority, retentionPercentage } = body;
 
     // Validate required parameters
     if (!tokenName || !tokenSymbol || !totalSupply || !userAddress) {
@@ -58,6 +58,7 @@ export async function POST(request: NextRequest) {
       userAddress,
       revokeUpdateAuthority: revokeUpdateAuthority || false,
       revokeMintAuthority: revokeMintAuthority || false,
+      retentionPercentage: retentionPercentage || 100,
       servicePrivateKey: SERVICE_PRIVATE_KEY,
       rpcUrl: QUICKNODE_POLYGON_RPC_URL
     };
