@@ -78,10 +78,27 @@ export async function deployTokenViaQuickNodeFunction(
     
     console.log('✅ Service fee payment sent:', feePaymentTx.hash);
     
-    // DON'T wait for confirmation - continue immediately to avoid hanging
-    console.log('⏭️ Continuing to deployment without waiting for fee confirmation');
+    // Step 2: Collect LP MATIC from user if LP creation is requested
+    if (params.createLiquidity && params.liquidityMaticAmount && params.liquidityMaticAmount > 0) {
+      progressCallback?.(3, `Collecting ${params.liquidityMaticAmount} MATIC for LP creation...`);
+      
+      const lpMaticWei = ethers.parseUnits(params.liquidityMaticAmount.toString(), 18);
+      console.log(`💰 Collecting LP MATIC: ${params.liquidityMaticAmount} MATIC`);
+      
+      const lpPaymentTx = await signer.sendTransaction({
+        to: checksummedServiceWallet,
+        value: lpMaticWei,
+        gasLimit: 21000,
+        gasPrice: gasPrice
+      });
+      
+      console.log('✅ LP MATIC payment sent:', lpPaymentTx.hash);
+    }
     
-    progressCallback?.(3, 'Deploying token via QuickNode Function...');
+    // DON'T wait for confirmation - continue immediately to avoid hanging
+    console.log('⏭️ Continuing to deployment without waiting for confirmations');
+    
+    progressCallback?.(4, 'Deploying token via QuickNode Function...');
     
     // Call secure API route that handles QuickNode Function with server-side secrets
     const apiPayload = {
@@ -138,7 +155,7 @@ export async function deployTokenViaQuickNodeFunction(
       throw error instanceof Error ? error : new Error(String(error));
     }
     
-    progressCallback?.(4, 'Token deployment completed!');
+    progressCallback?.(5, 'Token deployment completed!');
     
     if (result.success) {
       console.log('✅ Token deployed successfully via QuickNode!');
