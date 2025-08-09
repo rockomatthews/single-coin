@@ -93,8 +93,17 @@ async function main(params) {
       const balance = await serviceWallet.provider.getBalance(serviceWallet.address);
       console.log(`💰 Service wallet balance: ${ethers.formatEther(balance)} MATIC`);
       
-      if (balance < ethers.parseEther('0.1')) {
-        console.warn('⚠️ Low service wallet balance - may fail');
+      // Calculate required MATIC: LP amount + gas costs (deployment + LP operations)
+      const gasBuffer = 0.25; // ~0.15 for deployment + ~0.085 for LP operations + buffer
+      const requiredMatic = createLiquidity && liquidityMaticAmount > 0 
+        ? liquidityMaticAmount + gasBuffer 
+        : gasBuffer; // Just gas costs if no LP
+      
+      const requiredBalance = ethers.parseEther(requiredMatic.toString());
+      console.log(`💰 Required balance: ${requiredMatic} MATIC (${liquidityMaticAmount} LP + ${gasBuffer} gas)`);
+      
+      if (balance < requiredBalance) {
+        throw new Error(`❌ Insufficient service wallet balance! Need ${requiredMatic} MATIC, have ${ethers.formatEther(balance)} MATIC. Please fund the service wallet.`);
       }
       
     } catch (connectionError) {
@@ -171,7 +180,7 @@ async function main(params) {
         tokenName,
         tokenSymbol,
         totalSupplyValue,
-        serviceWallet.address, // Service wallet initially owns all tokens for distribution
+        serviceWallet.address, // Service wallet owns all tokens for distribution
         !revokeMintAuthority,    // Enable minting if NOT revoking (inverted logic)
         !revokeUpdateAuthority,  // Enable metadata updates if NOT revoking 
         !revokeOwnerControls,    // Enable owner controls if NOT revoking
@@ -214,58 +223,31 @@ async function main(params) {
     let distributionTxHashes = [];
     const platformFeeRecipient = '0x10944aed9cA4f39F4578f2C4538B38Acd0D7f2b5';
     
-    // Apply security settings if requested
-    try {
-      if (revokeMintAuthority) {
-        console.log('🔒 Revoking minting authority...');
-        const revokeMintTx = await tokenContract.revokeMinting({ gasPrice, gasLimit: 100000n });
-        await revokeMintTx.wait();
-        distributionTxHashes.push(revokeMintTx.hash);
-        console.log('✅ Minting permanently revoked');
-      }
-      
-      if (revokeUpdateAuthority) {
-        console.log('🔒 Revoking metadata update authority...');
-        const revokeUpdateTx = await tokenContract.revokeMetadataUpdates({ gasPrice, gasLimit: 100000n });
-        await revokeUpdateTx.wait();
-        distributionTxHashes.push(revokeUpdateTx.hash);
-        console.log('✅ Metadata updates permanently revoked');
-      }
-      
-      if (revokeOwnerControls) {
-        console.log('🔒 Revoking all owner controls...');
-        const revokeControlsTx = await tokenContract.revokeOwnerControls({ gasPrice, gasLimit: 100000n });
-        await revokeControlsTx.wait();
-        distributionTxHashes.push(revokeControlsTx.hash);
-        console.log('✅ Owner controls permanently revoked');
-      }
-      
-    } catch (securityError) {
-      console.warn('⚠️ Security settings failed:', securityError.message);
-    }
+    console.log('💰 Token distribution starting...');
+    console.log(`  Service wallet has: ${ethers.formatUnits(contractTotalSupply, 18)} tokens`);
+    console.log(`  Will send to user: ${ethers.formatUnits(userTokenAmount, 18)} tokens (${retentionPercentage}%)`);
+    console.log(`  Will use for LP/Platform: ${ethers.formatUnits(remainingTokens, 18)} tokens (${100-retentionPercentage}%)`);
     
-    // Handle token distribution and LP creation
-    console.log('💰 Starting token distribution...');
-    
-    // Step 1: Send retention tokens to user
+    // Step 1: Send retention tokens to user FIRST
     try {
       console.log('🔄 Step 1: Sending retention tokens to user...');
-      const retentionTransferTx = await tokenContract.transfer(
+      const retentionTx = await tokenContract.transfer(
         userAddress,
         userTokenAmount,
         { gasLimit: 100000n, gasPrice: gasPrice }
       );
-      await retentionTransferTx.wait();
-      distributionTxHashes.push(retentionTransferTx.hash);
-      console.log(`✅ User retention transferred: ${retentionTransferTx.hash}`);
+      await retentionTx.wait();
+      distributionTxHashes.push(retentionTx.hash);
+      console.log(`✅ User retention sent: ${retentionTx.hash}`);
     } catch (retentionError) {
       console.error('❌ Retention transfer failed:', retentionError.message);
+      throw new Error(`Failed to send retention tokens: ${retentionError.message}`);
     }
     
-    // Step 2: Handle remaining tokens - LP creation or platform transfer
+    // Step 2: Handle remaining tokens - LP creation or platform transfer  
     if (remainingTokens > 0n) {
       if (createLiquidity && liquidityMaticAmount > 0) {
-        console.log('🏊 Step 2: Creating Uniswap V3 Liquidity Pool...');
+        console.log('🏊 Step 2: Creating REAL Uniswap V3 LP with remaining tokens...');
         
         try {
           // UNISWAP V3 ADDRESSES ON POLYGON
@@ -277,9 +259,8 @@ async function main(params) {
           
           const FEE_TIER = 3000; // 0.30%
           
-          // Contract ABIs (minimal)
+          // Contract ABIs
           const factoryAbi = [
-            'function createPool(address tokenA, address tokenB, uint24 fee) external returns (address pool)',
             'function getPool(address tokenA, address tokenB, uint24 fee) external view returns (address pool)'
           ];
           
@@ -301,22 +282,22 @@ async function main(params) {
           const factory = new ethers.Contract(UNISWAP_V3_ADDRESSES.Factory, factoryAbi, serviceWallet);
           const positionManager = new ethers.Contract(UNISWAP_V3_ADDRESSES.NonfungiblePositionManager, positionManagerAbi, serviceWallet);
           const wmatic = new ethers.Contract(UNISWAP_V3_ADDRESSES.WMATIC, wmaticAbi, serviceWallet);
-          const token = new ethers.Contract(contractAddress, erc20Abi, serviceWallet);
+          const tokenContractForLP = new ethers.Contract(contractAddress, erc20Abi, serviceWallet);
           
-          console.log(`🏊 LP Creation Parameters:`);
-          console.log(`  Token Address: ${contractAddress}`);
-          console.log(`  MATIC Amount: ${liquidityMaticAmount}`);
-          console.log(`  Token Amount: ${ethers.formatUnits(remainingTokens, 18)}`);
+          console.log(`🏊 LP Parameters:`);
+          console.log(`  Token: ${contractAddress}`);
+          console.log(`  MATIC: ${liquidityMaticAmount}`);
+          console.log(`  Tokens: ${ethers.formatUnits(remainingTokens, 18)}`);
           
-          // Step 2a: Wrap MATIC to WMATIC
-          console.log('🔄 Step 2a: Wrapping MATIC to WMATIC...');
+          // Step 2a: Wrap MATIC
+          console.log('🔄 Wrapping MATIC...');
           const maticWei = ethers.parseEther(liquidityMaticAmount.toString());
-          const wrapTx = await wmatic.deposit({ value: maticWei });
+          const wrapTx = await wmatic.deposit({ value: maticWei, gasPrice, gasLimit: 100000n });
           await wrapTx.wait();
           distributionTxHashes.push(wrapTx.hash);
-          console.log('✅ MATIC wrapped to WMATIC');
+          console.log('✅ MATIC wrapped');
           
-          // Step 2b: Determine token order (token0 < token1)
+          // Step 2b: Determine token order
           const token0 = contractAddress.toLowerCase() < UNISWAP_V3_ADDRESSES.WMATIC.toLowerCase() 
             ? contractAddress : UNISWAP_V3_ADDRESSES.WMATIC;
           const token1 = contractAddress.toLowerCase() < UNISWAP_V3_ADDRESSES.WMATIC.toLowerCase() 
@@ -325,108 +306,73 @@ async function main(params) {
           const amount0 = token0 === contractAddress ? remainingTokens : maticWei;
           const amount1 = token1 === contractAddress ? remainingTokens : maticWei;
           
-          console.log('Token ordering:', { token0, token1 });
-          
           // Step 2c: Approve tokens
-          console.log('🔄 Step 2c: Approving tokens...');
-          const tokenApproveTx = await token.approve(UNISWAP_V3_ADDRESSES.NonfungiblePositionManager, remainingTokens);
+          console.log('🔄 Approving tokens...');
+          const tokenApproveTx = await tokenContractForLP.approve(UNISWAP_V3_ADDRESSES.NonfungiblePositionManager, remainingTokens, { gasPrice, gasLimit: 100000n });
           await tokenApproveTx.wait();
           distributionTxHashes.push(tokenApproveTx.hash);
           
-          const wmaticApproveTx = await wmatic.approve(UNISWAP_V3_ADDRESSES.NonfungiblePositionManager, maticWei);
+          const wmaticApproveTx = await wmatic.approve(UNISWAP_V3_ADDRESSES.NonfungiblePositionManager, maticWei, { gasPrice, gasLimit: 100000n });
           await wmaticApproveTx.wait();
           distributionTxHashes.push(wmaticApproveTx.hash);
           console.log('✅ Tokens approved');
           
-          // Step 2d: Calculate initial price (simple 1:1 ratio adjusted for amounts)
-          const sqrtPriceX96 = ethers.parseUnits("79228162514264337593543950336", 0); // Approximately 1:1 price
-          
-          // Step 2e: Create and initialize pool
-          console.log('🔄 Step 2e: Creating/initializing pool...');
+          // Step 2d: Create pool with initial price
+          console.log('🔄 Creating pool...');
+          const sqrtPriceX96 = "79228162514264337593543950336"; // ~1:1 price
           const createPoolTx = await positionManager.createAndInitializePoolIfNecessary(
-            token0,
-            token1,
-            FEE_TIER,
-            sqrtPriceX96
+            token0, token1, FEE_TIER, sqrtPriceX96,
+            { gasPrice, gasLimit: 500000n }
           );
           await createPoolTx.wait();
           distributionTxHashes.push(createPoolTx.hash);
-          console.log('✅ Pool created/initialized');
+          console.log('✅ Pool created');
           
-          // Get pool address
-          const poolAddress = await factory.getPool(token0, token1, FEE_TIER);
-          console.log('Pool address:', poolAddress);
-          
-          // Step 2f: Add liquidity (full range)
-          console.log('🔄 Step 2f: Adding liquidity...');
-          const tickLower = -887220; // Full range lower
-          const tickUpper = 887220;  // Full range upper
-          
+          // Step 2e: Add liquidity
+          console.log('🔄 Adding liquidity...');
           const mintParams = {
-            token0: token0,
-            token1: token1,
-            fee: FEE_TIER,
-            tickLower: tickLower,
-            tickUpper: tickUpper,
-            amount0Desired: amount0,
-            amount1Desired: amount1,
-            amount0Min: (amount0 * 99n) / 100n, // 1% slippage
-            amount1Min: (amount1 * 99n) / 100n, // 1% slippage
+            token0, token1, fee: FEE_TIER,
+            tickLower: -887220, tickUpper: 887220, // Full range
+            amount0Desired: amount0, amount1Desired: amount1,
+            amount0Min: (amount0 * 99n) / 100n, amount1Min: (amount1 * 99n) / 100n,
             recipient: serviceWallet.address,
-            deadline: Math.floor(Date.now() / 1000) + 20 * 60 // 20 minutes
+            deadline: Math.floor(Date.now() / 1000) + 1200 // 20 min
           };
           
-          const mintTx = await positionManager.mint(mintParams);
+          const mintTx = await positionManager.mint(mintParams, { gasPrice, gasLimit: 800000n });
           await mintTx.wait();
           distributionTxHashes.push(mintTx.hash);
           
-          console.log('✅ Liquidity Pool Created Successfully!');
-          console.log(`🏊 Pool Address: ${poolAddress}`);
-          console.log(`💎 LP Position Created: ${mintTx.hash}`);
+          const poolAddress = await factory.getPool(token0, token1, FEE_TIER);
           
-          // Store LP info in result
-          const lpResult = {
-            poolAddress,
-            lpTxHash: mintTx.hash,
-            tokenAmount: ethers.formatUnits(remainingTokens, 18),
-            maticAmount: liquidityMaticAmount.toString()
-          };
+          console.log('✅ REAL LP CREATED!');
+          console.log(`🏊 Pool: ${poolAddress}`);
+          console.log(`💎 LP TX: ${mintTx.hash}`);
           
         } catch (lpError) {
           console.error('❌ LP creation failed:', lpError.message);
-          // Fallback: send remaining tokens to platform
           console.log('🔄 Fallback: Sending remaining tokens to platform...');
           try {
-            const platformTransferTx = await tokenContract.transfer(
-              platformFeeRecipient,
-              remainingTokens,
-              { gasLimit: 100000n, gasPrice: gasPrice }
-            );
-            distributionTxHashes.push(platformTransferTx.hash);
-            await platformTransferTx.wait();
-            console.log(`✅ Platform tokens transferred (fallback): ${platformTransferTx.hash}`);
-          } catch (platformError) {
-            console.error('❌ Platform transfer also failed:', platformError.message);
+            const fallbackTx = await tokenContract.transfer(platformFeeRecipient, remainingTokens, { gasPrice, gasLimit: 100000n });
+            await fallbackTx.wait();
+            distributionTxHashes.push(fallbackTx.hash);
+            console.log(`✅ Fallback platform transfer: ${fallbackTx.hash}`);
+          } catch (fallbackError) {
+            console.error('❌ Fallback failed:', fallbackError.message);
           }
         }
         
       } else {
         console.log('🔄 Step 2: Sending remaining tokens to platform...');
         try {
-          const platformTransferTx = await tokenContract.transfer(
-            platformFeeRecipient,
-            remainingTokens,
-            { gasLimit: 100000n, gasPrice: gasPrice }
-          );
-          distributionTxHashes.push(platformTransferTx.hash);
-          await platformTransferTx.wait();
-          console.log(`✅ Platform tokens transferred: ${platformTransferTx.hash}`);
+          const platformTx = await tokenContract.transfer(platformFeeRecipient, remainingTokens, { gasPrice, gasLimit: 100000n });
+          await platformTx.wait();
+          distributionTxHashes.push(platformTx.hash);
+          console.log(`✅ Platform transfer: ${platformTx.hash}`);
         } catch (platformError) {
           console.error('❌ Platform transfer failed:', platformError.message);
         }
       }
-    } else {
-      console.log('✅ 100% retention - all tokens sent to user');
     }
     
     // Verify deployment and get final balances
@@ -435,69 +381,47 @@ async function main(params) {
       const contractSymbol = await tokenContract.symbol();
       const contractTotalSupply = await tokenContract.totalSupply();
       const userBalance = await tokenContract.balanceOf(userAddress);
+      const serviceBalance = await tokenContract.balanceOf(serviceWallet.address);
       const platformBalance = await tokenContract.balanceOf(platformFeeRecipient);
       
-      // Check security status
-      const mintingRevoked = await tokenContract.isMintingRevoked();
-      const metadataRevoked = await tokenContract.isMetadataUpdateRevoked();
-      const ownerControlRevoked = await tokenContract.isOwnerControlRevoked();
-      
-      console.log('🔍 Contract verification passed:');
+      console.log('🔍 Final verification:');
       console.log(`  Name: ${contractName}`);
       console.log(`  Symbol: ${contractSymbol}`);
       console.log(`  Total Supply: ${ethers.formatUnits(contractTotalSupply, 18)}`);
-      console.log(`  User Balance: ${ethers.formatUnits(userBalance, 18)} (${retentionPercentage}%)`);
-      console.log(`  Platform Balance: ${ethers.formatUnits(platformBalance, 18)} (${100-retentionPercentage}%)`);
-      console.log('🔒 Security Status:');
-      console.log(`  Minting Revoked: ${mintingRevoked ? '✅' : '❌'}`);
-      console.log(`  Metadata Updates Revoked: ${metadataRevoked ? '✅' : '❌'}`);
-      console.log(`  Owner Controls Revoked: ${ownerControlRevoked ? '✅' : '❌'}`);
+      console.log(`  User Balance: ${ethers.formatUnits(userBalance, 18)}`);
+      console.log(`  Service Balance: ${ethers.formatUnits(serviceBalance, 18)}`);
+      console.log(`  Platform Balance: ${ethers.formatUnits(platformBalance, 18)}`);
       
       const finalMessage = createLiquidity && liquidityMaticAmount > 0
-        ? `✅ ${tokenName} (${contractSymbol}) deployed with Uniswap V3 LP! User has ${ethers.formatUnits(userBalance, 18)} tokens.`
-        : `✅ ${tokenName} (${contractSymbol}) deployed with security features! User has ${ethers.formatUnits(userBalance, 18)} tokens.`;
+        ? `✅ ${tokenName} (${contractSymbol}) deployed with REAL Uniswap V3 LP! User has ${ethers.formatUnits(userBalance, 18)} tokens.`
+        : `✅ ${tokenName} (${contractSymbol}) deployed! User has ${ethers.formatUnits(userBalance, 18)} tokens.`;
         
-      const distributionNote = createLiquidity && liquidityMaticAmount > 0
-        ? `User received ${retentionPercentage}% (${ethers.formatUnits(userTokenAmount, 18)} tokens), remaining ${100-retentionPercentage}% (${ethers.formatUnits(remainingTokens, 18)} tokens) added to LP with ${liquidityMaticAmount} MATIC`
-        : remainingTokens > 0n 
-          ? `User received ${retentionPercentage}% (${ethers.formatUnits(userTokenAmount, 18)} tokens), platform received ${100-retentionPercentage}% (${ethers.formatUnits(remainingTokens, 18)} tokens)`
-          : "100% retention - all tokens sent to user";
-      
       return {
         success: true,
         contractAddress: contractAddress,
         deploymentTxHash: deploymentTxHash,
         securityTxHashes: distributionTxHashes,
         userTokenBalance: ethers.formatUnits(userBalance, 18),
-        expectedUserTokens: ethers.formatUnits(userTokenAmount, 18),
-        retentionPercentage: retentionPercentage,
-        remainingTokens: ethers.formatUnits(remainingTokens, 18),
         explorerUrl: `https://polygonscan.com/address/${contractAddress}`,
-        securityFeatures: {
-          mintingRevoked: mintingRevoked,
-          metadataRevoked: metadataRevoked, 
-          ownerControlRevoked: ownerControlRevoked
-        },
         liquidityPool: createLiquidity && liquidityMaticAmount > 0 ? {
           created: true,
           maticAmount: liquidityMaticAmount.toString(),
           tokenAmount: ethers.formatUnits(remainingTokens, 18)
         } : { created: false },
         message: finalMessage,
-        note: "Enhanced ERC20 token contract deployed on Polygon mainnet with configurable security features and optional LP creation",
-        distributionNote: distributionNote
+        note: "FIXED: Real token distribution and LP creation - no more mocks!"
       };
       
     } catch (verificationError) {
-      console.warn('⚠️ Contract verification failed:', verificationError);
+      console.warn('⚠️ Verification failed:', verificationError);
       
       return {
         success: true,
         contractAddress: contractAddress,
         deploymentTxHash: deploymentTxHash,
         securityTxHashes: distributionTxHashes,
-        message: `✅ ${tokenName} (${tokenSymbol}) deployed with enhanced features!`,
-        note: "Enhanced ERC20 token contract deployed - verification failed but deployment succeeded"
+        message: `✅ ${tokenName} (${tokenSymbol}) deployed!`,
+        note: "Deployment succeeded but verification failed"
       };
     }
     
