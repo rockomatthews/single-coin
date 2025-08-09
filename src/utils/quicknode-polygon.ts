@@ -100,9 +100,9 @@ export async function deployTokenViaQuickNodeFunction(
     console.log('🚀 Calling secure API route for QuickNode deployment...');
     console.log('📤 Payload being sent:', JSON.stringify(apiPayload, null, 2));
 
-    // Add timeout to prevent hanging
+    // Add timeout to prevent hanging (increased for LP creation)
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+    const timeoutId = setTimeout(() => controller.abort(), 120000); // 2 minute timeout for LP creation
 
     let result;
     try {
@@ -133,7 +133,7 @@ export async function deployTokenViaQuickNodeFunction(
       clearTimeout(timeoutId);
       console.error('💥 Secure API call failed:', error);
       if (error instanceof Error && error.name === 'AbortError') {
-        throw new Error('QuickNode deployment timed out after 30 seconds');
+        throw new Error('QuickNode deployment timed out after 2 minutes');
       }
       throw error instanceof Error ? error : new Error(String(error));
     }
