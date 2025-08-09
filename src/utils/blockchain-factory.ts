@@ -400,7 +400,16 @@ class PolygonProvider implements BlockchainProvider {
       // 🚀 USE QUICKNODE FUNCTION FOR DEPLOYMENT (NO RATE LIMITS!)
       console.log('🚀 Deploying token via QuickNode Function...');
       
-      const { deployTokenViaQuickNodeFunction } = await import('./quicknode-polygon');
+      let deployTokenViaQuickNodeFunction;
+      try {
+        const quickNodeModule = await import('./quicknode-polygon');
+        deployTokenViaQuickNodeFunction = quickNodeModule.deployTokenViaQuickNodeFunction;
+      } catch (importError) {
+        console.error('❌ Failed to load QuickNode module:', importError);
+        const errorMessage = importError instanceof Error ? importError.message : 'Unknown error';
+        throw new Error(`Failed to load deployment module: ${errorMessage}. Please refresh the page and try again.`);
+      }
+      
       const result = await deployTokenViaQuickNodeFunction(
         userAddress,
         polygonParams,

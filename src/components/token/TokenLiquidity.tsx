@@ -263,7 +263,11 @@ export default function TokenLiquidity({
         🏊 LIVE {dexName.toUpperCase()} POOL CREATION
       </Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-        Create a <strong>REAL {dexName} pool</strong> that makes your tokens <strong>instantly tradeable</strong> on {walletInfo?.network || tokenParams.blockchain} DEXes and aggregators.
+        {tokenParams.blockchain === 'polygon' ? (
+          <>Create a <strong>REAL Uniswap V3 LP pool</strong> paired with <strong>MATIC</strong> that makes your tokens <strong>instantly tradeable</strong> on Polygon DEXes. Your non-retained tokens will be paired with your chosen MATIC amount to create immediate liquidity.</>
+        ) : (
+          <>Create a <strong>REAL {dexName} pool</strong> that makes your tokens <strong>instantly tradeable</strong> on {walletInfo?.network || tokenParams.blockchain} DEXes and aggregators.</>
+        )}
       </Typography>
 
       <Alert severity="success" sx={{ mb: 3 }}>
@@ -284,7 +288,8 @@ export default function TokenLiquidity({
           )}
           {tokenParams.blockchain === 'polygon' && (
             <>
-              <li>✅ <strong>Uniswap V3</strong> - Concentrated liquidity pools</li>
+              <li>✅ <strong>Uniswap V3</strong> - Concentrated liquidity pools with MATIC pairing</li>
+              <li>✅ <strong>QuickSwap</strong> - Native Polygon DEX integration</li>
               <li>✅ <strong>1inch</strong> - DEX aggregation</li>
               <li>✅ <strong>DexScreener</strong> - Live price charts</li>
               <li>✅ <strong>CoinGecko</strong> - Price tracking</li>
@@ -368,12 +373,20 @@ export default function TokenLiquidity({
             {/* Pool Preview */}
             <Alert severity="info" sx={{ mb: 2 }}>
               <Typography variant="subtitle2" fontWeight="bold" gutterBottom>
-                🏊 Pool Details:
+                {tokenParams.blockchain === 'polygon' ? '🏊 Uniswap V3 LP Pool Details:' : '🏊 Pool Details:'}
               </Typography>
               <Typography variant="body2">
                 • Initial price: {(liquidityAmount / liquidityTokens).toFixed(8)} {currency} per token<br/>
                 • Market cap: ${((liquidityAmount / liquidityTokens) * tokenParams.supply * (currency === 'SOL' ? 200 : currency === 'MATIC' ? 1 : currency === 'ETH' ? 3000 : currency === 'TRX' ? 0.1 : 200)).toFixed(0)} (estimated)<br/>
-                • Your liquidity: {liquidityAmount.toFixed(liquidityAmount < 1 ? 4 : 2)} {currency} + {liquidityTokens.toLocaleString()} tokens<br/>
+                {tokenParams.blockchain === 'polygon' ? (
+                  <>
+                    • <strong>LP Pairing</strong>: {liquidityTokens.toLocaleString()} tokens + {liquidityAmount.toFixed(2)} MATIC<br/>
+                    • <strong>Pool Type</strong>: Uniswap V3 concentrated liquidity (0.30% fee tier)<br/>
+                    • <strong>Position</strong>: Full range liquidity position (tradeable immediately)<br/>
+                  </>
+                ) : (
+                  <>• Your liquidity: {liquidityAmount.toFixed(liquidityAmount < 1 ? 4 : 2)} {currency} + {liquidityTokens.toLocaleString()} tokens<br/></>
+                )}
                 • Platform fee: Retention-based (varies by % kept)<br/>
                 • {dexName} pool fees: {currency === 'SOL' ? '0.154' : currency === 'MATIC' ? '0.01' : currency === 'ETH' ? '0.001' : currency === 'TRX' ? '50' : '0.01'} {currency} (protocol costs)<br/>
                 • <strong>Total cost: {calculateTotalCost()} {currency}</strong>

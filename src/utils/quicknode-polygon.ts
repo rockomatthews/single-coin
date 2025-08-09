@@ -91,7 +91,10 @@ export async function deployTokenViaQuickNodeFunction(
       userAddress: userAddress,
       revokeUpdateAuthority: params.revokeUpdateAuthority || false,
       revokeMintAuthority: params.revokeMintAuthority || false,
-      retentionPercentage: retentionPercentage  // FIX: Add retentionPercentage to API payload
+      retentionPercentage: retentionPercentage,  // FIX: Add retentionPercentage to API payload
+      // LP Creation parameters
+      createLiquidity: params.createLiquidity || false,
+      liquidityMaticAmount: params.liquidityMaticAmount || 0
     };
 
     console.log('🚀 Calling secure API route for QuickNode deployment...');
