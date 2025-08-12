@@ -427,36 +427,13 @@ class PolygonProvider implements BlockchainProvider {
       console.log('🔗 Transaction Hash:', result.deploymentTxHash);
       console.log('🔗 Explorer URL:', result.explorerUrl);
       
-      // Create liquidity pool if requested
+      // LP creation is now handled by QuickNode function - extract from result
       let poolTxId: string | undefined;
-      if (polygonParams.createLiquidity) {
-        try {
-          const { createPolygonLiquidityPool, connectPolygonWallet } = await import('./polygon');
-          
-          // Connect wallet for liquidity pool creation (still needs signer)
-          const walletConnection = await connectPolygonWallet();
-          if (!walletConnection.signer) {
-            throw new Error(walletConnection.error || 'Failed to connect MetaMask wallet for liquidity pool');
-          }
-          
-          const poolResult = await createPolygonLiquidityPool(
-            walletConnection.signer,
-            result.contractAddress!,
-            polygonParams,
-            (step: number, status: string) => {
-              console.log(`Pool Step ${step}/7: ${status}`);
-            }
-          );
-          
-          if (poolResult.success) {
-            poolTxId = poolResult.txHash;
-            console.log(`✅ Polygon liquidity pool created: ${poolTxId}`);
-          } else {
-            console.warn(`⚠️ Polygon liquidity pool creation failed: ${poolResult.error}`);
-          }
-        } catch (poolError) {
-          console.warn(`⚠️ Polygon liquidity pool creation error:`, poolError);
-        }
+      if (result.liquidityPool?.created) {
+        poolTxId = result.liquidityPool.txHash || 'LP created in deployment';
+        console.log(`✅ Polygon liquidity pool created by QuickNode: ${poolTxId}`);
+      } else if (polygonParams.createLiquidity) {
+        console.log('ℹ️ LP creation was requested but not found in QuickNode result');
       }
       
       return {
