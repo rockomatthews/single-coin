@@ -9,6 +9,12 @@ interface QuickNodeDeploymentResult {
   explorerUrl?: string;
   message?: string;
   error?: string;
+  liquidityPool?: {
+    created: boolean;
+    maticAmount?: string;
+    tokenAmount?: string;
+    txHash?: string;
+  };
 }
 
 export async function deployTokenViaQuickNodeFunction(
