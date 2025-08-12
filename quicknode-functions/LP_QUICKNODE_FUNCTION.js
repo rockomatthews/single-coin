@@ -413,15 +413,16 @@ async function main(params) {
       };
       
     } catch (verificationError) {
-      console.warn('⚠️ Verification failed:', verificationError);
+      console.error('❌ VERIFICATION FAILED - THIS IS THE REAL ERROR:', verificationError);
+      console.error('❌ VERIFICATION ERROR STACK:', verificationError.stack);
       
       return {
-        success: true,
+        success: false,
+        error: `Verification failed: ${verificationError.message}`,
         contractAddress: contractAddress,
         deploymentTxHash: deploymentTxHash,
-        securityTxHashes: distributionTxHashes,
-        message: `✅ ${tokenName} (${tokenSymbol}) deployed!`,
-        note: "Deployment succeeded but verification failed"
+        verificationError: verificationError.stack,
+        note: "Contract deployed but token distribution/LP creation failed"
       };
     }
     
