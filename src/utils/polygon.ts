@@ -763,7 +763,7 @@ export async function applyPolygonSecurityFeatures(
 }
 
 /**
- * Create Polygon liquidity pool (Uniswap V3 on Polygon)
+ * Create Polygon liquidity pool (HANDLED BY QUICKNODE FUNCTION)
  */
 export async function createPolygonLiquidityPool(
   _signer: ethers.JsonRpcSigner,
@@ -776,47 +776,18 @@ export async function createPolygonLiquidityPool(
   txHash?: string;
   error?: string;
 }> {
-  try {
-    if (!params.createLiquidity) {
-      console.log('⚠️ Liquidity creation disabled, skipping pool creation');
-      return { success: true };
-    }
-
-    const liquidityAmount = params.liquidityMaticAmount || 0;
-    if (liquidityAmount <= 0) {
-      console.log('⚠️ No liquidity amount specified, skipping pool creation');
-      return { success: true };
-    }
-
-    progressCallback?.(1, 'Creating liquidity pool...');
-    
-    // Note: This is a simplified implementation
-    // In a production environment, you would need to integrate with Uniswap V3 contracts
-    // or use a DEX aggregator like 1inch
-    console.log('🏊 Creating Polygon liquidity pool:', {
-      tokenAddress,
-      liquidityAmount,
-      dexChoice: params.dexChoice || 'uniswap-v3'
-    });
-    
-    // For now, we'll return success without actually creating the pool
-    // This prevents the build error while maintaining the interface
-    console.log('⚠️ Liquidity pool creation not yet implemented - returning mock success');
-    
-    progressCallback?.(2, 'Pool creation completed');
-    
-    return {
-      success: true,
-      poolAddress: '0x' + '0'.repeat(40), // Mock pool address
-      txHash: '0x' + '0'.repeat(64), // Mock transaction hash
-    };
-  } catch (error) {
-    console.error('❌ Failed to create Polygon liquidity pool:', error);
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Unknown pool creation error',
-    };
-  }
+  // LP CREATION IS NOW HANDLED BY THE QUICKNODE FUNCTION
+  // This function is no longer needed since QuickNode handles both deployment and LP creation
+  console.log('✅ LP creation handled by QuickNode function - skipping separate LP step');
+  
+  progressCallback?.(1, 'LP creation handled by deployment...');
+  progressCallback?.(2, 'LP creation completed in deployment');
+  
+  return {
+    success: true,
+    poolAddress: undefined, // Real address comes from QuickNode result
+    txHash: undefined, // Real hash comes from QuickNode result
+  };
 }
 
 /**
