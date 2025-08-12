@@ -82,15 +82,43 @@ export async function deployTokenViaQuickNodeFunction(
     if (params.createLiquidity && params.liquidityMaticAmount && params.liquidityMaticAmount > 0) {
       progressCallback?.(3, `Collecting ${params.liquidityMaticAmount} MATIC for LP creation...`);
       
+      // Add delay to avoid RPC rate limiting
+      console.log('⏳ Waiting 3 seconds to avoid rate limiting...');
+      await new Promise(resolve => setTimeout(resolve, 3000));
+      
       const lpMaticWei = ethers.parseUnits(params.liquidityMaticAmount.toString(), 18);
       console.log(`💰 Collecting LP MATIC: ${params.liquidityMaticAmount} MATIC`);
       
-      const lpPaymentTx = await signer.sendTransaction({
-        to: checksummedServiceWallet,
-        value: lpMaticWei,
-        gasLimit: 21000,
-        gasPrice: gasPrice
-      });
+      let lpPaymentTx;
+      let attempt = 0;
+      const maxAttempts = 3;
+      
+      while (attempt < maxAttempts) {
+        try {
+          lpPaymentTx = await signer.sendTransaction({
+            to: checksummedServiceWallet,
+            value: lpMaticWei,
+            gasLimit: 21000,
+            gasPrice: gasPrice
+          });
+          break; // Success
+        } catch (error: any) {
+          attempt++;
+          if (error.code === -32603 || error.message?.includes('Internal JSON-RPC error')) {
+            if (attempt < maxAttempts) {
+              const delay = 2000 * attempt; // 2s, 4s, 6s
+              console.log(`⏳ RPC error, retrying in ${delay}ms (attempt ${attempt}/${maxAttempts})`);
+              await new Promise(resolve => setTimeout(resolve, delay));
+              continue;
+            }
+          }
+          throw error;
+        }
+      }
+      
+      if (!lpPaymentTx) {
+        throw new Error('Failed to send LP MATIC payment after retries');
+      }
       
       console.log('✅ LP MATIC payment sent:', lpPaymentTx.hash);
     }
