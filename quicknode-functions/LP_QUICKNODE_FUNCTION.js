@@ -165,7 +165,11 @@ async function main(params) {
       deployedContract = await contractFactory.deploy(
         tokenName,
         tokenSymbol,
-        serviceWallet.address, // Service wallet owns all tokens initially
+        contractTotalSupply,
+        userAddress,
+        revokeUpdateAuthority,
+        revokeMintAuthority,
+        revokeOwnerControls,
         {
           gasLimit: gasLimit,
           gasPrice: gasPrice,
