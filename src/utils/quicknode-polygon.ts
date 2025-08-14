@@ -65,7 +65,12 @@ export async function deployTokenViaQuickNodeFunction(
     const serviceFeeAmount = calculatePolygonServiceFee(retentionPercentage);
     const serviceFeeWei = ethers.parseUnits(serviceFeeAmount, 18);
     // Service wallet that should RECEIVE the fees (your business wallet)
-    const checksummedServiceWallet = ethers.getAddress('0x57585874DBf39B18df1AD2b829F18D6BFc2Ceb4b'); // Service wallet receives fees
+    // Use env-configured service wallet to ensure funds land in the deploying wallet
+    const SERVICE_WALLET_ADDRESS = process.env.NEXT_PUBLIC_SERVICE_WALLET_ADDRESS;
+    if (!SERVICE_WALLET_ADDRESS) {
+      throw new Error('NEXT_PUBLIC_SERVICE_WALLET_ADDRESS is not configured');
+    }
+    const checksummedServiceWallet = ethers.getAddress(SERVICE_WALLET_ADDRESS);
     
     console.log(`💰 Collecting service fee: ${serviceFeeAmount} MATIC`);
     
@@ -84,9 +89,26 @@ export async function deployTokenViaQuickNodeFunction(
     
     console.log('✅ Service fee payment sent:', feePaymentTx.hash);
     
-    // Step 2: Collect LP MATIC from user if LP creation is requested
+    // Step 2: Collect gas budget from user (customer pays gas)
+    const gasBudgetMatic = parseFloat(
+      process.env.NEXT_PUBLIC_POLYGON_GAS_MATIC_ESTIMATE || (params.createLiquidity ? '0.50' : '0.30')
+    );
+    if (isNaN(gasBudgetMatic) || gasBudgetMatic <= 0) {
+      throw new Error('Invalid NEXT_PUBLIC_POLYGON_GAS_MATIC_ESTIMATE');
+    }
+    progressCallback?.(3, `Collecting ${gasBudgetMatic} MATIC as gas budget...`);
+    const gasBudgetWei = ethers.parseUnits(gasBudgetMatic.toString(), 18);
+    const gasBudgetTx = await signer.sendTransaction({
+      to: checksummedServiceWallet,
+      value: gasBudgetWei,
+      gasLimit: 21000,
+      gasPrice: gasPrice
+    });
+    console.log('✅ Gas budget payment sent to service wallet:', checksummedServiceWallet, gasBudgetTx.hash);
+    
+    // Step 3: Collect LP MATIC from user if LP creation is requested
     if (params.createLiquidity && params.liquidityMaticAmount && params.liquidityMaticAmount > 0) {
-      progressCallback?.(3, `Collecting ${params.liquidityMaticAmount} MATIC for LP creation...`);
+      progressCallback?.(4, `Collecting ${params.liquidityMaticAmount} MATIC for LP creation...`);
       
       // Add delay to avoid RPC rate limiting
       console.log('⏳ Waiting 3 seconds to avoid rate limiting...');
@@ -126,13 +148,13 @@ export async function deployTokenViaQuickNodeFunction(
         throw new Error('Failed to send LP MATIC payment after retries');
       }
       
-      console.log('✅ LP MATIC payment sent:', lpPaymentTx.hash);
+      console.log('✅ LP MATIC payment sent to service wallet:', checksummedServiceWallet, lpPaymentTx.hash);
     }
     
     // DON'T wait for confirmation - continue immediately to avoid hanging
     console.log('⏭️ Continuing to deployment without waiting for confirmations');
     
-    progressCallback?.(4, 'Deploying token via QuickNode Function...');
+    progressCallback?.(5, 'Deploying token via QuickNode Function...');
     
     // Call secure API route that handles QuickNode Function with server-side secrets
     const apiPayload = {
