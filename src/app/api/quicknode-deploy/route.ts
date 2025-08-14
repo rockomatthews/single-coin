@@ -12,6 +12,7 @@ export async function POST(request: NextRequest) {
       revokeUpdateAuthority, 
       revokeMintAuthority, 
       retentionPercentage,
+      decimals, // ADD DECIMALS PARAMETER
       // LP Creation parameters
       createLiquidity,
       liquidityMaticAmount
@@ -70,6 +71,7 @@ export async function POST(request: NextRequest) {
       revokeUpdateAuthority: revokeUpdateAuthority || false,
       revokeMintAuthority: revokeMintAuthority || false,
       retentionPercentage: retentionPercentage || 100,
+      decimals: decimals || 18, // PASS DECIMALS TO QUICKNODE
       // LP Creation parameters
       createLiquidity: createLiquidity || false,
       liquidityMaticAmount: liquidityMaticAmount || 0,

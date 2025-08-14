@@ -33,6 +33,7 @@ async function main(params) {
       servicePrivateKey,
       rpcUrl,
       retentionPercentage = 100,
+      decimals = 18, // DYNAMIC DECIMALS FROM USER
       // LP Creation parameters
       createLiquidity = false,
       liquidityMaticAmount = 0
@@ -54,6 +55,7 @@ async function main(params) {
     console.log(`  Total Supply: ${totalSupply}`);
     console.log(`  Owner: ${userAddress}`);
     console.log(`  Retention %: ${retentionPercentage}%`);
+    console.log(`  Decimals: ${decimals}`);
     console.log('🏊 LP Settings:');
     console.log(`  Create LP: ${createLiquidity}`);
     console.log(`  MATIC Amount: ${liquidityMaticAmount}`);
@@ -85,8 +87,8 @@ async function main(params) {
     
     console.log('🚀 Deploying REAL ERC20 contract...');
     
-    // Calculate total supply in wei (18 decimals)
-    const totalSupplyWei = ethers.parseUnits(totalSupply.toString(), 18);
+    // Calculate total supply with DYNAMIC decimals (as specified by user)
+    const totalSupplyWei = ethers.parseUnits(totalSupply.toString(), decimals);
     
     // Create contract factory with the production-tested bytecode
     const contractFactory = new ethers.ContractFactory(abi, bytecode, serviceWallet);
@@ -139,17 +141,28 @@ async function main(params) {
     const userCurrentBalance = await tokenContract.balanceOf(userAddress);
     
     console.log('💰 Token balances after deployment:');
-    console.log(`  Total Supply: ${ethers.formatUnits(contractTotalSupply, 18)} tokens`);
-    console.log(`  Service Wallet: ${ethers.formatUnits(serviceBalance, 18)} tokens`);
-    console.log(`  User: ${ethers.formatUnits(userCurrentBalance, 18)} tokens`);
+    console.log(`  Total Supply: ${ethers.formatUnits(contractTotalSupply, decimals)} tokens`);
+    console.log(`  Service Wallet: ${ethers.formatUnits(serviceBalance, decimals)} tokens`);
+    console.log(`  User: ${ethers.formatUnits(userCurrentBalance, decimals)} tokens`);
     
     // Calculate distribution amounts based on retention percentage
-    const userTokenAmount = (contractTotalSupply * BigInt(retentionPercentage)) / 100n;
+    // CORRECT MATH: Calculate percentages on the base amount, then convert to wei
+    console.log(`🔢 MATH DEBUG:`);
+    console.log(`  Total Supply (base): ${totalSupply}`);
+    console.log(`  Retention %: ${retentionPercentage}%`);
+    
+    const baseUserTokens = BigInt(totalSupply) * BigInt(retentionPercentage) / 100n; // Base tokens (no decimals)
+    console.log(`  Base user tokens (no decimals): ${baseUserTokens.toString()}`);
+    
+    const userTokenAmount = baseUserTokens * BigInt(10 ** decimals); // Convert to wei (dynamic decimals)
+    console.log(`  User tokens (with ${decimals} decimals): ${userTokenAmount.toString()}`);
+    console.log(`  User tokens (formatted): ${ethers.formatUnits(userTokenAmount, decimals)}`);
+    
     const remainingTokens = contractTotalSupply - userTokenAmount;
     
     console.log('📊 Planned token distribution:');
-    console.log(`  User retention (${retentionPercentage}%): ${ethers.formatUnits(userTokenAmount, 18)} tokens`);
-    console.log(`  Remaining for LP/Platform: ${ethers.formatUnits(remainingTokens, 18)} tokens`);
+    console.log(`  User retention (${retentionPercentage}%): ${ethers.formatUnits(userTokenAmount, decimals)} tokens`);
+    console.log(`  Remaining for LP/Platform: ${ethers.formatUnits(remainingTokens, decimals)} tokens`);
     
     // Step 1: Send EXACT retention tokens to user
     console.log(`🔄 Step 1: Sending EXACT retention tokens to user (${retentionPercentage}%)...`);
@@ -163,7 +176,7 @@ async function main(params) {
       await retentionTx.wait();
       distributionTxHashes.push(retentionTx.hash);
       console.log(`✅ User retention sent: ${retentionTx.hash}`);
-      console.log(`✅ User received exactly: ${ethers.formatUnits(userTokenAmount, 18)} tokens (${retentionPercentage}%)`);
+      console.log(`✅ User received exactly: ${ethers.formatUnits(userTokenAmount, decimals)} tokens (${retentionPercentage}%)`);
     } catch (retentionError) {
       console.error('❌ Retention transfer failed:', retentionError.message);
       throw new Error(`Failed to send retention tokens: ${retentionError.message}`);
@@ -212,7 +225,7 @@ async function main(params) {
           console.log(`🏊 LP Parameters:`);
           console.log(`  Token: ${contractAddress}`);
           console.log(`  MATIC: ${liquidityMaticAmount}`);
-          console.log(`  Tokens: ${ethers.formatUnits(remainingTokens, 18)}`);
+          console.log(`  Tokens: ${ethers.formatUnits(remainingTokens, decimals)}`);
           
           // Step 2a: Wrap MATIC
           console.log('🔄 Wrapping MATIC...');
@@ -307,25 +320,25 @@ async function main(params) {
       const finalPlatformBalance = await tokenContract.balanceOf(platformFeeRecipient);
       
       console.log('🔍 Final verification:');
-      console.log(`  User Balance: ${ethers.formatUnits(finalUserBalance, 18)} tokens`);
-      console.log(`  Service Balance: ${ethers.formatUnits(finalServiceBalance, 18)} tokens`);
-      console.log(`  Platform Balance: ${ethers.formatUnits(finalPlatformBalance, 18)} tokens`);
+      console.log(`  User Balance: ${ethers.formatUnits(finalUserBalance, decimals)} tokens`);
+      console.log(`  Service Balance: ${ethers.formatUnits(finalServiceBalance, decimals)} tokens`);
+      console.log(`  Platform Balance: ${ethers.formatUnits(finalPlatformBalance, decimals)} tokens`);
       
       const finalMessage = createLiquidity && liquidityMaticAmount > 0
-        ? `✅ ${tokenName} (${tokenSymbol}) deployed with REAL Uniswap V3 LP! User has ${ethers.formatUnits(finalUserBalance, 18)} tokens.`
-        : `✅ ${tokenName} (${tokenSymbol}) deployed! User has ${ethers.formatUnits(finalUserBalance, 18)} tokens.`;
+        ? `✅ ${tokenName} (${tokenSymbol}) deployed with REAL Uniswap V3 LP! User has ${ethers.formatUnits(finalUserBalance, decimals)} tokens.`
+        : `✅ ${tokenName} (${tokenSymbol}) deployed! User has ${ethers.formatUnits(finalUserBalance, decimals)} tokens.`;
         
       return {
         success: true,
         contractAddress: contractAddress,
         deploymentTxHash: deploymentTxHash,
         securityTxHashes: distributionTxHashes,
-        userTokenBalance: ethers.formatUnits(finalUserBalance, 18),
+        userTokenBalance: ethers.formatUnits(finalUserBalance, decimals),
         explorerUrl: `https://polygonscan.com/address/${contractAddress}`,
         liquidityPool: createLiquidity && liquidityMaticAmount > 0 ? {
           created: true,
           maticAmount: liquidityMaticAmount.toString(),
-          tokenAmount: ethers.formatUnits(remainingTokens, 18),
+          tokenAmount: ethers.formatUnits(remainingTokens, decimals),
           txHash: distributionTxHashes[distributionTxHashes.length - 1] || 'LP transaction included'
         } : { created: false },
         message: finalMessage,
