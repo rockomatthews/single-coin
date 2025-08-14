@@ -65,12 +65,26 @@ export async function deployTokenViaQuickNodeFunction(
     const serviceFeeAmount = calculatePolygonServiceFee(retentionPercentage);
     const serviceFeeWei = ethers.parseUnits(serviceFeeAmount, 18);
     // Service wallet that should RECEIVE the fees (your business wallet)
-    // Use env-configured service wallet to ensure funds land in the deploying wallet
-    const SERVICE_WALLET_ADDRESS = process.env.NEXT_PUBLIC_SERVICE_WALLET_ADDRESS;
-    if (!SERVICE_WALLET_ADDRESS) {
-      throw new Error('NEXT_PUBLIC_SERVICE_WALLET_ADDRESS is not configured');
+    // Resolve the service/deployer wallet address from available envs (prefer NEXT_PUBLIC_* in client)
+    const serviceWalletCandidates = [
+      process.env.NEXT_PUBLIC_SERVICE_WALLET_ADDRESS,            // preferred explicit var
+      process.env.NEXT_PUBLIC_SERVICE_PUBLIC_WALLET,             // user's naming variant
+      process.env.NEXT_PUBLIC_SERVICE_PUBLIC_KEY,                // user's naming variant
+      process.env.NEXT_PUBLIC_POLYGON_FEE_RECIPIENT_ADDRESS,     // fallback (must match deployer for LP)
+      // Non-public var only available server-side; usually undefined in browser builds
+      process.env.SERVICE_PUBLIC_KEY
+    ].filter(Boolean) as string[];
+
+    if (serviceWalletCandidates.length === 0) {
+      throw new Error('Service wallet address not configured. Set NEXT_PUBLIC_SERVICE_WALLET_ADDRESS (or NEXT_PUBLIC_SERVICE_PUBLIC_WALLET / NEXT_PUBLIC_SERVICE_PUBLIC_KEY), or align NEXT_PUBLIC_POLYGON_FEE_RECIPIENT_ADDRESS with the deployer wallet.');
     }
-    const checksummedServiceWallet = ethers.getAddress(SERVICE_WALLET_ADDRESS);
+
+    let checksummedServiceWallet: string;
+    try {
+      checksummedServiceWallet = ethers.getAddress(serviceWalletCandidates[0]!);
+    } catch {
+      throw new Error(`Invalid service wallet address: ${serviceWalletCandidates[0]}`);
+    }
     
     console.log(`💰 Collecting service fee: ${serviceFeeAmount} MATIC`);
     
