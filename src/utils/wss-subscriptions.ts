@@ -20,12 +20,15 @@ export function subscribePolygonWss(config: WssConfig, onEvent: (evt: any) => vo
   if (config.addresses.serviceWallet) {
     provider.on('block', async (bn) => {
       try {
-        const block = await provider.getBlock(bn, true);
+        const block = await provider.getBlock(bn);
         if (!block?.transactions) return;
-        for (const tx of block.transactions) {
-          if (tx.to && tx.to.toLowerCase() === config.addresses.serviceWallet!.toLowerCase()) {
-            onEvent({ type: 'serviceWalletIncoming', hash: tx.hash, value: tx.value?.toString?.(), from: tx.from });
-          }
+        for (const txHash of block.transactions) {
+          try {
+            const tx = await provider.getTransaction(txHash);
+            if (tx && tx.to && tx.to.toLowerCase() === config.addresses.serviceWallet!.toLowerCase()) {
+              onEvent({ type: 'serviceWalletIncoming', hash: tx.hash, value: tx.value?.toString?.(), from: tx.from });
+            }
+          } catch {}
         }
       } catch {}
     });

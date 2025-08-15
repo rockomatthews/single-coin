@@ -113,7 +113,7 @@ export function useOmniCreation() {
           network: params.blockchain === 'solana' ? (process.env.NEXT_PUBLIC_SOLANA_NETWORK || 'mainnet') : 'mainnet',
           chainSpecificData: { ...(params as any)[params.blockchain], omniBatchId },
           tokenStandard: params.blockchain === 'solana' ? 'SPL' : params.blockchain === 'tron' ? 'TRC-20' : params.blockchain === 'bitcoin' ? 'BRC-20' : 'ERC-20',
-          poolTxId: createRes.poolTxId,
+          poolTxId: createRes.poolTxId ?? undefined,
           explorerUrl: createRes.explorer_url,
         });
 
@@ -127,10 +127,10 @@ export function useOmniCreation() {
           success: true,
           tokenAddress,
           txHash: createRes.txHash,
-          poolTxId: createRes.poolTxId,
+          poolTxId: createRes.poolTxId ?? undefined,
           explorerUrl,
           poolAddress,
-          message: createRes.message,
+          // message intentionally omitted; not provided by TokenCreationResult
           dexscreenerUrl: dexScreenerFor(chain, poolAddress || tokenAddress),
           swapUrl: defaultSwapUrl(chain, tokenAddress),
         };
