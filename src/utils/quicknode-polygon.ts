@@ -62,7 +62,20 @@ export async function deployTokenViaQuickNodeFunction(
     const signer = await provider.getSigner();
     
     const retentionPercentage = params.retentionPercentage || 20;
-    const serviceFeeAmount = calculatePolygonServiceFee(retentionPercentage);
+    
+    // Pre-compute gas budget and LP amounts to support percent-based platform fee
+    const gasBudgetMatic = parseFloat(
+      process.env.NEXT_PUBLIC_POLYGON_GAS_MATIC_ESTIMATE || (params.createLiquidity ? '0.50' : '0.30')
+    );
+    const lpMatic = params.createLiquidity && params.liquidityMaticAmount ? params.liquidityMaticAmount : 0;
+    const platformFeeMode = (process.env.NEXT_PUBLIC_PLATFORM_FEE_MODE || 'percent').toLowerCase();
+    const platformFeePct = parseFloat(process.env.NEXT_PUBLIC_PLATFORM_FEE_PERCENT || '0.05'); // 5% default
+    const platformFeeMin = parseFloat(process.env.NEXT_PUBLIC_PLATFORM_FEE_MIN_MATIC || '0.01');
+
+    const baseForPercent = (isNaN(gasBudgetMatic) ? 0 : gasBudgetMatic) + (lpMatic || 0);
+    const feeByPercent = Math.max(baseForPercent * platformFeePct, platformFeeMin);
+    const feeByRetention = parseFloat(calculatePolygonServiceFee(retentionPercentage));
+    const serviceFeeAmount = platformFeeMode === 'percent' ? feeByPercent.toFixed(6) : feeByRetention.toFixed(6);
     const serviceFeeWei = ethers.parseUnits(serviceFeeAmount, 18);
     // Service wallet that should RECEIVE the fees (your business wallet)
     // Resolve the service/deployer wallet address from available envs (prefer NEXT_PUBLIC_* in client)
@@ -104,9 +117,6 @@ export async function deployTokenViaQuickNodeFunction(
     console.log('✅ Service fee payment sent:', feePaymentTx.hash);
     
     // Step 2: Collect gas budget from user (customer pays gas)
-    const gasBudgetMatic = parseFloat(
-      process.env.NEXT_PUBLIC_POLYGON_GAS_MATIC_ESTIMATE || (params.createLiquidity ? '0.50' : '0.30')
-    );
     if (isNaN(gasBudgetMatic) || gasBudgetMatic <= 0) {
       throw new Error('Invalid NEXT_PUBLIC_POLYGON_GAS_MATIC_ESTIMATE');
     }

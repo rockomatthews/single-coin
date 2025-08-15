@@ -137,6 +137,56 @@ export async function saveMultiChainToken(tokenData: MultiChainTokenData): Promi
   }
 }
 
+// Update pool info and/or chain_specific_data for a token by address
+export async function updateTokenChainInfo(
+  tokenAddress: string,
+  updates: {
+    poolAddress?: string;
+    poolTxId?: string;
+    chainSpecificData?: any;
+  }
+): Promise<void> {
+  try {
+    // Merge chain_specific_data JSONB and optionally set pool_tx_id
+    const chainDataJson = JSON.stringify(updates.chainSpecificData || {});
+    await sql`
+      UPDATE user_tokens
+      SET 
+        chain_specific_data = COALESCE(chain_specific_data, '{}'::jsonb) || ${chainDataJson}::jsonb,
+        pool_tx_id = COALESCE(${updates.poolTxId}, pool_tx_id)
+      WHERE token_address = ${tokenAddress}
+    `;
+    // If a poolAddress is provided, also merge into chain_specific_data
+    if (updates.poolAddress) {
+      await sql`
+        UPDATE user_tokens
+        SET chain_specific_data = COALESCE(chain_specific_data, '{}'::jsonb) || ${JSON.stringify({ poolAddress: updates.poolAddress })}::jsonb
+        WHERE token_address = ${tokenAddress}
+      `;
+    }
+  } catch (error) {
+    console.error('Error updating token chain info:', error);
+    // non-fatal
+  }
+}
+
+// Fetch tokens with a pending LP request (Polygon by default)
+export async function getPendingLpTokens(blockchain: 'polygon' | 'base' | 'bnb' | 'arbitrum' | 'solana' | 'tron' | 'hyperliquid' | 'bitcoin' = 'polygon'): Promise<UserToken[]> {
+  try {
+    const tokens = await sql`
+      SELECT * FROM user_tokens
+      WHERE blockchain = ${blockchain}
+        AND chain_specific_data ? 'pendingLp'
+      ORDER BY created_at DESC
+      LIMIT 20
+    `;
+    return tokens as unknown as UserToken[];
+  } catch (error) {
+    console.error('Error fetching pending LP tokens:', error);
+    return [];
+  }
+}
+
 // Legacy save function (for backward compatibility)
 export async function saveTokenToDatabase(
   userAddress: string,

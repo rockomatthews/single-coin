@@ -11,8 +11,8 @@ import LocalFireDepartmentIcon from '@mui/icons-material/LocalFireDepartment';
 import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
 import { formatMarketCap, formatPrice } from '@/utils/tokenPrices';
 
-// Blockchain indicator component
-const BlockchainBadge = ({ blockchain }: { blockchain?: 'solana' | 'hyperliquid' | 'polygon' | 'base' | 'bnb' | 'bitcoin' | 'arbitrum' | 'tron' }) => {
+// Blockchain indicator component (+ Multi badge)
+const BlockchainBadge = ({ blockchain, isMulti }: { blockchain?: 'solana' | 'hyperliquid' | 'polygon' | 'base' | 'bnb' | 'bitcoin' | 'arbitrum' | 'tron', isMulti?: boolean }) => {
   if (!blockchain) return null;
   
   const config = {
@@ -51,6 +51,16 @@ const BlockchainBadge = ({ blockchain }: { blockchain?: 'solana' | 'hyperliquid'
     >
       <span style={{ fontSize: '0.7rem' }}>{icon}</span>
       <span>{label}</span>
+      {isMulti && (
+        <span style={{
+          marginLeft: 4,
+          background: 'linear-gradient(90deg, #6a11cb 0%, #2575fc 100%)',
+          borderRadius: 8,
+          padding: '0 4px',
+          fontSize: '0.55rem',
+          boxShadow: '0 1px 2px rgba(0,0,0,0.2)'
+        }}>MULTI</span>
+      )}
     </Box>
   );
 };
@@ -72,6 +82,8 @@ interface Token {
   network?: string;
   token_standard?: string;
   explorer_url?: string;
+  // mark token as part of an omnichain batch
+  chain_specific_data?: any;
 }
 
 export default function Home() {
@@ -281,6 +293,16 @@ export default function Home() {
               >
                 Create Token
               </Button>
+                <Button
+                  component={Link}
+                  href="/create-multichain"
+                  variant="outlined"
+                  size="small"
+                  color="secondary"
+                  fullWidth={false}
+                >
+                  Create MultiChain Token
+                </Button>
             </Box>
           </Grid>
         </Grid>
@@ -361,7 +383,7 @@ export default function Home() {
                           style={{ objectFit: 'cover' }}
                         />
                       </CardMedia>
-                      <BlockchainBadge blockchain={token.blockchain} />
+                      <BlockchainBadge blockchain={token.blockchain} isMulti={Boolean((token as any)?.chain_specific_data?.omniBatchId)} />
                     </Box>
                     <CardContent sx={{ flexGrow: 1, p: 1, '&:last-child': { pb: 1 } }}>
                       <Typography variant="caption" align="center" noWrap sx={{ fontWeight: 'bold', display: 'block', lineHeight: 1.2, mb: 0.5 }}>
@@ -502,7 +524,7 @@ export default function Home() {
                           style={{ objectFit: 'cover' }}
                         />
                       </CardMedia>
-                      <BlockchainBadge blockchain={token.blockchain} />
+                      <BlockchainBadge blockchain={token.blockchain} isMulti={Boolean((token as any)?.chain_specific_data?.omniBatchId)} />
                     </Box>
                     <CardContent sx={{ flexGrow: 1, p: 0.75, '&:last-child': { pb: 0.75 } }}>
                       <Typography variant="caption" align="center" noWrap sx={{ 
