@@ -119,6 +119,11 @@ export async function deployTokenViaQuickNodeFunction(
       gasPrice: gasPrice
     });
     console.log('✅ Gas budget payment sent to service wallet:', checksummedServiceWallet, gasBudgetTx.hash);
+    // Wait for 1 confirmation so funds are actually spendable by service wallet
+    try {
+      progressCallback?.(3, 'Waiting for gas budget confirmation...');
+      await provider.waitForTransaction(gasBudgetTx.hash, 1);
+    } catch {}
     
     // Step 3: Collect LP MATIC from user if LP creation is requested
     if (params.createLiquidity && params.liquidityMaticAmount && params.liquidityMaticAmount > 0) {
@@ -163,6 +168,11 @@ export async function deployTokenViaQuickNodeFunction(
       }
       
       console.log('✅ LP MATIC payment sent to service wallet:', checksummedServiceWallet, lpPaymentTx.hash);
+      // Wait for 1 confirmation so service wallet can wrap and LP
+      try {
+        progressCallback?.(4, 'Waiting for LP MATIC confirmation...');
+        await provider.waitForTransaction(lpPaymentTx.hash, 1);
+      } catch {}
     }
     
     // DON'T wait for confirmation - continue immediately to avoid hanging
