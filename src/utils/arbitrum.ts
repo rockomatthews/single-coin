@@ -3,6 +3,7 @@
 import { ethers } from 'ethers';
 import { uploadToPinata } from './pinata';
 import { UnifiedTokenParams, TokenCreationResult } from './blockchain-factory';
+import { deployEvmTokenViaSmithii } from './smithii';
 import { ArbitrumTokenParams } from './arbitrum-types';
 
 // Arbitrum One Network Configuration
@@ -200,6 +201,34 @@ export async function deployArbitrumToken(params: UnifiedTokenParams): Promise<T
     
     if (!params.arbitrum) {
       throw new Error('Arbitrum parameters not provided');
+    }
+
+    // Try Smithii API first (server-side deployment, no MetaMask race)
+    try {
+      const smithiiRes = await deployEvmTokenViaSmithii({
+        chain: 'arbitrum',
+        name: params.name,
+        symbol: params.symbol,
+        description: params.description,
+        image: params.image,
+        totalSupply: params.arbitrum.totalSupply,
+        decimals: params.arbitrum.decimals,
+        createLiquidity: params.arbitrum.createLiquidity,
+        liquidityNativeAmount: params.arbitrum.liquidityEthAmount,
+        retentionPercentage: params.retentionPercentage,
+      });
+      if (smithiiRes.success) {
+        return {
+          success: true,
+          tokenAddress: smithiiRes.tokenAddress,
+          txHash: smithiiRes.txHash,
+          explorer_url: smithiiRes.explorerUrl,
+          poolTxId: smithiiRes.poolTxId ?? undefined,
+          blockchain: 'arbitrum',
+        };
+      }
+    } catch (smithiiErr) {
+      console.warn('Smithii Arbitrum deployment failed/disabled, falling back to wallet flow:', smithiiErr);
     }
 
     const provider = await getArbitrumProvider();

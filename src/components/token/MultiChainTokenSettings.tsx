@@ -887,7 +887,7 @@ export default function MultiChainTokenSettings({
   return (
     <Box>
       <Typography variant="h5" gutterBottom>
-        Token Settings
+        Chain-specific Settings
       </Typography>
       
       {/* Blockchain Selection */}
@@ -899,7 +899,8 @@ export default function MultiChainTokenSettings({
       
       <Divider sx={{ my: 3 }} />
       
-      {/* Core Token Settings */}
+      {/* Core Token Settings - hidden to avoid duplicate universal inputs */}
+      {false && (
       <Grid container spacing={3}>
         <Grid item xs={12} md={6}>
           <TextField
@@ -1048,6 +1049,7 @@ export default function MultiChainTokenSettings({
           />
         </Grid>
       </Grid>
+      )}
       
       {/* Chain-specific settings */}
       {renderChainSpecificSettings()}

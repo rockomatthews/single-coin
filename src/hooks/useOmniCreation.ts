@@ -83,65 +83,73 @@ export function useOmniCreation() {
         return chainParams;
       });
 
-      const results = await Promise.allSettled(jobs.map(async (params) => {
-        const provider = getBlockchainProvider(params.blockchain);
-        // upload metadata per chain
-        const metadataUri = await provider.uploadMetadata(params);
-        const createRes = await provider.createToken(params);
-        if (!createRes.success) {
-          throw new Error(createRes.error || 'Creation failed');
-        }
-        // save
-        await saveMultiChainToken({
-          userAddress: 'UNKNOWN_USER',
-          tokenAddress: createRes.tokenAddress!,
-          tokenName: params.name,
-          tokenSymbol: params.symbol,
-          tokenImage: params.image,
-          tokenDescription: params.description,
-          website: params.website,
-          twitter: params.twitter,
-          telegram: params.telegram,
-          discord: params.discord,
-          metadataUri,
-          decimals: (params as any)[params.blockchain]?.decimals || (params.blockchain === 'solana' ? 9 : params.blockchain === 'tron' ? 6 : 18),
-          supply: (params as any)[params.blockchain]?.totalSupply || (params as any)[params.blockchain]?.supply || (params as any)[params.blockchain]?.max || 0,
-          retentionPercentage: params.retentionPercentage,
-          retainedAmount: params.retainedAmount,
-          liquidityAmount: params.liquidityAmount,
-          blockchain: params.blockchain as SupportedChain,
-          network: params.blockchain === 'solana' ? (process.env.NEXT_PUBLIC_SOLANA_NETWORK || 'mainnet') : 'mainnet',
-          chainSpecificData: { ...(params as any)[params.blockchain], omniBatchId },
-          tokenStandard: params.blockchain === 'solana' ? 'SPL' : params.blockchain === 'tron' ? 'TRC-20' : params.blockchain === 'bitcoin' ? 'BRC-20' : 'ERC-20',
-          poolTxId: createRes.poolTxId ?? undefined,
-          explorerUrl: createRes.explorer_url,
-        });
-
+      const normalized: OmniChainRunResult[] = [];
+      for (const params of jobs) {
         const chain = params.blockchain as SupportedChain;
-        const tokenAddress = createRes.tokenAddress!;
-        const explorerUrl = createRes.explorer_url || explorerFor(chain, tokenAddress);
-        const poolAddress = (createRes as any).liquidityPool?.poolAddress;
+        try {
+          // Solana creation requires React hook context; skip here with a helpful message
+          if (chain === 'solana') {
+            normalized.push({ chain, success: false, error: 'Use the single-chain Solana flow; creation hook must run in component context.' });
+            continue;
+          }
 
-        const res: OmniChainRunResult = {
-          chain,
-          success: true,
-          tokenAddress,
-          txHash: createRes.txHash,
-          poolTxId: createRes.poolTxId ?? undefined,
-          explorerUrl,
-          poolAddress,
-          // message intentionally omitted; not provided by TokenCreationResult
-          dexscreenerUrl: dexScreenerFor(chain, poolAddress || tokenAddress),
-          swapUrl: defaultSwapUrl(chain, tokenAddress),
-        };
-        return res;
-      }));
+          const provider = getBlockchainProvider(chain);
+          // upload metadata per chain
+          const metadataUri = await provider.uploadMetadata(params);
+          const createRes = await provider.createToken(params);
+          if (!createRes.success) {
+            throw new Error(createRes.error || 'Creation failed');
+          }
+          // save
+          await saveMultiChainToken({
+            userAddress: 'UNKNOWN_USER',
+            tokenAddress: createRes.tokenAddress!,
+            tokenName: params.name,
+            tokenSymbol: params.symbol,
+            tokenImage: params.image,
+            tokenDescription: params.description,
+            website: params.website,
+            twitter: params.twitter,
+            telegram: params.telegram,
+            discord: params.discord,
+            metadataUri,
+            decimals: (params as any)[params.blockchain]?.decimals || (chain === 'tron' ? 6 : 18),
+            supply: (params as any)[params.blockchain]?.totalSupply || (params as any)[params.blockchain]?.supply || (params as any)[params.blockchain]?.max || 0,
+            retentionPercentage: params.retentionPercentage,
+            retainedAmount: params.retainedAmount,
+            liquidityAmount: params.liquidityAmount,
+            blockchain: chain,
+            network: 'mainnet',
+            chainSpecificData: { ...(params as any)[params.blockchain], omniBatchId },
+            tokenStandard: chain === 'tron' ? 'TRC-20' : chain === 'bitcoin' ? 'BRC-20' : 'ERC-20',
+            poolTxId: createRes.poolTxId ?? undefined,
+            explorerUrl: createRes.explorer_url,
+          });
 
-      const normalized: OmniChainRunResult[] = results.map((r, idx) => {
-        const chain = selectedChains[idx];
-        if (r.status === 'fulfilled') return r.value;
-        return { chain, success: false, error: r.reason instanceof Error ? r.reason.message : String(r.reason) };
-      });
+          const tokenAddress = createRes.tokenAddress!;
+          const explorerUrl = createRes.explorer_url || explorerFor(chain, tokenAddress);
+          const poolAddress = (createRes as any).liquidityPool?.poolAddress;
+
+          normalized.push({
+            chain,
+            success: true,
+            tokenAddress,
+            txHash: createRes.txHash,
+            poolTxId: createRes.poolTxId ?? undefined,
+            explorerUrl,
+            poolAddress,
+            dexscreenerUrl: dexScreenerFor(chain, poolAddress || tokenAddress),
+            swapUrl: defaultSwapUrl(chain, tokenAddress),
+          });
+
+          // brief delay to avoid wallet/provider rate limiting between chains
+          await new Promise(res => setTimeout(res, 750));
+        } catch (err: any) {
+          normalized.push({ chain, success: false, error: err?.message || String(err) });
+          // short delay before next attempt
+          await new Promise(res => setTimeout(res, 500));
+        }
+      }
 
       setState({ isRunning: false, error: null, results: normalized, progressText: 'Completed.' });
       return normalized;

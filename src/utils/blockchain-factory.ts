@@ -6,6 +6,7 @@ import { BnbTokenParams } from './bnb';
 import { Brc20TokenParams } from './brc20';
 import { ArbitrumTokenParams } from './arbitrum-types';
 import { TronTokenParams } from './tron-types';
+import { deployEvmTokenViaSmithii } from './smithii';
 
 // Unified token parameters that support both chains
 export interface UnifiedTokenParams {
@@ -348,7 +349,6 @@ class PolygonProvider implements BlockchainProvider {
 
   async createToken(params: UnifiedTokenParams, signer?: any): Promise<TokenCreationResult> {
     try {
-      
       // Convert unified params to Polygon-specific params
       const polygonParams: PolygonTokenParams = {
         name: params.name,
@@ -368,19 +368,42 @@ class PolygonProvider implements BlockchainProvider {
         createLiquidity: params.polygon?.createLiquidity ?? params.createPool ?? false,
         liquidityMaticAmount: params.polygon?.liquidityMaticAmount || 0,
         dexChoice: params.polygon?.dexChoice || 'uniswap-v3',
-        // REAL SECURITY FEATURES - Pass through from UI
         revokeUpdateAuthority: params.revokeUpdateAuthority ?? params.polygon?.revokeUpdateAuthority,
-        revokeFreezeAuthority: params.revokeFreezeAuthority ?? params.polygon?.revokeFreezeAuthority, // Not applicable but kept for consistency
+        revokeFreezeAuthority: params.revokeFreezeAuthority ?? params.polygon?.revokeFreezeAuthority,
         revokeMintAuthority: params.revokeMintAuthority ?? params.polygon?.revokeMintAuthority,
         ...params.polygon,
       };
-      
-      // Get user address for Hardhat deployment
+
+      // Try Smithii first if configured
+      const smithiiRes = await deployEvmTokenViaSmithii({
+        chain: 'polygon',
+        name: polygonParams.name,
+        symbol: polygonParams.symbol,
+        description: polygonParams.description,
+        image: polygonParams.image,
+        totalSupply: polygonParams.totalSupply,
+        decimals: polygonParams.decimals,
+        createLiquidity: polygonParams.createLiquidity,
+        liquidityNativeAmount: polygonParams.liquidityMaticAmount,
+        retentionPercentage: polygonParams.retentionPercentage,
+      });
+      if (smithiiRes.success) {
+        return {
+          success: true,
+          tokenAddress: smithiiRes.tokenAddress,
+          poolTxId: smithiiRes.poolTxId ?? undefined,
+          txHash: smithiiRes.txHash,
+          blockchain: 'polygon',
+          explorer_url: smithiiRes.explorerUrl,
+        };
+      }
+
+      // Fallback to QuickNode function
+      // Get user address for Hardhat deployment or MetaMask
       let userAddress = '';
       if (signer) {
         userAddress = await signer.getAddress();
       } else {
-        // Connect to get address but use Hardhat for deployment
         if (!window.ethereum) {
           throw new Error('MetaMask not found');
         }
@@ -391,25 +414,13 @@ class PolygonProvider implements BlockchainProvider {
           throw new Error('No MetaMask account found');
         }
       }
-      
-      // Upload metadata first
+
       const { uploadPolygonMetadata } = await import('./polygon');
       const metadataUri = await uploadPolygonMetadata(polygonParams);
       console.log(`✅ Polygon metadata uploaded: ${metadataUri}`);
-      
-      // 🚀 USE QUICKNODE FUNCTION FOR DEPLOYMENT (NO RATE LIMITS!)
+
       console.log('🚀 Deploying token via QuickNode Function...');
-      
-      let deployTokenViaQuickNodeFunction;
-      try {
-        const quickNodeModule = await import('./quicknode-polygon');
-        deployTokenViaQuickNodeFunction = quickNodeModule.deployTokenViaQuickNodeFunction;
-      } catch (importError) {
-        console.error('❌ Failed to load QuickNode module:', importError);
-        const errorMessage = importError instanceof Error ? importError.message : 'Unknown error';
-        throw new Error(`Failed to load deployment module: ${errorMessage}. Please refresh the page and try again.`);
-      }
-      
+      const { deployTokenViaQuickNodeFunction } = await import('./quicknode-polygon');
       const result = await deployTokenViaQuickNodeFunction(
         userAddress,
         polygonParams,
@@ -417,25 +428,16 @@ class PolygonProvider implements BlockchainProvider {
           console.log(`Step ${step}/4: ${message}`);
         }
       );
-      
+
       if (!result.success) {
         throw new Error(result.error || 'QuickNode Function deployment failed');
       }
-      
-      console.log('✅ Polygon token deployed successfully via QuickNode!');
-      console.log('📍 Contract Address:', result.contractAddress);
-      console.log('🔗 Transaction Hash:', result.deploymentTxHash);
-      console.log('🔗 Explorer URL:', result.explorerUrl);
-      
-      // LP creation is now handled by QuickNode function - extract from result
+
       let poolTxId: string | undefined;
       if (result.liquidityPool?.created) {
         poolTxId = result.liquidityPool.txHash || 'LP created in deployment';
-        console.log(`✅ Polygon liquidity pool created by QuickNode: ${poolTxId}`);
-      } else if (polygonParams.createLiquidity) {
-        console.log('ℹ️ LP creation was requested but not found in QuickNode result');
       }
-      
+
       return {
         success: true,
         tokenAddress: result.contractAddress,
@@ -546,7 +548,31 @@ class BaseProvider implements BlockchainProvider {
         ...params.base,
       };
       
-      // Use provided signer or connect to MetaMask
+      // Try Smithii first if configured (server-side deploy)
+      const smithiiRes = await deployEvmTokenViaSmithii({
+        chain: 'base',
+        name: baseParams.name,
+        symbol: baseParams.symbol,
+        description: baseParams.description,
+        image: baseParams.image,
+        totalSupply: baseParams.totalSupply,
+        decimals: baseParams.decimals,
+        createLiquidity: baseParams.createLiquidity,
+        liquidityNativeAmount: baseParams.liquidityEthAmount,
+        retentionPercentage: params.retentionPercentage,
+      });
+      if (smithiiRes.success) {
+        return {
+          success: true,
+          tokenAddress: smithiiRes.tokenAddress,
+          poolTxId: smithiiRes.poolTxId ?? undefined,
+          txHash: smithiiRes.txHash,
+          blockchain: 'base',
+          explorer_url: smithiiRes.explorerUrl,
+        };
+      }
+
+      // Use provided signer or connect to MetaMask (fallback path)
       let walletSigner = signer;
       if (!walletSigner) {
         const walletConnection = await connectBaseWallet();
@@ -717,7 +743,31 @@ class BnbProvider implements BlockchainProvider {
         ...params.bnb,
       };
       
-      // Use provided signer or connect to MetaMask
+      // Try Smithii first if configured (server-side deploy)
+      const smithiiRes = await deployEvmTokenViaSmithii({
+        chain: 'bnb',
+        name: bnbParams.name,
+        symbol: bnbParams.symbol,
+        description: bnbParams.description,
+        image: bnbParams.image,
+        totalSupply: bnbParams.totalSupply,
+        decimals: bnbParams.decimals,
+        createLiquidity: bnbParams.createLiquidity,
+        liquidityNativeAmount: bnbParams.liquidityBnbAmount,
+        retentionPercentage: params.retentionPercentage,
+      });
+      if (smithiiRes.success) {
+        return {
+          success: true,
+          tokenAddress: smithiiRes.tokenAddress,
+          poolTxId: smithiiRes.poolTxId ?? undefined,
+          txHash: smithiiRes.txHash,
+          blockchain: 'bnb',
+          explorer_url: smithiiRes.explorerUrl,
+        };
+      }
+
+      // Use provided signer or connect to MetaMask (fallback path)
       let walletSigner = signer;
       if (!walletSigner) {
         const walletConnection = await connectBnbWallet();
