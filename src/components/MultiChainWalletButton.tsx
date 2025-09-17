@@ -76,6 +76,7 @@ export default function MultiChainWalletButton() {
       }
     } else {
       // If not connected, show network selection
+      try { console.log('Opening Connect Wallet modal'); } catch (_) {}
       setShowNetworkModal(true);
     }
   };
@@ -295,6 +296,7 @@ export default function MultiChainWalletButton() {
         onClose={() => setShowNetworkModal(false)}
         maxWidth="sm"
         fullWidth
+        keepMounted
       >
         <DialogTitle sx={{ textAlign: 'center', pb: 1 }}>
           Choose Your Network
