@@ -6,7 +6,7 @@
   "regions": ["sfo1"],
   "functions": {
     "*": {
-      "runtime": "nodejs24.x"
+      "runtime": "nodejs22.x"
     }
   },
   "env": {
