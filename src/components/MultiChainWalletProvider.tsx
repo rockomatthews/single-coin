@@ -8,6 +8,7 @@ import { Brc20Provider } from './Brc20Provider';
 import { ArbitrumProvider } from './ArbitrumProvider';
 import { TronProvider } from './TronProvider';
 import { BnbProvider } from './BnbProvider';
+import { KatanaProvider } from './KatanaProvider';
 
 interface MultiChainWalletProviderProps {
   children: ReactNode;
@@ -23,7 +24,9 @@ export const MultiChainWalletProvider: FC<MultiChainWalletProviderProps> = ({ ch
               <Brc20Provider>
                 <ArbitrumProvider>
                   <TronProvider>
-                    {children}
+                    <KatanaProvider>
+                      {children}
+                    </KatanaProvider>
                   </TronProvider>
                 </ArbitrumProvider>
               </Brc20Provider>

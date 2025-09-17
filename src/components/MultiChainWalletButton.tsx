@@ -25,13 +25,14 @@ import { useBnb } from './BnbProvider';
 import { useBrc20 } from './Brc20Provider';
 import { useArbitrum } from './ArbitrumProvider';
 import { useTron } from './TronProvider';
+import { useKatana } from './KatanaProvider';
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
 import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
 import LogoutIcon from '@mui/icons-material/Logout';
 
 export default function MultiChainWalletButton() {
   const [showNetworkModal, setShowNetworkModal] = useState(false);
-  const [selectedNetwork, setSelectedNetwork] = useState<'solana' | 'hyperliquid' | 'polygon' | 'base' | 'bnb' | 'bitcoin' | 'arbitrum' | 'tron' | null>(null);
+  const [selectedNetwork, setSelectedNetwork] = useState<'solana' | 'hyperliquid' | 'polygon' | 'base' | 'bnb' | 'bitcoin' | 'arbitrum' | 'tron' | 'katana' | null>(null);
   
   const solanaWallet = useWallet();
   const hyperLiquidWallet = useHyperLiquid();
@@ -41,9 +42,10 @@ export default function MultiChainWalletButton() {
   const bitcoinWallet = useBrc20();
   const arbitrumWallet = useArbitrum();
   const tronWallet = useTron();
+  const katanaWallet = useKatana();
 
-  const isConnected = solanaWallet.connected || hyperLiquidWallet.connected || polygonWallet.connected || baseWallet.connected || bnbWallet.connected || bitcoinWallet.connected || arbitrumWallet.isConnected || tronWallet.isConnected;
-  const connectedNetwork = solanaWallet.connected ? 'solana' : hyperLiquidWallet.connected ? 'hyperliquid' : polygonWallet.connected ? 'polygon' : baseWallet.connected ? 'base' : bnbWallet.connected ? 'bnb' : bitcoinWallet.connected ? 'bitcoin' : arbitrumWallet.isConnected ? 'arbitrum' : tronWallet.isConnected ? 'tron' : null;
+  const isConnected = solanaWallet.connected || hyperLiquidWallet.connected || polygonWallet.connected || baseWallet.connected || bnbWallet.connected || bitcoinWallet.connected || arbitrumWallet.isConnected || tronWallet.isConnected || katanaWallet.connected;
+  const connectedNetwork = solanaWallet.connected ? 'solana' : hyperLiquidWallet.connected ? 'hyperliquid' : polygonWallet.connected ? 'polygon' : baseWallet.connected ? 'base' : bnbWallet.connected ? 'bnb' : bitcoinWallet.connected ? 'bitcoin' : arbitrumWallet.isConnected ? 'arbitrum' : tronWallet.isConnected ? 'tron' : katanaWallet.connected ? 'katana' : null;
 
   const handleConnectClick = () => {
     if (isConnected) {
@@ -78,7 +80,7 @@ export default function MultiChainWalletButton() {
     }
   };
 
-  const handleNetworkSelect = async (network: 'solana' | 'hyperliquid' | 'polygon' | 'base' | 'bnb' | 'bitcoin' | 'arbitrum' | 'tron') => {
+  const handleNetworkSelect = async (network: 'solana' | 'hyperliquid' | 'polygon' | 'base' | 'bnb' | 'bitcoin' | 'arbitrum' | 'tron' | 'katana') => {
     setSelectedNetwork(network);
     setShowNetworkModal(false);
     
@@ -107,6 +109,9 @@ export default function MultiChainWalletButton() {
       }
       if (tronWallet.isConnected) {
         tronWallet.disconnect();
+      }
+      if (katanaWallet.connected) {
+        katanaWallet.disconnect();
       }
 
       // Small delay to ensure disconnection is complete
@@ -140,6 +145,8 @@ export default function MultiChainWalletButton() {
       } else if (network === 'tron') {
         // Connect to TRON
         await tronWallet.connect();
+      } else if (network === 'katana') {
+        await katanaWallet.connect();
       }
     } catch (error) {
       console.error(`Failed to connect to ${network}:`, error);
@@ -299,6 +306,48 @@ export default function MultiChainWalletButton() {
           
           <Grid container spacing={2}>
             <Grid item xs={12} sm={6} md={4}>
+              <Card 
+                sx={{ 
+                  height: '100%',
+                  cursor: 'pointer',
+                  border: '2px solid transparent',
+                  '&:hover': { 
+                    border: '2px solid #E3FF00',
+                    transform: 'translateY(-2px)',
+                    transition: 'all 0.2s'
+                  }
+                }}
+                onClick={() => handleNetworkSelect('katana')}
+              >
+              <CardContent sx={{ textAlign: 'center', p: 3 }}>
+                <Box sx={{ 
+                  width: 60, 
+                  height: 60, 
+                  mx: 'auto', 
+                  mb: 2,
+                  position: 'relative',
+                  borderRadius: '50%',
+                  overflow: 'hidden',
+                  border: '2px solid #E3FF00'
+                }}>
+                  <Image
+                    src="/images/chain-logos/Katana.png"
+                    alt="Katana"
+                    fill
+                    style={{ objectFit: 'cover' }}
+                  />
+                </Box>
+                <Typography variant="h6" gutterBottom>
+                  Katana
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Connect with MetaMask
+                  <br />
+                  Factory-based deploy
+                </Typography>
+              </CardContent>
+              </Card>
+            </Grid>
               <Card 
                 sx={{ 
                   height: '100%',
