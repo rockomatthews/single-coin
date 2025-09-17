@@ -125,22 +125,14 @@ export default function CreateTokenPage() {
   const [isCheckingWallet, setIsCheckingWallet] = useState(true);
   const [isLocallyCreating, setIsLocallyCreating] = useState(false); // Additional protection against double-clicks
   
-  // Auto-redirect to home if not connected (with delay to allow wallet to connect)
+  // Remove auto-redirect: keep user on page so header Connect Wallet modal can open
   useEffect(() => {
-    // Check URL first
-    const skipCheck = searchParams.get('skipCheck') === 'true';
-    
-    // Add a small delay to allow wallet to connect on page load
     const timer = setTimeout(() => {
       setIsCheckingWallet(false);
-      if (!skipCheck && !isConnected) {
-        console.log('Redirecting to home - wallet not connected');
-        router.push('/');
-      }
-    }, 2000); // 2 second delay to allow wallet connection
-    
+    }, 500);
+
     return () => clearTimeout(timer);
-  }, [isConnected, router, searchParams]);
+  }, [isConnected]);
 
   // Auto-set blockchain based on connected wallet
   useEffect(() => {
