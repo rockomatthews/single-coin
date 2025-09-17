@@ -291,22 +291,41 @@ export default function MultiChainWalletButton() {
         Connect Wallet
       </Button>
 
-      <Dialog 
-        open={showNetworkModal} 
-        onClose={() => setShowNetworkModal(false)}
-        maxWidth="sm"
-        fullWidth
-        keepMounted
-      >
-        <DialogTitle sx={{ textAlign: 'center', pb: 1 }}>
-          Choose Your Network
-        </DialogTitle>
-        <DialogContent>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 3, textAlign: 'center' }}>
-            Select which blockchain network you want to use for creating tokens
-          </Typography>
-          
-          <Grid container spacing={2}>
+      {showNetworkModal && (
+        <Box
+          role="dialog"
+          aria-modal="true"
+          sx={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 2000,
+            bgcolor: 'rgba(0,0,0,0.7)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            p: 2,
+          }}
+          onClick={() => setShowNetworkModal(false)}
+        >
+          <Box
+            onClick={(e) => e.stopPropagation()}
+            sx={{
+              width: '100%',
+              maxWidth: 800,
+              bgcolor: 'background.paper',
+              borderRadius: 2,
+              boxShadow: 8,
+              p: 3,
+            }}
+          >
+            <Typography variant="h6" align="center" sx={{ mb: 1 }}>
+              Choose Your Network
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 3, textAlign: 'center' }}>
+              Select which blockchain network you want to use for creating tokens
+            </Typography>
+
+            <Grid container spacing={2}>
             <Grid item xs={12} sm={6} md={4}>
               <Card 
                 sx={{ 
@@ -701,14 +720,14 @@ export default function MultiChainWalletButton() {
               </CardContent>
               </Card>
             </Grid>
-          </Grid>
-        </DialogContent>
-        <DialogActions sx={{ p: 2, pt: 0 }}>
-          <Button onClick={() => setShowNetworkModal(false)}>
-            Cancel
-          </Button>
-        </DialogActions>
-      </Dialog>
+            </Grid>
+
+            <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
+              <Button onClick={() => setShowNetworkModal(false)}>Close</Button>
+            </Box>
+          </Box>
+        </Box>
+      )}
 
       {/* Hidden Solana wallet button for programmatic triggering */}
       <Box sx={{ display: 'none' }}>
