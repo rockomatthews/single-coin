@@ -4,7 +4,7 @@ import React from 'react';
 import { Chip, Box, Typography, Tooltip } from '@mui/material';
 
 interface ChainBadgeProps {
-  blockchain: 'solana' | 'hyperliquid';
+  blockchain: 'solana' | 'hyperliquid' | 'katana';
   size?: 'small' | 'medium';
   showName?: boolean;
   variant?: 'outlined' | 'filled';
@@ -33,6 +33,14 @@ export default function ChainBadge({
           color: '#FF6B35' as const,
           bgColor: '#FF6B3520',
           description: 'Bitcoin L2 with native order book'
+        };
+      case 'katana':
+        return {
+          name: 'Katana',
+          icon: '🗡️',
+          color: '#3843D0' as const,
+          bgColor: '#3843D020',
+          description: 'Katana network'
         };
       default:
         return {

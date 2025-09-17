@@ -20,6 +20,11 @@ module.exports = {
       gasPrice: 300000000000, // 300 gwei for fast confirmation
       gas: 2000000,
     },
+    katana: {
+      url: process.env.KATANA_RPC_URL || 'https://rpc.katana.network/',
+      chainId: 747474,
+      accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
+    },
   },
   paths: {
     sources: "./contracts",

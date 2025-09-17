@@ -17,8 +17,8 @@ import {
 import { getSupportedBlockchains } from '@/utils/blockchain-factory';
 
 interface ChainSelectorProps {
-  selectedChain: 'solana' | 'hyperliquid' | 'polygon' | 'base' | 'bnb' | 'bitcoin' | 'arbitrum' | 'tron';
-  onChainChange: (chain: 'solana' | 'hyperliquid' | 'polygon' | 'base' | 'bnb' | 'bitcoin' | 'arbitrum' | 'tron') => void;
+  selectedChain: 'solana' | 'hyperliquid' | 'polygon' | 'base' | 'bnb' | 'bitcoin' | 'arbitrum' | 'tron' | 'katana';
+  onChainChange: (chain: 'solana' | 'hyperliquid' | 'polygon' | 'base' | 'bnb' | 'bitcoin' | 'arbitrum' | 'tron' | 'katana') => void;
   showCosts?: boolean;
 }
 
@@ -30,7 +30,7 @@ export default function ChainSelector({
   const blockchains = getSupportedBlockchains();
 
   const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    onChainChange(event.target.value as 'solana' | 'hyperliquid' | 'polygon' | 'base' | 'bnb' | 'bitcoin' | 'arbitrum' | 'tron');
+    onChainChange(event.target.value as 'solana' | 'hyperliquid' | 'polygon' | 'base' | 'bnb' | 'bitcoin' | 'arbitrum' | 'tron' | 'katana');
   };
 
   const getChainFeatures = (chainId: string) => {
@@ -121,6 +121,17 @@ export default function ChainSelector({
             baseFee: '3-5 TRX',
             liquidityFee: '+ liquidity amount',
             currency: 'TRX'
+          }
+        };
+      case 'katana':
+        return {
+          features: ['Factory-based deploy', 'ERC-20 compatible', 'Forge scripts'],
+          pros: ['Fast dev environment', 'Factory simplifies creation'],
+          cons: ['Early ecosystem', 'Custom tooling'],
+          costs: {
+            baseFee: 'TBD',
+            liquidityFee: 'Optional',
+            currency: 'KAT'
           }
         };
       default:

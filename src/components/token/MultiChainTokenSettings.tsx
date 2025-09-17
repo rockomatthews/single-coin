@@ -51,7 +51,7 @@ export default function MultiChainTokenSettings({
     }
   };
 
-  const handleChainChange = (blockchain: 'solana' | 'hyperliquid' | 'polygon' | 'base' | 'bnb' | 'bitcoin' | 'arbitrum' | 'tron') => {
+  const handleChainChange = (blockchain: 'solana' | 'hyperliquid' | 'polygon' | 'base' | 'bnb' | 'bitcoin' | 'arbitrum' | 'tron' | 'katana') => {
     // Reset chain-specific params when switching
     updateTokenParams({
       blockchain,
@@ -62,6 +62,7 @@ export default function MultiChainTokenSettings({
       bitcoin: blockchain === 'bitcoin' ? (tokenParams.bitcoin || {}) : undefined,
       arbitrum: blockchain === 'arbitrum' ? (tokenParams.arbitrum || {}) : undefined,
       tron: blockchain === 'tron' ? (tokenParams.tron || {}) : undefined,
+      katana: blockchain === 'katana' ? (tokenParams.katana || {}) : undefined,
     });
   };
 
@@ -875,6 +876,49 @@ export default function MultiChainTokenSettings({
                   <strong>TRC-20 Standard:</strong> Compatible with JustSwap, SunSwap, and other TRON DEXs.
                 </Typography>
               </Alert>
+            </Grid>
+          </Grid>
+        </Paper>
+      );
+    } else if (tokenParams.blockchain === 'katana') {
+      return (
+        <Paper sx={{ p: 3, mt: 3, bgcolor: 'background.default' }}>
+          <Typography variant="h6" gutterBottom>
+            🗡️ Katana Settings
+          </Typography>
+          <Grid container spacing={3}>
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                label="Total Supply"
+                type="number"
+                value={tokenParams.katana?.totalSupply || 1000000}
+                onChange={(e) => updateTokenParams({
+                  katana: {
+                    ...tokenParams.katana,
+                    totalSupply: parseInt(e.target.value) || 1000000,
+                  }
+                })}
+                helperText="Total number of tokens to create"
+              />
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <FormControl fullWidth>
+                <InputLabel>Decimals</InputLabel>
+                <Select
+                  value={tokenParams.katana?.decimals || 18}
+                  onChange={(e) => updateTokenParams({
+                    katana: {
+                      ...tokenParams.katana,
+                      decimals: parseInt(e.target.value as string),
+                    }
+                  })}
+                  label="Decimals"
+                >
+                  <MenuItem value={6}>6 (USDC style)</MenuItem>
+                  <MenuItem value={18}>18 (ETH style)</MenuItem>
+                </Select>
+              </FormControl>
             </Grid>
           </Grid>
         </Paper>

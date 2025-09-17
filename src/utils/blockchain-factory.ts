@@ -6,6 +6,7 @@ import { BnbTokenParams } from './bnb';
 import { Brc20TokenParams } from './brc20';
 import { ArbitrumTokenParams } from './arbitrum-types';
 import { TronTokenParams } from './tron-types';
+import { KatanaTokenParams } from './katana';
 import { deployEvmTokenViaSmithii } from './smithii';
 
 // Unified token parameters that support both chains
@@ -21,7 +22,7 @@ export interface UnifiedTokenParams {
   discord?: string;
   
   // Chain selection
-  blockchain: 'solana' | 'hyperliquid' | 'polygon' | 'base' | 'bnb' | 'bitcoin' | 'arbitrum' | 'tron';
+  blockchain: 'solana' | 'hyperliquid' | 'polygon' | 'base' | 'bnb' | 'bitcoin' | 'arbitrum' | 'tron' | 'katana';
   
   // Distribution settings
   retentionPercentage?: number;
@@ -44,6 +45,7 @@ export interface UnifiedTokenParams {
   bitcoin?: Partial<Brc20TokenParams>;
   arbitrum?: Partial<ArbitrumTokenParams>;
   tron?: Partial<TronTokenParams>;
+  katana?: Partial<KatanaTokenParams>;
 }
 
 // Result type for token creation
@@ -53,7 +55,7 @@ export interface TokenCreationResult {
   poolTxId?: string | null;
   txHash?: string;
   error?: string;
-  blockchain: 'solana' | 'hyperliquid' | 'polygon' | 'base' | 'bnb' | 'bitcoin' | 'arbitrum' | 'tron';
+  blockchain: 'solana' | 'hyperliquid' | 'polygon' | 'base' | 'bnb' | 'bitcoin' | 'arbitrum' | 'tron' | 'katana';
   explorer_url?: string;
 }
 
@@ -71,7 +73,7 @@ export interface CostBreakdown {
 // Abstract blockchain provider interface
 export interface BlockchainProvider {
   name: string;
-  blockchain: 'solana' | 'hyperliquid' | 'polygon' | 'base' | 'bnb' | 'bitcoin' | 'arbitrum' | 'tron';
+  blockchain: 'solana' | 'hyperliquid' | 'polygon' | 'base' | 'bnb' | 'bitcoin' | 'arbitrum' | 'tron' | 'katana';
   
   // Core operations
   createToken(params: UnifiedTokenParams, signer?: any): Promise<TokenCreationResult>;
@@ -1154,8 +1156,104 @@ class TronProvider implements BlockchainProvider {
   }
 }
 
+// Katana Provider Implementation (stubbed deployment; UI enablement)
+class KatanaProvider implements BlockchainProvider {
+  name = 'Katana';
+  blockchain = 'katana' as const;
+
+  async createToken(params: UnifiedTokenParams, signer?: any): Promise<TokenCreationResult> {
+    try {
+      const { deployKatanaToken } = await import('./katana');
+
+      const katanaParams: KatanaTokenParams = {
+        blockchain: 'katana',
+        decimals: params.katana?.decimals ?? 18,
+        totalSupply: params.katana?.totalSupply ?? 1000000,
+        tokenStandard: 'ERC-20',
+        network: (process.env.NEXT_PUBLIC_KATANA_NETWORK as 'testnet' | 'mainnet') || 'testnet',
+        ...params.katana,
+      };
+
+      const result = await deployKatanaToken({
+        name: params.name,
+        symbol: params.symbol,
+        description: params.description,
+        image: params.image,
+        ...katanaParams,
+      });
+
+      return {
+        success: result.success,
+        tokenAddress: result.tokenAddress,
+        txHash: result.txHash,
+        error: result.error,
+        blockchain: 'katana',
+        explorer_url: result.explorer_url,
+        poolTxId: undefined,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+        blockchain: 'katana',
+      };
+    }
+  }
+
+  async uploadMetadata(params: UnifiedTokenParams): Promise<string> {
+    const { uploadKatanaMetadata } = await import('./katana');
+
+    const katanaParams: KatanaTokenParams = {
+      blockchain: 'katana',
+      decimals: params.katana?.decimals ?? 18,
+      totalSupply: params.katana?.totalSupply ?? 1000000,
+      tokenStandard: 'ERC-20',
+      network: 'mainnet',
+      ...params.katana,
+    };
+
+    return uploadKatanaMetadata({
+      name: params.name,
+      symbol: params.symbol,
+      description: params.description,
+      image: params.image,
+      ...katanaParams,
+    } as any);
+  }
+
+  calculateCosts(params: UnifiedTokenParams): CostBreakdown {
+    const { getKatanaCostBreakdown } = require('./katana');
+
+    const katanaParams: KatanaTokenParams = {
+      blockchain: 'katana',
+      decimals: params.katana?.decimals ?? 18,
+      totalSupply: params.katana?.totalSupply ?? 1000000,
+      tokenStandard: 'ERC-20',
+      network: 'mainnet',
+      ...params.katana,
+    };
+
+    return getKatanaCostBreakdown(katanaParams);
+  }
+
+  validateParams(params: UnifiedTokenParams): { isValid: boolean; errors: string[] } {
+    const { validateKatanaParams } = require('./katana');
+
+    const katanaParams: KatanaTokenParams = {
+      blockchain: 'katana',
+      decimals: params.katana?.decimals ?? 18,
+      totalSupply: params.katana?.totalSupply ?? 1000000,
+      tokenStandard: 'ERC-20',
+      network: 'mainnet',
+      ...params.katana,
+    };
+
+    return validateKatanaParams(katanaParams);
+  }
+}
+
 // Factory function to get the appropriate blockchain provider
-export function getBlockchainProvider(blockchain: 'solana' | 'hyperliquid' | 'polygon' | 'base' | 'bnb' | 'bitcoin' | 'arbitrum' | 'tron'): BlockchainProvider {
+export function getBlockchainProvider(blockchain: 'solana' | 'hyperliquid' | 'polygon' | 'base' | 'bnb' | 'bitcoin' | 'arbitrum' | 'tron' | 'katana'): BlockchainProvider {
   switch (blockchain) {
     case 'solana':
       return new SolanaProvider();
@@ -1173,13 +1271,15 @@ export function getBlockchainProvider(blockchain: 'solana' | 'hyperliquid' | 'po
       return new ArbitrumProvider();
     case 'tron':
       return new TronProvider();
+    case 'katana':
+      return new KatanaProvider();
     default:
       throw new Error(`Unsupported blockchain: ${blockchain}`);
   }
 }
 
 // Helper function to get all supported blockchains
-export function getSupportedBlockchains(): Array<{ id: 'solana' | 'hyperliquid' | 'polygon' | 'base' | 'bnb' | 'bitcoin' | 'arbitrum' | 'tron'; name: string; description: string; icon: string }> {
+export function getSupportedBlockchains(): Array<{ id: 'solana' | 'hyperliquid' | 'polygon' | 'base' | 'bnb' | 'bitcoin' | 'arbitrum' | 'tron' | 'katana'; name: string; description: string; icon: string }> {
   return [
     {
       id: 'solana',
@@ -1228,6 +1328,12 @@ export function getSupportedBlockchains(): Array<{ id: 'solana' | 'hyperliquid' 
       name: 'HYPER LIQUID',
       description: 'Bitcoin L2 with native order book and HYPE token',
       icon: 'HL',
+    },
+    {
+      id: 'katana',
+      name: 'Katana',
+      description: 'Factory-based token launchpad per Katana docs',
+      icon: '🗡️',
     },
   ];
 }

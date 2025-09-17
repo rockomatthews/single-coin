@@ -456,6 +456,44 @@
       "artifacts": [
         "SecurableToken"
       ]
+    },
+    "/Users/home/evolved/single-token/coinbull/contracts/TokenFactory.sol": {
+      "lastModificationDate": 1758140089747,
+      "contentHash": "d85570d74e78c96c3c8a714dbd8a997e",
+      "sourceName": "contracts/TokenFactory.sol",
+      "solcConfig": {
+        "version": "0.8.20",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "evmVersion": "paris",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [
+        "./SimpleToken.sol"
+      ],
+      "versionPragmas": [
+        "^0.8.20"
+      ],
+      "artifacts": [
+        "TokenFactory"
+      ]
     }
   }
 }
