@@ -25,7 +25,7 @@ export interface UserToken {
   created_at: Date;
   
   // Multi-chain extensions
-  blockchain: 'solana' | 'hyperliquid' | 'polygon' | 'base' | 'bnb' | 'bitcoin' | 'arbitrum' | 'tron';
+  blockchain: 'solana' | 'hyperliquid' | 'polygon' | 'base' | 'bnb' | 'bitcoin' | 'arbitrum' | 'tron' | 'katana';
   network?: string; // mainnet, testnet, devnet
   chain_specific_data?: any; // JSON field for chain-specific metadata
   token_standard?: string; // SPL, HIP-1, HIP-2
@@ -53,7 +53,7 @@ export interface MultiChainTokenData {
   metadataUri?: string;
   
   // Multi-chain specific
-  blockchain: 'solana' | 'hyperliquid' | 'polygon' | 'base' | 'bnb' | 'bitcoin' | 'arbitrum' | 'tron';
+  blockchain: 'solana' | 'hyperliquid' | 'polygon' | 'base' | 'bnb' | 'bitcoin' | 'arbitrum' | 'tron' | 'katana';
   network?: string;
   chainSpecificData?: any;
   tokenStandard?: string;
@@ -236,7 +236,7 @@ export async function saveTokenToDatabase(
 // Get tokens by user address (with optional blockchain filter)
 export async function getTokensByUser(
   userAddress: string, 
-  blockchain?: 'solana' | 'hyperliquid' | 'polygon' | 'base' | 'bnb' | 'bitcoin' | 'arbitrum' | 'tron'
+  blockchain?: 'solana' | 'hyperliquid' | 'polygon' | 'base' | 'bnb' | 'bitcoin' | 'arbitrum' | 'tron' | 'katana'
 ): Promise<UserToken[]> {
   try {
     const tokens = blockchain 
@@ -260,7 +260,7 @@ export async function getTokensByUser(
 // Multi-chain version of getTokensByUser (alias for consistency)
 export async function getMultiChainTokensByUser(
   userAddress: string, 
-  blockchain?: 'solana' | 'hyperliquid' | 'polygon' | 'base' | 'bnb' | 'bitcoin' | 'arbitrum' | 'tron'
+  blockchain?: 'solana' | 'hyperliquid' | 'polygon' | 'base' | 'bnb' | 'bitcoin' | 'arbitrum' | 'tron' | 'katana'
 ): Promise<UserToken[]> {
   return getTokensByUser(userAddress, blockchain);
 }
@@ -268,7 +268,7 @@ export async function getMultiChainTokensByUser(
 // Get recent tokens across all chains (with optional blockchain filter)
 export async function getRecentTokens(
   limit: number = 50,
-  blockchain?: 'solana' | 'hyperliquid' | 'polygon' | 'base' | 'bnb' | 'bitcoin' | 'arbitrum' | 'tron'
+  blockchain?: 'solana' | 'hyperliquid' | 'polygon' | 'base' | 'bnb' | 'bitcoin' | 'arbitrum' | 'tron' | 'katana'
 ): Promise<UserToken[]> {
   try {
     const tokens = blockchain
@@ -292,7 +292,7 @@ export async function getRecentTokens(
 
 // Get tokens by blockchain and sort by market cap or other criteria
 export async function getTokensByBlockchain(
-  blockchain: 'solana' | 'hyperliquid' | 'polygon' | 'base' | 'bnb' | 'bitcoin' | 'arbitrum' | 'tron',
+  blockchain: 'solana' | 'hyperliquid' | 'polygon' | 'base' | 'bnb' | 'bitcoin' | 'arbitrum' | 'tron' | 'katana',
   sortBy: 'created_at' | 'supply' | 'retention_percentage' = 'created_at',
   limit: number = 50
 ): Promise<UserToken[]> {

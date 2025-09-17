@@ -4,6 +4,11 @@
   "framework": "nextjs",
   "outputDirectory": ".next",
   "regions": ["sfo1"],
+  "functions": {
+    "*": {
+      "runtime": "nodejs24.x"
+    }
+  },
   "env": {
     "NEXT_PUBLIC_SOLANA_NETWORK": "mainnet"
   }
